@@ -1,0 +1,29 @@
+{
+  "log": [
+    {
+      "version": "0.1.1",
+      "date": "2026-11-18",
+      "title": "Update notifications & update log",
+      "changes": [
+        "New versions now announce themselves with a popup: Update now, or it auto-updates after a countdown.",
+        "Added this Update Log (title screen, Settings, and the update popup).",
+        "\"What's new\" opens automatically the first time you load a new version.",
+        "Pain rebalanced: wounds hurt less constantly, threshold raised to 60."
+      ]
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-11-18",
+      "title": "First playable build",
+      "changes": [
+        "Title screen, Staging Lobby with Skill Terminal, Gear Locker, Quartermaster and Survivor Dossier.",
+        "Random human survivor every run: name, age, occupation, traits and looks.",
+        "Endless descent through four biomes with a depth meter and extraction elevators every 250m.",
+        "Limb-by-limb anatomy, organs, bleeding, fractures, infection, pain and blackouts; triage by body part.",
+        "Loose verlet physics: ragdolls, props, debris, throwables, right-click dragging.",
+        "Hex menu (M), fading-ink portrait, hex skill web, crafting, map, journal, cemetery.",
+        "Ultrawide support up to 32:9."
+      ]
+    }
+  ]
+}

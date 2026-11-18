@@ -6,7 +6,7 @@ const { ri, rf, pick, chance, clamp, lerp } = NE; const T = NE.T, VH = NE.VH, LS
 // ---------------- save ----------------
 NE.Save = {
   KEY: 'nectars_end_save_v1',
-  def() { return { v: 1, xp: 0, level: 1, points: 2, perks: {}, scrap: 25, unlocked: { backpacks: ['canvas'], outfits: ['rags'] }, equipped: { backpack: 'canvas', outfit: 'rags' }, starter: [], settings: { master: 0.8, sfx: 0.8, amb: 0.6, shake: 1, gore: 1, tips: true }, cemetery: [], best: { depth: 0, time: 0, kills: 0 }, runs: 0, survivor: null, rerolled: false }; },
+  def() { return { v: 1, xp: 0, level: 1, points: 2, perks: {}, scrap: 25, unlocked: { backpacks: ['canvas'], outfits: ['rags'] }, equipped: { backpack: 'canvas', outfit: 'rags' }, starter: [], settings: { master: 0.8, sfx: 0.8, amb: 0.6, shake: 1, gore: 1, tips: true }, cemetery: [], best: { depth: 0, time: 0, kills: 0 }, runs: 0, survivor: null, rerolled: false, seenVersion: null }; },
   load() { const d = this.def(); try { const s = JSON.parse(localStorage.getItem(this.KEY)); if (!s) return d; const m = Object.assign(d, s); m.settings = Object.assign(this.def().settings, s.settings || {}); m.unlocked = Object.assign(this.def().unlocked, s.unlocked || {}); m.equipped = Object.assign(this.def().equipped, s.equipped || {}); m.best = Object.assign(this.def().best, s.best || {}); return m; } catch (e) { return d; } },
   save(m) { try { localStorage.setItem(this.KEY, JSON.stringify(m)); } catch (e) { } },
 };
@@ -637,5 +637,5 @@ G.drawDescent = function (dt) {
   G.cam.shake = 1.5 * sp; if (G.descT > 4.2) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, (G.descT - 4.2) * 3) + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (G.descT > 4.6) G.startRun();
 };
-window.addEventListener('load', () => G.init());
+if (document.readyState === 'complete') G.init(); else window.addEventListener('load', () => G.init());
 })(window.NE);

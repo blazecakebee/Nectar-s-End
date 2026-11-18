@@ -19,9 +19,9 @@ UI.init = function () {
     <div class="t-menu">
       <button class="t-btn" data-a="play">PLAY</button>
       <button class="t-btn" data-a="settings">SETTINGS</button>
-      <button class="t-btn small" data-a="cemetery">RUN ARCHIVE / CEMETERY</button>
+      <div class="t-row"><button class="t-btn small" data-a="cemetery">RUN ARCHIVE / CEMETERY</button><button class="t-btn small" data-a="changelog">UPDATE LOG<i class="t-dot hide"></i></button></div>
     </div>
-    <div class="t-foot"><span id="t-best"></span><span>v0.1 • click anywhere to enable sound</span></div>
+    <div class="t-foot"><span id="t-best"></span><span id="t-ver">click anywhere to enable sound</span></div>
   </div>
   <div id="hud" class="hide">
     <div id="depth"><div class="d-num">0000<small>m</small></div><div class="d-bio"></div><div class="d-gauge"><div class="d-fill"></div><div class="d-ticks"></div></div><div class="d-threat"></div></div>
@@ -46,7 +46,7 @@ UI.init = function () {
   UI.portrait = null;
 };
 UI.fade = function (cb) { const f = $('#fade'); f.classList.add('on'); setTimeout(() => { cb(); setTimeout(() => f.classList.remove('on'), 60); }, 380); };
-UI.showTitle = function () { UI.closeAll(); $('#title-ui').classList.remove('hide'); $('#hud').classList.add('hide'); const M = G().meta; $('#t-best').textContent = M.runs ? 'Deepest: ' + Math.round(M.best.depth) + 'm • Runs: ' + M.runs + ' • Lv ' + M.level : 'No survivors yet.'; };
+UI.showTitle = function () { UI.closeAll(); $('#title-ui').classList.remove('hide'); $('#hud').classList.add('hide'); const M = G().meta; UI.checkSeen(); const vi = window.NE_VERSION_INFO; $('#t-ver').textContent = (vi && vi.version ? 'v' + vi.version + ' • ' : '') + 'click anywhere to enable sound'; $('#t-best').textContent = M.runs ? 'Deepest: ' + Math.round(M.best.depth) + 'm • Runs: ' + M.runs + ' • Lv ' + M.level : 'No survivors yet.'; };
 UI.showLobby = function () { UI.closeAll(); $('#title-ui').classList.add('hide'); $('#hud').classList.remove('hide'); $('#hud').classList.add('lobby'); $('#lobbybar').classList.remove('hide'); UI.portrait = new NE.Portrait($('#pcv'), G().meta.survivor); UI.hudStatic(); };
 UI.showRun = function () { UI.closeAll(); $('#title-ui').classList.add('hide'); $('#hud').classList.remove('hide', 'lobby'); $('#lobbybar').classList.add('hide'); UI.portrait = new NE.Portrait($('#pcv'), G().meta.survivor || G().player.surv); UI.hudStatic(); };
 UI.hideHUD = function () { $('#hud').classList.add('hide'); };
@@ -133,7 +133,7 @@ UI.quitPrompt = function () {
 };
 
 // ---------------- panels ----------------
-const TITLES = { status: 'STATUS', inventory: 'INVENTORY', health: 'ANATOMY & TRIAGE', craft: 'CRAFTING', map: 'MAP', journal: 'JOURNAL', skills: 'SKILL WEB', settings: 'SETTINGS', wardrobe: 'GEAR LOCKER & BACKPACK RACK', shop: 'QUARTERMASTER', dossier: 'SURVIVOR DOSSIER', loot: 'LOOT', trade: 'MASKED TRADER', cemetery: 'RUN ARCHIVE — CEMETERY' };
+const TITLES = { changelog: 'UPDATE LOG', status: 'STATUS', inventory: 'INVENTORY', health: 'ANATOMY & TRIAGE', craft: 'CRAFTING', map: 'MAP', journal: 'JOURNAL', skills: 'SKILL WEB', settings: 'SETTINGS', wardrobe: 'GEAR LOCKER & BACKPACK RACK', shop: 'QUARTERMASTER', dossier: 'SURVIVOR DOSSIER', loot: 'LOOT', trade: 'MASKED TRADER', cemetery: 'RUN ARCHIVE — CEMETERY' };
 UI.open = function (name, arg) {
   const g = G(); if (UI.hexOpen) UI.closeHex(); if (UI.tree) { UI.tree.destroy(); UI.tree = null; } UI.ecg = null;
   const runOnly = ['status', 'inventory', 'health', 'craft', 'map', 'journal']; if (runOnly.includes(name) && !g.player) return;
@@ -330,10 +330,11 @@ UI.render.settings = function (b) {
   b.innerHTML = '<div class="settings"><div><h4>AUDIO</h4>' + sl('master', 'Master', 0, 1, 0.05) + sl('sfx', 'SFX', 0, 1, 0.05) + sl('amb', 'Ambient drone', 0, 1, 0.05) +
     '<h4>VISUALS</h4>' + sl('shake', 'Screen shake', 0, 1.5, 0.05) + '<label class="set"><span>Gore / trauma intensity</span><select data-k="gore"><option value="0">Low</option><option value="1">Normal</option><option value="2">High</option></select></label>' +
     '<label class="set"><span>Tips</span><input type="checkbox" data-k="tips"' + (S.tips ? ' checked' : '') + '></label>' +
-    '<h4>SAVE DATA</h4><div class="acts"><button class="btn" id="exp">Export save</button><button class="btn" id="imp">Import save</button><button class="btn danger" id="rst">Reset all progress</button></div><input type="file" id="impf" accept=".json" class="hide"></div>' +
+    '<h4>SAVE DATA</h4><div class="acts"><button class="btn" id="exp">Export save</button><button class="btn" id="imp">Import save</button><button class="btn danger" id="rst">Reset all progress</button></div><h4>UPDATES</h4><div class="acts"><button class="btn" id="clog">View update log</button><span class="dim">Running v' + esc((window.NE_VERSION_INFO && window.NE_VERSION_INFO.version) || '?') + '</span></div><input type="file" id="impf" accept=".json" class="hide"></div>' +
     '<div><h4>KEYBINDS</h4><table class="keys">' + [['A / D', 'Move'], ['W / S', 'Climb ladders'], ['Space', 'Jump (S+Space: drop through)'], ['Shift', 'Sprint'], ['Ctrl / C / S', 'Crouch / crawl'], ['LMB', 'Attack / shoot (aim at a limb!)'], ['RMB (hold)', 'Grab & drag physics objects'], ['E', 'Interact / search'], ['F', 'Flashlight'], ['R', 'Reload / clear jam'], ['G / Q', 'Throw / cycle throwable'], ['B', 'Quick-bandage worst bleed'], ['1', 'Cycle weapon'], ['M / Esc', 'Hex menu'], ['Tab / I', 'Inventory'], ['H', 'Health & triage'], ['V', 'Status'], ['K', 'Crafting'], ['N', 'Map'], ['J', 'Journal']].map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join('') + '</table></div></div>';
   b.querySelector('select').value = S.gore;
   b.querySelectorAll('[data-k]').forEach(el => el.oninput = el.onchange = () => { const k = el.dataset.k; S[k] = el.type === 'checkbox' ? el.checked : +el.value; if (el.nextElementSibling && el.type === 'range') el.nextElementSibling.textContent = Math.round(S[k] * 100) + '%'; NE.Audio.applySettings(); G().save(); });
+  $('#clog').onclick = () => UI.open('changelog');
   $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(M, null, 1)], { type: 'application/json' })); a.download = 'nectars-end-save.json'; a.click(); };
   $('#imp').onclick = () => $('#impf').click(); $('#impf').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const d = JSON.parse(t); localStorage.setItem(NE.Save.KEY, JSON.stringify(d)); location.reload(); } catch (er) { UI.toast('Bad save file.'); } }); };
   $('#rst').onclick = () => UI.dialog('Reset ALL progress?', 'Skill points, perks, unlocks, scrap and the cemetery will be erased.', [{ label: 'Erase everything', fn: () => { localStorage.removeItem(NE.Save.KEY); location.reload(); } }, { label: 'Cancel' }]);
@@ -405,6 +406,28 @@ UI.render.cemetery = function (b) {
   const M = G().meta; if (!M.cemetery.length) { b.innerHTML = '<div class="dim center">No graves yet. Go and make some.</div>'; return; }
   b.innerHTML = '<div class="cem"><div class="cem-best">Deepest: <b>' + Math.round(M.best.depth) + 'm</b> • Longest: <b>' + fmtT(M.best.time) + '</b> • Runs: <b>' + M.runs + '</b></div>' + M.cemetery.map((c, i) => '<div class="grave ' + (c.extracted ? 'ok' : '') + '"><canvas data-g="' + i + '"></canvas><div><b>' + esc(c.name) + '</b> <small>' + esc(c.occ) + ', ' + c.age + '</small><br><span class="' + (c.extracted ? 'good' : 'bad') + '">' + esc(c.cause) + '</span> at <b>' + c.depth + 'm</b> <small class="dim">• ' + fmtT(c.time) + ' • ' + c.kills + ' kills • ' + c.date + '</small></div></div>').join('') + '</div>';
   b.querySelectorAll('canvas[data-g]').forEach(cv => { const c = M.cemetery[+cv.dataset.g]; if (!c.look) return; const pr = new NE.Portrait(cv, { look: c.look, age: c.age }); pr.draw({ life: c.extracted ? 1 : 0.55, expr: c.extracted ? 'neutral' : 'dead', bleeding: 0, headWounds: 0 }); });
+};
+
+
+// ----- UPDATE LOG -----
+UI.checkSeen = function () {
+  const M = G().meta, vi = window.NE_VERSION_INFO, cur = vi && vi.version; if (!cur) return;
+  if (!M.seenVersion) { M.seenVersion = cur; G().save(); }
+  const unseen = M.seenVersion !== cur; const dot = $('.t-dot'); if (dot) dot.classList.toggle('hide', !unseen);
+  if (unseen && !UI._wnShown) { UI._wnShown = true; setTimeout(() => { if (!UI.panel && !UI.modalOpen()) UI.open('changelog', { whatsnew: true }); }, 700); }
+};
+UI.render.changelog = function (b, arg) {
+  const M = G().meta, boot = window.NE_VERSION_INFO || {}; const data = arg && arg.log ? arg : boot; const log = data.log || [];
+  const cur = boot.version; const prevSeen = UI._prevSeen != null ? UI._prevSeen : (UI._prevSeen = M.seenVersion);
+  const installed = new Set((boot.log || []).map(e => e.version)); const seenIdx = log.findIndex(e => e.version === prevSeen);
+  if (arg && arg.whatsnew) $('.pn-title').textContent = "WHAT'S NEW";
+  if (!log.length) { b.innerHTML = '<div class="dim center">No update log found.</div>'; return; }
+  b.innerHTML = '<div class="clog">' + log.map((e, i) => {
+    const incoming = !installed.has(e.version); const isNew = incoming || (seenIdx > 0 && i < seenIdx) || (seenIdx === -1 && prevSeen && i === 0);
+    const badge = incoming ? '<em class="cl-b inc">AVAILABLE — NOT INSTALLED</em>' : e.version === cur ? '<em class="cl-b cur">CURRENT</em>' : '';
+    return '<div class="cl-e' + (isNew ? ' new' : '') + '"><div class="cl-h"><b>v' + esc(e.version) + '</b> <span>' + esc(e.title || '') + '</span>' + (isNew && !incoming ? '<em class="cl-b">NEW</em>' : '') + badge + '<small>' + esc(e.date || '') + '</small></div><ul>' + (e.changes || []).map(c => '<li>' + esc(c) + '</li>').join('') + '</ul></div>';
+  }).join('') + '</div>';
+  if (cur && M.seenVersion !== cur) { M.seenVersion = cur; G().save(); const dot = $('.t-dot'); if (dot) dot.classList.add('hide'); }
 };
 
 // ---------------- modal dialogs ----------------

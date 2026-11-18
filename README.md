@@ -25,3 +25,13 @@ A/D move · W/S ladders · Space jump · Shift sprint · Ctrl/C/S crouch & crawl
 
 ## Files
 `index.html`, `css/style.css`, `js/` (data, sprites, audio, physics, survivor, world, entities, skilltree, ui, game), `assets/logo.png`.
+
+## Shipping an update (and the update log)
+`version.json` is both the version number and the in-game **Update Log**. To release, add a new entry at the **top** of `"log"`, then push:
+
+```json
+{ "version": "0.1.2", "date": "2026-11-20", "title": "Short headline",
+  "changes": ["What changed", "Another change"] },
+```
+
+The top entry's `version` is the live version. Players get a popup within about 1–10 minutes; GitHub Pages caches files for up to 10 minutes. The popup offers **Update now**, **Later** or **What's new**. If they do nothing, the page auto-refreshes: after 30s on the title screen or lobby, or after 90s during a run (with a warning). Progress is saved first. After updating, a "What's new" window opens once, and the title screen's **UPDATE LOG** button glows until it has been read. The log is also under Settings → Updates.

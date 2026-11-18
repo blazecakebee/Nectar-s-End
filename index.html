@@ -9,20 +9,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=VT323&family=Pixelify+Sans:wght@400;600;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 <div id="wrap"><div id="game"><canvas id="cv" width="400" height="225"></canvas><div id="ui"></div></div></div>
 <noscript>Nectar's End needs JavaScript.</noscript>
-<script src="js/data.js"></script>
-<script src="js/sprites.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/physics.js"></script>
-<script src="js/survivor.js"></script>
-<script src="js/world.js"></script>
-<script src="js/entities.js"></script>
-<script src="js/skilltree.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/game.js"></script>
+<script>
+// Boot loader: reads version.json (never cached) and loads every file with ?v=<version>,
+// so a new release always pulls fresh code instead of stale cached copies.
+(function () {
+  var files = ['data', 'sprites', 'audio', 'physics', 'survivor', 'world', 'entities', 'skilltree', 'ui', 'game', 'update'];
+  function boot(v) {
+    var top = v.log && v.log[0]; v.version = v.version || (top && top.version); window.NE_BOOT_VERSION = v.version || null; window.NE_VERSION_INFO = v;
+    var q = '?v=' + encodeURIComponent(v.version || Date.now());
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'css/style.css' + q; document.head.appendChild(l);
+    (function next(i) { if (i >= files.length) return; var s = document.createElement('script'); s.src = 'js/' + files[i] + '.js' + q; s.onload = function () { next(i + 1); }; document.body.appendChild(s); })(0);
+  }
+  fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(boot);
+})();
+</script>
 </body>
 </html>
