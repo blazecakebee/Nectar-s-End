@@ -43,6 +43,7 @@ G.bindInput = function () {
     if (e.target && (e.target.tagName === 'INPUT')) return;
     if (NE.UI.rebinding) { e.preventDefault(); NE.UI.finishRebind(e.code); return; }
     if (['Tab', 'Space', 'ArrowUp', 'ArrowDown'].includes(e.code) || G.actionOf(e.code)) e.preventDefault();
+    if (G.infest && ['Space', 'Escape', 'Enter'].includes(e.code)) { G.skipInfest(); K[e.code] = true; return; }
     if (!K[e.code]) G.onKey(e.code); K[e.code] = true;
   });
   window.addEventListener('keyup', e => { K[e.code] = false; });
@@ -97,7 +98,7 @@ G.onKey = function (code) {
 G.throwSel = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick']; if (G.throwPref && p.inv.has(G.throwPref)) return G.throwPref; return ids.find(i => p.inv.has(i)); };
 G.cycleThrow = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick'].filter(i => p.inv.has(i)); if (!ids.length) return G.toast('No throwables.'); const i = (ids.indexOf(G.throwSel()) + 1) % ids.length; G.throwPref = ids[i]; G.toast('Throw: ' + NE.ITEMS[ids[i]].name + ' [' + NE.keyLabel('throw') + ']'); };
 G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const cur = p.equip.weapon; const all = [null, ...ws]; const i = ((all.indexOf(cur) + dir) % all.length + all.length) % all.length; p.equip.weapon = all[i]; p.charge = null; NE.UI.weaponFlash(all, i); NE.Audio.play('click', 0.7); };
-G.onClick = function () { if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
+G.onClick = function () { if (G.infest) return G.skipInfest(); if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
 G.startGrab = function () {
   if (!G.playing() || NE.UI.panel) return; const p = G.player; const m = G.mouse;
   if (NE.dist(m.wx, m.wy, p.x, p.cy) > 40) return;
@@ -133,7 +134,7 @@ G.decal = function (x, y, col) {
 };
 
 // ---------------- states ----------------
-G.clearWorld = function () { G.bullets = []; G.pools = []; G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
+G.clearWorld = function () { G.infest = null; G.bullets = []; G.pools = []; G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
 G.toTitle = function () { G.autosave(); try { sessionStorage.removeItem('ne_live'); } catch (e) { } G.clearWorld(); G.state = 'title'; G.world = null; if (G.net) G.net.close(); NE.UI.showTitle(); NE.Audio.music('title'); };
 G.toLobby = function () {
   G.clearWorld(); G.state = 'lobby'; G.run = null; G.meta.started = true; G.meta.run = null; try { sessionStorage.setItem('ne_live', '1'); } catch (e) { }
@@ -167,7 +168,8 @@ G.startRun = function (restore) {
   if (restore) { for (const [k, v] of restore.mods || []) G.world.mods.set(k, v); }
   G.run = restore ? restore.run : G.newRunState(); if (!restore) G.meta.runs++;
   G.world.ensure(restore ? Math.max(3, restore.floors) : 3, fl => G.spawnFloor(fl, !!restore));
-  const f0 = G.world.floors[0]; G.player = new NE.Player(G, 12 * T, f0.feetY, surv, G.meta); G.actors.unshift(G.player);
+  if (!surv.variant) { surv.variant = NE.rollVariant(); G._newVariant = true; } { const v = NE.variantOf(surv.variant); surv.look.veye = v.eye; surv.look.vglow = v.glow; }
+  const f0 = G.world.floors[0]; G.player = new NE.Player(G, 12 * T, f0.feetY, surv, G.meta); G.player.vglow = NE.variantOf(surv.variant).glow; G.actors.unshift(G.player);
   const p = G.player; const inv = p.inv;
   if (restore) NE.Save.restoreRun(G, restore);
   else {
@@ -182,12 +184,12 @@ G.startRun = function (restore) {
   G.eventT = rf(45, 70); G.sayCD = 0;
   G.cam.x = p.x - VW / 2; G.cam.y = p.y - VH * 0.55;
   NE.UI.showRun(); NE.Audio.play('ding'); G.musicFor();
-  if (!restore) { setTimeout(() => G.say(pick(NE.MONO.start)), 600); G.log('Lowered to 0m — ' + f0.biome.name + '.', 'sys'); G.log('Perk: ' + f0.biome.perk, 'good'); G.log('Danger: ' + f0.biome.challenge, 'bad'); G.log('A town waits every 250m. There is no way back up.', 'sys'); }
+  if (!restore) { G.startInfest(); setTimeout(() => G.say(pick(NE.MONO.start)), 6200); G.log('Lowered to 0m — ' + f0.biome.name + '.', 'sys'); G.log('Perk: ' + f0.biome.perk, 'good'); G.log('Danger: ' + f0.biome.challenge, 'bad'); G.log('A town waits every 250m. There is no way back up.', 'sys'); }
   else G.toast('Welcome back, ' + surv.first + '. ' + Math.round(NE.depthOfY(p.y)) + 'm.');
   if (G.net && G.net.on) G.net.enterRun(); G.autosave();
 };
 G.spawnFloor = function (fl, restoring) {
-  const guest = G.net && G.net.on && G.net.role === 'guest';
+  const guest = G.net && G.net.on && G.net.role === 'guest'; const nb0 = G.phys.bodies.length;
   for (const s of fl.spawns) {
     if (s.kind === 'town') { const n = new NE.NPC(G, s.x, s.y, 'town'); n.setRole(s.role, s.name, s.look); if (s.role === 'trader') n.stock = NE.withSeed(G.world.seed + fl.f, () => G.traderStock(fl.depth + 200)); if (s.role === 'doctor') n.stock = NE.withSeed(G.world.seed + fl.f * 3, () => G.traderStock(fl.depth, true)); G.actors.push(n); continue; }
     if (s.kind === 'prop') { const pal = fl.biome.pal; if (s.p === 'crate') G.phys.box('crate', s.x, s.y, 7, 7, 3, '#6a5034'); else if (s.p === 'barrel') G.phys.box('barrel', s.x, s.y - 2, 6, 9, 4.5, pick(['#5a6a4a', '#7a3a2a', '#3a4a6a'])); else if (s.p === 'debris') G.phys.box('debris', s.x, s.y, rf(4, 7), rf(3, 5), 3, pal.tile); else { const b = G.phys.stick(s.p, s.x, s.y, 4, 0, 1.2, s.p === 'brick' ? 2 : 0.5); b.item = s.p; } continue; }
@@ -196,7 +198,9 @@ G.spawnFloor = function (fl, restoring) {
     else if (s.kind === 'survivor' || s.kind === 'trader') { const n = new NE.NPC(G, s.x, s.y, s.kind); if (s.kind === 'trader') n.stock = G.traderStock(fl.depth); G.actors.push(n); }
     else if (s.kind === 'standoff') { const grp = []; for (let i = 0; i < 2; i++) { const e = new NE.Enemy(G, s.x + i * 12, s.y, fl.depth > 400 ? pick(['scav', 'gunner']) : 'scav', fl.depth); e.hostile = false; e.guard = true; e.facing = -1; grp.push(e); G.actors.push(e); } fl.objs.push({ type: 'standoff', x: s.x, y: s.y, grp, done: false }); }
   }
+  G.tagProps(fl, nb0);
 };
+G.tagProps = function (fl, nb0) { let k = 0; for (const b of G.phys.bodies.slice(nb0)) if (!b.owner && !b.nid && !b.noActor) b.nid = 'p' + fl.f + ':' + (k++); };
 G.inTown = () => { const fl = G.world && !G.world.lobby && G.player ? G.curFloor() : null; return fl && fl.town ? fl : null; };
 G.musicFor = function () { if (G.state === 'burst') return NE.Audio.music('burst'); if (G.state !== 'run') return; const fl = G.curFloor(); NE.Audio.music(fl.town ? 'town' : fl.biome.id); };
 G.infestLevel = function () { const M = G.meta; const ab = G.run ? (G.run.abil || []).length : 0; const d = G.run ? G.run.maxDepth : 0; return clamp(0.12 + (M.level - 1) * 0.025 + (M.nectars || 0) * 0.04 + ab * 0.1 + d / 3500, 0, 1); };
@@ -232,7 +236,7 @@ G.update = function (dt, rdt) {
   // player
   const env = G.env = G.computeEnv(p);
   if (p.alive) {
-    p.update(dt, G.state === 'dying' ? { mx: 0 } : G.ctl());
+    p.update(dt, G.state === 'dying' || G.infest ? { mx: 0 } : G.ctl()); if (G.infest) G.infestUpdate(dt);
     if (run) { p.anat.update(dt, env); G.handleAnatEvents(p); G.vespaTick(p, dt); if (G.state === 'run' && p.anat.dead) G.playerDeath(); }
     p.rag.tiles = p.anat.uncon; if (p.anat.uncon) p.rag.collide = false;
     if (run && p.alive) G.hazards(p, dt);
@@ -299,10 +303,11 @@ G.computeEnv = function (p) {
   const b = W.biomeAtY(p.y - 4); env.cold = b.cold || 0; env.heat = b.heat || 0; env.bleedMul = b.bleed || 1; env.infectMul = b.infect || 1; env.thirstMul = b.thirst || 1; env.water = (W.isWater(p.x, p.y - 3) || W.isWater(p.x, p.y - 8)) && !W.isLava(p.x, p.y - 3);
   env.dirtyWater = env.water && b.id !== 'ice';
   let gas = 0; for (const c of G.gas) { const d = NE.dist(c.x, c.y, p.x, p.cy); if (d < c.r) gas += c.d * (1 - d / c.r) * 1.4; }
-  if (p.gear.face && p.filterT > 0) gas *= 0.04; env.gas = Math.min(1, gas);
+  const haz = (p.gear.body && NE.ITEMS[p.gear.body.id].hazmat ? 1 : 0) + (p.gear.head && NE.ITEMS[p.gear.head.id].hazmat ? 1 : 0);
+  if (p.gear.face && p.filterT > 0 || haz >= 2) gas *= 0.04; env.gas = Math.min(1, gas);
   let rad = 0; let fire = false; let table = false;
   for (const o of G.nearObjs()) { if (o.type === 'rad') { const d = NE.dist(o.x, o.y, p.x, p.cy); if (d < o.r) rad += (1 - d / o.r) * 1.6; } if (o.type === 'fire' && NE.dist(o.x, o.y, p.x, p.y) < 30) fire = true; if (o.type === 'table' && NE.dist(o.x, o.y, p.x, p.y) < 22) table = true; }
-  env.rad = rad; env.fire = fire; G.nearTable = table; env.table = table;
+  if (haz) rad *= haz >= 2 ? 0.15 : 0.4; env.rad = rad; env.fire = fire; G.nearTable = table; env.table = table;
   if (rad > 0 && Math.random() < rad * 0.5) NE.Audio.play('geiger', Math.min(1, rad));
   env.dark = !p.light.on && !G.lightAt(p.x, p.cy);
   env.threat = G.actors.some(a => a.alive && a.target === p && NE.dist(a.x, a.y, p.x, p.y) < 140);
@@ -360,9 +365,11 @@ G.updateObjects = function (dt) {
 };
 
 // ---------------- combat ray ----------------
-G.fireRay = function (sh, ox, oy, dx, dy, range, dmg, snd) {
-  NE.Audio.play(snd); G.noise(ox, oy, 260); G.muzzle = { x: ox, y: oy, t: 0.06 }; G.shake(snd === 'rifle' ? 2 : 1);
-  for (let i = 0; i < 4; i++) G.addP(ox + dx * 3, oy + dy * 3, dx * rf(40, 120) + rf(-20, 20), dy * rf(40, 120) + rf(-20, 20), 0.12, pick(['#fff4c0', '#ffc050']), 'spark', 0);
+G.fireRay = function (sh, ox, oy, dx, dy, range, dmg, snd, pellet) {
+  const cal = NE.Combat.CAL[snd] || 1;
+  if (pellet) { NE.Combat.fire(sh, ox, oy, dx, dy, range, dmg, snd); if (G.net && G.net.on && !sh.isPuppet) G.net.send({ t: 'bul', x: ox, y: oy, dx, dy, range, snd, q: 1 }); return; }
+  NE.Audio.play(snd); G.noise(ox, oy, 200 + cal * 70); G.muzzle = { x: ox, y: oy, t: 0.04 + cal * 0.015 }; G.shake(0.6 + cal * 0.5);
+  for (let i = 0; i < 2 + cal * 2; i++) G.addP(ox + dx * 3, oy + dy * 3, dx * rf(40, 120) + rf(-20, 20), dy * rf(40, 120) + rf(-20, 20), 0.12, pick(['#fff4c0', '#ffc050']), 'spark', 0);
   G.addP(ox, oy, -dx * 30 + rf(-20, 20), -rf(40, 80), 0.8, '#d0a040', 'spark', 1); // casing
   NE.Combat.fire(sh, ox, oy, dx, dy, range, dmg, snd);
   if (G.net && G.net.on && !sh.isPuppet) G.net.send({ t: 'bul', x: ox, y: oy, dx, dy, range, snd });
@@ -407,8 +414,15 @@ G.interactTarget = function () {
   const p = G.player; let best = null, bd = 16;
   for (const o of G.nearObjs()) { if (!o.act) continue; if (o.type === 'forage') o.label = 'Forage ' + NE.ITEMS[o.item].name; if (o.type === 'container' && o.actor && o.actor.rag) { const c = o.actor.rag.pts[2]; o.x = c.x; o.y = c.y + 3; } const dx = Math.abs(o.x - p.x), dy = Math.abs(o.y - p.y); if (dy > 14) continue; const r = o.type === 'elevator' ? 24 : 14; if (dx < r && dx < bd + (o.type === 'elevator' ? 10 : 0)) { bd = dx; best = o; } }
   for (const a of G.actors) { if (!a.isNPC || !a.alive || a.leaving || a.isPuppet) continue; const dx = Math.abs(a.x - p.x); if (dx < 14 && Math.abs(a.y - p.y) < 14 && dx < bd) { bd = dx; best = a; } }
+  if (G.net && G.net.on && G.net.peer && G.net.peer.alive && !G.net.peer.hidden) { const q = G.net.peer; const dx = Math.abs(q.x - p.x); if (dx < 16 && Math.abs(q.y - p.y) < 16 && dx < bd) { best = { act: 'treatPeer', x: q.x, y: q.y, label: (G.net.peerMed && G.net.peerMed.u ? 'Revive / treat ' : 'Treat ') + (q.surv ? q.surv.first : 'partner') }; bd = dx; } }
+  if (!best && p.alive) { // standing in / at the edge of cave water: drink it or wash rags in it
+    const W = G.world; for (const ox of [0, -6, 6]) { const tx = Math.floor((p.x + ox) / T), ty = Math.floor((p.y - 2) / T), ty2 = Math.floor((p.y + 2) / T);
+      const wy = W.get(tx, ty) === 5 ? ty : W.get(tx, ty2) === 5 ? ty2 : -1; if (wy < 0) continue;
+      const murky = G.waterMurky(tx, wy); const rags = p.inv.count('rag');
+      return { act: 'water', x: (tx + 0.5) * T, y: p.y, tx, ty: wy, murky, label: (murky ? 'Murky water' : 'Clear water') + ' — drink' + (rags ? ' · hold [' + NE.keyLabel('crouch') + '] to wash ' + rags + ' rag' + (rags > 1 ? 's' : '') : '') }; } }
   return best;
 };
+G.waterMurky = function (tx, ty) { const b = G.world.biomeAtY(ty * T).id; if (b === 'ice') return false; if (b === 'magma' || b === 'desert') return true; return NE.hash(tx >> 2, ty) < (b === 'crystal' ? 0.5 : 0.45); };
 G.interact = function () {
   const p = G.player; const o = G.interactTarget(); if (!o) return; const UI = NE.UI;
   switch (o.act) {
@@ -424,6 +438,17 @@ G.interact = function () {
     case 'chat': { const line = NE.withSeed(NE.hash(o.x | 0, (G.t * 3) | 0) * 1e9, () => pick(NE.TOWN_LINES)); o.sayT = 3; o.line = line; G.toast(o.name + ': "' + line + '"'); NE.Audio.play('ui'); return; }
     case 'harvest': return G.harvestRelic(o);
     case 'table': G.toast('Surgical table: treatments are faster and hurt less here.'); return UI.open('health');
+    case 'treatPeer': return UI.peerTriage();
+    case 'water': {
+      const A = p.anat;
+      if (G.kd('crouch') && p.inv.count('rag')) { // scrub dirty / bloody rags
+        if (o.murky) { G.toast('Too murky — the rags come out just as filthy. Find clear water.'); NE.Audio.play('splash', 0.5); return; }
+        const n = Math.min(3, p.inv.count('rag')); p.inv.consume('rag', n); p.inv.add('cleanrag', n);
+        G.toast('Washed ' + n + ' rag' + (n > 1 ? 's' : '') + ' clean.'); NE.Audio.play('splash');  A.wet = Math.min(100, (A.wet || 0) + 15); return; }
+      A.thirst = Math.min(100, A.thirst + (o.murky ? 22 : 30)); NE.Audio.play('splash', 0.6);
+      if (o.murky) { A.tox = (A.tox || 0) + rf(10, 22); if (chance(0.25)) { A.infection = Math.min(100, A.infection + 8); G.toast('Gritty and foul. Your stomach turns.'); } else G.toast('Murky water. Tastes of iron and rot.'); }
+      else G.toast('Cold, clear water.');
+      return; }
     case 'drink': if (o.uses > 0) { o.uses--; p.anat.thirst = Math.min(100, p.anat.thirst + 40); G.toast('Clean water. (' + o.uses + ' left)'); NE.Audio.play('splash'); } else G.toast('Dispenser is dry.'); return;
     case 'fire': G.toast('Warmth. You can boil water here.'); return UI.open('craft');
     case 'craft': return UI.open('craft');
@@ -447,6 +472,7 @@ G.beginSearch = function (o) {
   NE.Audio.play('open_' + (C.sound || 'wood')); p.search = { obj: o, t: 0, dur };
 };
 G.finishSearch = function (o) {
+  if (!o) return;
   if (o.type === 'relic') return G.finishRelic(o);
   const p = G.player; const sec = o.locked === 'security';
   if (o.breach) {
@@ -471,7 +497,8 @@ G.genLoot = function (o) {
   }
   return items;
 };
-G.dropEntry = function (e) { const p = G.player; p.inv.remove(e); if (p.equip.weapon === e) p.equip.weapon = null; const near = G.dyn.find(o => o.ct === 'bag' && NE.dist(o.x, o.y, p.x, p.y) < 12); if (near) near.items.push(e); else G.dyn.push({ type: 'container', ct: 'bag', x: p.x, y: p.y, label: 'Dropped Bag', act: 'search', items: [e], searched: true }); };
+G.dropEntry = function (e) { const p = G.player; p.inv.remove(e); if (p.equip.weapon === e) p.equip.weapon = null; let near = G.dyn.find(o => o.ct === 'bag' && NE.dist(o.x, o.y, p.x, p.y) < 12); if (near) near.items.push(e); else { near = { type: 'container', ct: 'bag', x: Math.round(p.x), y: Math.round(p.y), label: 'Dropped Bag', act: 'search', items: [e], searched: true, nkey: 'b' + Math.floor(Math.random() * 1e9).toString(36) }; G.dyn.push(near); }
+  if (G.net && G.net.on) G.net.send({ t: 'bag', k: near.nkey, x: near.x, y: near.y, it: near.items }); };
 G.onEnemyDeath = function (e, cause) {
   if (!e.alive) return; e.die(cause);
   const byPlayer = G.player && e.anat.lastHit === G.player.surv.first;
@@ -550,9 +577,9 @@ G.afterDeath = function () {
   G.endRun(false, p.anat.cause);
 };
 G.endRun = function (extracted, cause) {
-  const R = G.run, p = G.player, M = G.meta; if (!R) return; G.state = 'runend'; G.goop = null; G.wisp = null;
+  const R = G.run, p = G.player, M = G.meta; if (!R) return; G.state = 'runend'; G.goop = null; G.wisp = null; G.infest = null;
   const depth = Math.round(R.maxDepth);
-  let xp = depth * 0.6 + R.kills * 10 + R.treated * 25 + R.milestone * 40 + (R.towns || []).length * 30 + (R.abil || []).length * 25;
+  let xp = depth * 0.6 + R.kills * 10 + (R.vkills || 0) * 35 + R.treated * 25 + R.milestone * 40 + (R.towns || []).length * 30 + (R.abil || []).length * 25;
   xp = Math.round(xp);
   M.xp += xp; let lv = 0; while (M.xp >= NE.xpForLevel(M.level)) { M.xp -= NE.xpForLevel(M.level); M.level++; M.points++; lv++; }
   const unlocks = [];
@@ -563,7 +590,11 @@ G.endRun = function (extracted, cause) {
   if (M.cemetery.length > 60) M.cemetery.length = 60;
   M.survivor = null; M.run = null; G.save();
   if (G.net && G.net.on) G.net.send({ t: 'gone' });
-  NE.UI.runEnd({ extracted: false, cause, depth, time: R.t, kills: R.kills, xp, scrap: R.sent || 0, shards: 0, levels: lv, unlocks, name: s.name, treated: R.treated, towns: (R.towns || []).length, abil: R.abil || [] });
+  // run grade F..S: a score from how deep, how deadly, how kind and how far the Vespa got; good grades pay out bonus skill points
+  const parts = { depth, kills: R.kills * 15, vespa: (R.vkills || 0) * 20, helped: R.treated * 40, towns: (R.towns || []).length * 60, gifts: (R.abil || []).length * 40, survival: Math.round(Math.min(R.t, 1800) / 6) };
+  const score = Object.values(parts).reduce((a, b) => a + b, 0); const GR = [['S', 1500], ['A', 950], ['B', 600], ['C', 330], ['D', 130], ['F', 0]]; const grade = GR.find(g => score >= g[1])[0];
+  const bonus = { S: 3, A: 2, B: 1, C: 1, D: 0, F: 0 }[grade]; M.points += bonus; M.grades = M.grades || []; M.grades.unshift(grade); if (M.cemetery[0]) M.cemetery[0].grade = grade; G.save();
+  NE.UI.runEnd({ grade, score, parts, bonus, nextAt: (GR[GR.findIndex(g => g[0] === grade) - 1] || [])[1], extracted: false, cause, depth, time: R.t, kills: R.kills, xp, scrap: R.sent || 0, shards: 0, levels: lv, unlocks, name: s.name, treated: R.treated, towns: (R.towns || []).length, abil: R.abil || [] });
 };
 
 // ---------------- camera ----------------
@@ -593,6 +624,7 @@ G.render = function (dt) {
   if (p.alive || !G.goop) p.draw(ctx);
   if (p.charge && p.alive) { const k = Math.min(1, p.charge.t / 0.82), bx = Math.round(p.x) - 6, by = Math.round(p.y - p.h) - 8; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, 14, 4); ctx.fillStyle = p.charge.t < 0.32 ? '#8a7a5a' : k >= 1 ? ((G.t * 12 | 0) % 2 ? '#fff4c0' : '#ffb020') : '#ffb020'; ctx.fillRect(bx, by, Math.round(12 * k), 2); }
   if (G.goop) G.drawGoop(ctx);
+  if (G.infest) G.drawInfest(ctx);
   for (const q of G.parts) { if (q.kind === 'glow') continue; ctx.fillStyle = q.col; ctx.globalAlpha = q.kind === 'steam' || q.kind === 'dust' ? Math.min(1, q.life / q.max * 1.5) : 1; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   ctx.globalAlpha = 1; G.drawAmbient(ctx);
   W.drawWater(ctx, cx, cy, G.t);
@@ -629,10 +661,11 @@ G.drawObj = function (ctx, o) {
   switch (o.type) {
     case 'container': {
       const C = NE.CONTAINERS[o.ct]; if (o.ct === 'corpse') break; const c = C.col || '#666'; const op = o.searched;
-      if (o.ct === 'crate') { ctx.fillStyle = c; ctx.fillRect(x - 5, y - 8, 10, 8); ctx.fillStyle = NE.shade(c, 0.6); ctx.fillRect(x - 5, y - 8, 10, 1); ctx.fillRect(x - 5, y - 4, 10, 1); if (op) { ctx.fillStyle = '#1a1410'; ctx.fillRect(x - 4, y - 9, 8, 1); } }
-      else if (o.ct === 'locker' || o.ct === 'cabinet') { const h = o.ct === 'cabinet' ? 9 : 15; const yy = o.ct === 'cabinet' ? y - 18 : y - h; ctx.fillStyle = c; ctx.fillRect(x - 4, yy, 8, h); ctx.fillStyle = NE.shade(c, 0.6); ctx.fillRect(x, yy, 1, h); if (o.ct === 'cabinet') { ctx.fillStyle = '#c02020'; ctx.fillRect(x - 2, yy + 3, 1, 3); ctx.fillRect(x - 3, yy + 4, 3, 1); } if (op) { ctx.fillStyle = '#111'; ctx.fillRect(x + 1, yy + 1, 3, h - 2); } }
-      else if (o.ct === 'duffel' || o.ct === 'bag') { ctx.fillStyle = c; ctx.fillRect(x - 4, y - 4, 9, 4); ctx.fillRect(x - 3, y - 5, 7, 1); if (o.ct === 'duffel') { ctx.fillStyle = '#e8e2d0'; ctx.fillRect(x, y - 3, 1, 2); } }
-      else if (o.ct === 'weaponchest') { ctx.fillStyle = c; ctx.fillRect(x - 7, y - 7, 14, 7); ctx.fillStyle = '#6a7060'; ctx.fillRect(x - 7, y - 7, 14, 1); ctx.fillStyle = o.locked ? '#e0c050' : '#555'; ctx.fillRect(x - 1, y - 5, 2, 2); }
+      const R2 = (a, b, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(x + a, y + b, w, h); };
+      if (o.ct === 'crate') { R2(-6, -10, 12, 10, NE.shade(c, 0.55)); R2(-5, -9, 10, 8, c); R2(-5, -7, 10, 1, NE.shade(c, 0.75)); R2(-5, -4, 10, 1, NE.shade(c, 0.75)); for (let i = 0; i < 8; i++) R2(-4 + i, -8 + i, 1, 1, NE.shade(c, 1.2)); R2(-5, -9, 1, 1, '#a0a0a0'); R2(4, -9, 1, 1, '#a0a0a0'); R2(-5, -2, 1, 1, '#a0a0a0'); R2(4, -2, 1, 1, '#a0a0a0'); R2(-2, -6, 4, 2, '#d8c8a0'); R2(-1, -6, 2, 1, '#a03020'); if (op) { R2(-5, -11, 10, 1, '#1a1410'); R2(-6, -12, 6, 1, NE.shade(c, 0.9)); } }
+      else if (o.ct === 'locker' || o.ct === 'cabinet') { const h = o.ct === 'cabinet' ? 9 : 16; const yy = o.ct === 'cabinet' ? y - 18 : y - h; ctx.fillStyle = NE.shade(c, 0.5); ctx.fillRect(x - 5, yy - 1, 10, h + 1); ctx.fillStyle = c; ctx.fillRect(x - 4, yy, 8, h); ctx.fillStyle = NE.shade(c, 1.25); ctx.fillRect(x - 4, yy, 8, 1); ctx.fillStyle = NE.shade(c, 0.6); ctx.fillRect(x, yy, 1, h); if (o.ct === 'locker') { for (let i = 0; i < 3; i++) { ctx.fillStyle = NE.shade(c, 0.55); ctx.fillRect(x - 3, yy + 2 + i * 2, 2, 1); ctx.fillRect(x + 2, yy + 2 + i * 2, 2, 1); } ctx.fillStyle = '#c8c8c0'; ctx.fillRect(x - 2, yy + 9, 1, 2); ctx.fillRect(x + 2, yy + 9, 1, 2); ctx.fillStyle = '#8a4a20'; ctx.fillRect(x - 4, yy + h - 3, 2, 2); ctx.fillRect(x + 3, yy + 5, 1, 2); } if (o.ct === 'cabinet') { ctx.fillStyle = '#c02020'; ctx.fillRect(x - 2, yy + 3, 1, 3); ctx.fillRect(x - 3, yy + 4, 3, 1); } if (op) { ctx.fillStyle = '#111'; ctx.fillRect(x + 1, yy + 1, 3, h - 2); } }
+      else if (o.ct === 'duffel' || o.ct === 'bag') { R2(-5, -5, 11, 5, NE.shade(c, 0.6)); ctx.fillStyle = c; ctx.fillRect(x - 4, y - 4, 9, 4); ctx.fillRect(x - 3, y - 5, 7, 1); R2(-2, -6, 4, 1, NE.shade(c, 0.5)); R2(-4, -2, 9, 1, NE.shade(c, 0.75)); R2(2, -4, 1, 3, NE.shade(c, 0.6)); if (o.ct === 'duffel') { ctx.fillStyle = '#e8e2d0'; ctx.fillRect(x, y - 3, 1, 2); } }
+      else if (o.ct === 'weaponchest') { R2(-8, -8, 16, 8, NE.shade(c, 0.55)); ctx.fillStyle = c; ctx.fillRect(x - 7, y - 7, 14, 7); ctx.fillStyle = '#6a7060'; ctx.fillRect(x - 7, y - 7, 14, 1); for (const rx of [-7, -3, 2, 6]) R2(rx, -6, 1, 1, '#9aa090'); R2(-7, -3, 14, 1, NE.shade(c, 0.7)); R2(-5, -5, 3, 1, '#d0c060'); ctx.fillStyle = o.locked ? '#e0c050' : '#555'; ctx.fillRect(x - 1, y - 5, 2, 2); }
       else if (o.ct === 'stash') { ctx.fillStyle = c; ctx.fillRect(x - 3, y - 4, 7, 4); }
       else if (o.ct === 'pod') { ctx.fillStyle = c; ctx.fillRect(x - 5, y - 12, 10, 12); ctx.fillStyle = '#c03020'; ctx.fillRect(x - 5, y - 8, 10, 2); ctx.fillStyle = (t * 2 | 0) % 2 ? '#ff4030' : '#601810'; ctx.fillRect(x - 1, y - 13, 2, 1); }
       if (o.locked && o.ct !== 'weaponchest') { ctx.fillStyle = '#e0c050'; ctx.fillRect(x - 1, y - 6, 2, 2); }
@@ -680,8 +713,10 @@ G.drawElevator = function (ctx, o, x, y) {
 G.drawLighting = function (cx, cy, fl) {
   const p = G.player, W = G.world, lx = G.lx, ctx = G.ctx; const lights = []; const st = p.stats; const sight = st.sight * (p.anat.org.eyes < 50 ? 0.8 : 1);
   let dark = fl.biome.dark + Math.min(0.04, fl.depth / 25000); if (fl.town) dark = 0.5; if (G.blackout > 0) dark = 0.985; if (W.lobby) dark = 0.45;
-  if (G.goop) lights.push({ x: G.goop.x, y: G.goop.y - 4, r: 70, i: 0.85, col: '#ffc020', player: true });
+  if (G.goop) lights.push({ x: G.goop.x, y: G.goop.y - 4, r: 70, i: 0.85, col: G.player && G.player.vglow || '#ffc020', player: true });
+  if (G.burstFx && G.burstFx.t > 0) lights.push({ x: G.burstFx.x, y: G.burstFx.y, r: 40 + (1 - G.burstFx.t) * 260, i: Math.min(1, G.burstFx.t * 1.3), col: G.burstFx.col, player: true });
   if (G.wisp) lights.push({ x: G.wisp.x, y: G.wisp.y, r: 40, i: 0.7, col: '#ffd040', player: true });
+  if (G.infest && G.infest.t < 4) lights.push({ x: G.infest.x, y: G.infest.y, r: 34, i: 0.8, col: G.infest.col, player: true });
   if (G.net && G.net.peer && G.net.peer.alive && !G.net.peer.hidden) { const q = G.net.peer; lights.push({ x: q.x, y: q.cy, r: 28, i: 0.55, player: true }); if (q.lightOn) { const L = NE.lanternPos(q); lights.push({ x: L.x, y: L.y, r: 88, i: 0.85, col: '#ffb860', player: true }); } }
   if (p.alive) {
     lights.push({ x: p.x, y: p.cy, r: (p.abil && p.abil.includes('eyes') ? 62 : 24) * sight, i: 0.6, player: true });
@@ -741,16 +776,42 @@ G.drawFX = function () {
 // ---------------- descent scene (title lives in title.js) ----------------
 G.drawWait = function (dt) { const ctx = G.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#050403'; ctx.fillRect(0, 0, VW, VH); ctx.fillStyle = '#e0c050'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.fillText('Waiting for your partner\'s world...', VW / 2, VH / 2); ctx.textAlign = 'left'; };
 G.drawDescent = function (dt) {
-  const ctx = G.ctx; G.descT += dt; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#050403'; ctx.fillRect(0, 0, VW, VH); ctx.translate(Math.round((VW - 400) / 2), 0);
-  const sp = Math.min(1, G.descT / 1.2) * (G.descT > 3.6 ? Math.max(0, 1 - (G.descT - 3.6) * 2) : 1); G.descOff = (G.descOff || 0) + dt * 260 * sp;
-  for (let i = 0; i < 20; i++) { const y = ((i * 24 - G.descOff) % 480 + 480) % 480 - 20; ctx.fillStyle = '#1a1612'; ctx.fillRect(130, y, 140, 3); ctx.fillStyle = 'rgba(255,170,80,0.15)'; ctx.fillRect(140, y + 10, 2, 2); }
-  ctx.fillStyle = '#100d0b'; ctx.fillRect(160, 60, 80, 110); ctx.fillStyle = '#3a342e'; ctx.fillRect(160, 60, 80, 2); ctx.fillRect(160, 168, 80, 2); for (let i = 0; i < 9; i++) ctx.fillRect(162 + i * 9, 62, 1, 106);
-  const sw = Math.sin(G.descT * 3) * 3; ctx.fillStyle = '#ffb050'; ctx.fillRect(199 + Math.round(sw), 66, 3, 1);
-  const s = G.meta.survivor; if (s) { ctx.fillStyle = NE.SKIN[s.look.skin]; ctx.fillRect(198, 140, 5, 5); ctx.fillStyle = s.look.shirt; ctx.fillRect(198, 146, 5, 10); ctx.fillStyle = s.look.pants; ctx.fillRect(198, 156, 2, 12); ctx.fillRect(201, 156, 2, 12); ctx.fillStyle = NE.HAIRC[s.look.hairCol]; if (s.look.hair !== 'bald') ctx.fillRect(198, 139, 5, 2); ctx.fillStyle = '#ffd23a'; ctx.fillRect(201, 142, 1, 1); ctx.fillStyle = 'rgba(255,210,58,0.35)'; ctx.fillRect(200, 141, 3, 3); }
-  if (G.net && G.net.on && G.net.peerSurv) { const q = G.net.peerSurv.look; ctx.fillStyle = NE.SKIN[q.skin]; ctx.fillRect(210, 140, 5, 5); ctx.fillStyle = q.shirt; ctx.fillRect(210, 146, 5, 10); ctx.fillStyle = q.pants; ctx.fillRect(210, 156, 2, 12); ctx.fillRect(213, 156, 2, 12); ctx.fillStyle = '#ffd23a'; ctx.fillRect(213, 142, 1, 1); }
-  const depth = Math.min(0, -0) + Math.round(G.descT * 3); ctx.fillStyle = '#e8e2d0'; ctx.font = '8px monospace'; ctx.fillText('LOWERING...', 165, 190); ctx.fillStyle = '#e0c050'; ctx.fillText('[' + '▮'.repeat(Math.min(10, Math.floor(G.descT * 2.5))) + ' '.repeat(Math.max(0, 10 - Math.floor(G.descT * 2.5))) + ']', 160, 202);
-  G.cam.shake = 1.5 * sp; if (G.descT > 4.2) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, (G.descT - 4.2) * 3) + ')'; ctx.fillRect(0, 0, VW, VH); }
-  if (G.descT > 4.6) { if (G.net && G.net.on && G.net.role === 'guest' && G.descSeed == null) { G.state = 'wait'; return; } G.startRun(); }
+  // the winch cage drops down a rock shaft: parallax strata, guide-rail sparks, swinging lantern, the hosts inside
+  const ctx = G.ctx; G.descT += dt; const t = G.descT; ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const sp = Math.min(1, t / 1.2) * (t > 3.6 ? Math.max(0, 1 - (t - 3.6) * 2) : 1); G.descOff = (G.descOff || 0) + dt * 230 * sp; const off = G.descOff;
+  ctx.fillStyle = '#070504'; ctx.fillRect(0, 0, VW, VH);
+  const cx = Math.round(VW / 2), shaftW = 150, L = cx - shaftW / 2, Rr = cx + shaftW / 2;
+  const strata = ['#2a2a1e', '#3a2c1c', '#2a2420', '#22222c', '#2c2030']; const H = (a, b) => NE.hash(a, b);
+  // far wall: dim blocky rock drifting slowly
+  for (let y = -16; y < VH + 16; y += 8) { const wy = y + (off * 0.35) % 8; const row = Math.floor((y + off * 0.35) / 8); for (let x = L; x < Rr; x += 8) { const h = H(x >> 3, row); ctx.fillStyle = NE.shade(strata[Math.floor(row / 40) % strata.length + (row < 0 ? strata.length : 0)] || strata[0], 0.55 + h * 0.25); ctx.fillRect(x, Math.round(wy), 8, 8); } }
+  // side walls: chunky rock with lit edges, scrolling at full speed
+  for (const side of [-1, 1]) for (let y = -16; y < VH + 16; y += 8) { const row = Math.floor((y + off) / 8); const wy = Math.round(y - ((off % 8) + 8) % 8 + 8); const jut = Math.floor(H(row, side * 7) * 3); const edge = side < 0 ? L + jut * 8 : Rr - jut * 8;
+    const col = strata[(Math.floor(row / 40) % strata.length + strata.length) % strata.length];
+    const x0 = side < 0 ? 0 : edge, x1 = side < 0 ? edge : VW; for (let bx = x0; bx < x1; bx += 8) { const hh = H(bx >> 3, row * 3 + 1); ctx.fillStyle = NE.shade(col, 0.7 + hh * 0.35 - Math.min(0.3, Math.abs(bx - cx) < 120 ? 0 : (Math.abs(bx - cx) - 120) / 600)); ctx.fillRect(bx, wy, Math.min(8, x1 - bx), 8); if (hh < 0.12) { ctx.fillStyle = NE.shade(col, 0.5); ctx.fillRect(bx + 2, wy + 3, 3, 1); } }
+    ctx.fillStyle = NE.shade(col, 1.35); ctx.fillRect(side < 0 ? edge - 2 : edge, wy, 2, 8);
+    if (H(row, side) < 0.08) { ctx.fillStyle = '#6aa040'; ctx.fillRect(side < 0 ? edge - 1 : edge, wy + 2, 2, 5); }
+    if (H(row + 3, side) < 0.04) { ctx.fillStyle = '#ffd040'; ctx.fillRect(side < 0 ? edge - 4 : edge + 3, wy + 3, 1, 1); } }
+  // guide rails + cable
+  ctx.fillStyle = '#3a342e'; ctx.fillRect(L + 22, 0, 3, VH); ctx.fillRect(Rr - 25, 0, 3, VH); ctx.fillStyle = '#5a5048'; ctx.fillRect(L + 22, 0, 1, VH); ctx.fillRect(Rr - 25, 0, 1, VH);
+  const cage = { x: cx - 36, y: 70 + Math.sin(t * 2.3) * 1.5 * sp, w: 72, h: 92 }; ctx.fillStyle = '#8a8070'; ctx.fillRect(cx, 0, 1, cage.y);
+  if (sp > 0.2) for (let i = 0; i < 2; i++) if (Math.random() < sp * 0.6) G.addP(i ? Rr - 24 : L + 24, cage.y + 4, rf(-40, 40), rf(-80, -20), 0.35, pick(['#ffd080', '#ffb040']), 'spark', 1);
+  // cage back, floor, bars
+  ctx.fillStyle = '#120f0c'; ctx.fillRect(cage.x, cage.y, cage.w, cage.h); ctx.fillStyle = '#2a241e'; ctx.fillRect(cage.x, cage.y + cage.h - 4, cage.w, 4); ctx.fillStyle = '#4a4036'; ctx.fillRect(cage.x, cage.y + cage.h - 4, cage.w, 1);
+  // lantern swinging from the roof, lighting the cage
+  const sw = Math.sin(t * 2.6) * 0.35 * (0.3 + sp); const lx = cx + Math.sin(sw) * 14, ly = cage.y + 6 + Math.cos(sw) * 14;
+  const grad = ctx.createRadialGradient(lx, ly, 2, lx, ly, 70); grad.addColorStop(0, 'rgba(255,190,90,0.38)'); grad.addColorStop(1, 'rgba(255,170,60,0)'); ctx.fillStyle = grad; ctx.fillRect(cage.x - 40, cage.y - 30, cage.w + 80, cage.h + 60);
+  NE.pline(ctx, cx, cage.y + 2, lx, ly - 2, 1, '#6a6050'); ctx.fillStyle = '#2a1e14'; ctx.fillRect(Math.round(lx) - 2, Math.round(ly) - 2, 5, 1); ctx.fillStyle = Math.random() < 0.06 ? '#ffe8a0' : '#ffb84a'; ctx.fillRect(Math.round(lx) - 1, Math.round(ly) - 1, 3, 4); ctx.fillStyle = '#fff4c8'; ctx.fillRect(Math.round(lx), Math.round(ly), 1, 1);
+  // the hosts (real character sprites, idle breathing)
+  const fy = cage.y + cage.h - 4; const host = (sv, x, f) => { if (!sv) return; const a = { x, y: fy, facing: f, vx: 0, onGround: true, walkPh: 0 }; const pts = NE.ragPose(a).map(q => ({ x: q[0], y: q[1] })); NE.drawHuman(ctx, { pts }, sv.look, { facing: f, lantern: 1, vespa: true, vcol: sv.look.vglow }); };
+  host(G.meta.survivor, cx - 8, 1); if (G.net && G.net.on && G.net.peerSurv) host(G.net.peerSurv, cx + 12, -1);
+  // front bars + frame
+  ctx.fillStyle = '#3a342e'; for (let i = 0; i <= 8; i++) ctx.fillRect(cage.x + i * 9, cage.y, 1, cage.h - 4); ctx.fillStyle = '#5a5048'; ctx.fillRect(cage.x - 2, cage.y - 2, cage.w + 4, 3); ctx.fillRect(cage.x - 2, cage.y + cage.h - 2, cage.w + 4, 3); ctx.fillRect(cage.x - 2, cage.y + 30, cage.w + 4, 1);
+  for (const q of G.parts) { q.life -= dt; q.vy += 300 * dt * q.grav; q.x += q.vx * dt; q.y += q.vy * dt; } G.parts = G.parts.filter(q => q.life > 0); for (const q of G.parts) { ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); } ctx.globalAlpha = 1;
+  // readout in the game's own type + a honey progress bar
+  const k = Math.min(1, t / 4.4); ctx.font = 'bold 9px "Pixelify Sans", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#e8e2d0'; ctx.fillText(t < 4 ? 'LOWERING' + '.'.repeat(1 + Math.floor(t * 3) % 3) : 'TOUCHDOWN', cx, cage.y + cage.h + 20);
+  ctx.fillStyle = '#1a1612'; ctx.fillRect(cx - 50, cage.y + cage.h + 26, 100, 5); ctx.fillStyle = '#f0b040'; ctx.fillRect(cx - 50, cage.y + cage.h + 26, Math.round(100 * k), 5); ctx.fillStyle = '#ffe08a'; ctx.fillRect(cx - 50, cage.y + cage.h + 26, Math.round(100 * k), 1); ctx.textAlign = 'left';
+  G.cam.shake = 1.2 * sp; if (t > 4.2) { ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, (t - 4.2) * 3) + ')'; ctx.fillRect(0, 0, VW, VH); }
+  if (t > 4.6) { G.parts = []; if (G.net && G.net.on && G.net.role === 'guest' && G.descSeed == null) { G.state = 'wait'; return; } G.startRun(); }
 };
 NE.bootGame = () => NE.atlasReady.then(() => G.init());
 })(window.NE);

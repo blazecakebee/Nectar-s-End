@@ -41,6 +41,10 @@ A.play = function (name, vol) {
     case 'hit': A.noise(0.12, 220, 1, 0.5 * vol, 'lowpass'); A.tone(110, 0.08, 0.15 * vol, 'square', 60); break;
     case 'slash': A.noise(0.1, 2600, 3, 0.25 * vol); A.noise(0.09, 400, 1, 0.3 * vol, 'lowpass'); break;
     case 'gun': A.noise(0.25, 900, 0.5, 0.9 * vol, 'lowpass'); A.tone(90, 0.18, 0.4 * vol, 'square', 40); break;
+    case 'smg': A.noise(0.12, 1100, 0.5, 0.6 * vol, 'lowpass'); A.tone(110, 0.08, 0.3 * vol, 'square', 50); break;
+    case 'shotgun': A.noise(0.5, 500, 0.5, 1.0 * vol, 'lowpass'); A.tone(55, 0.35, 0.5 * vol, 'sawtooth', 25); A.noise(0.08, 3000, 0.3, 0.3 * vol, 'highpass'); break;
+    case 'magnum': A.noise(0.35, 700, 0.5, 1.0 * vol, 'lowpass'); A.tone(70, 0.25, 0.5 * vol, 'square', 30); break;
+    case 'big': A.noise(0.8, 380, 0.5, 1.0 * vol, 'lowpass'); A.tone(40, 0.6, 0.7 * vol, 'sawtooth', 18); A.noise(0.12, 2500, 0.3, 0.5 * vol, 'highpass'); break;
     case 'rifle': A.noise(0.4, 600, 0.5, 1.0 * vol, 'lowpass'); A.tone(60, 0.3, 0.5 * vol, 'sawtooth', 30); break;
     case 'click': A.tone(1600, 0.03, 0.15 * vol, 'square'); break;
     case 'jam': A.tone(500, 0.05, 0.2, 'square'); A.tone(300, 0.07, 0.2, 'square'); break;
@@ -68,6 +72,9 @@ A.play = function (name, vol) {
     case 'deny': A.tone(160, 0.15, 0.12, 'square'); break;
     case 'rope': A.noise(0.09, 1500 + Math.random() * 500, 1.5, 0.08 * vol); break;
     case 'squelch': A.noise(0.18, 300 + Math.random() * 200, 3, 0.35 * vol, 'lowpass'); A.tone(140, 0.15, 0.08 * vol, 'sine', 70); break;
+    case 'screech': A.tone(1400, 0.7, 0.12, 'sawtooth', 2600); A.tone(900, 0.5, 0.1, 'square', 300); A.noise(0.25, 4000, 0.4, 0.4, 'highpass'); A.noise(0.6, 220, 1.5, 0.6, 'lowpass'); A.tone(55, 0.8, 0.35, 'sawtooth', 25); break;
+    case 'retract': A.noise(0.7, 500, 2, 0.35, 'lowpass'); A.tone(300, 0.8, 0.12, 'sine', 60); A.tone(160, 0.5, 0.1, 'triangle', 40); break;
+    case 'latch': A.noise(0.12, 900, 2, 0.4, 'bandpass'); A.tone(220, 0.1, 0.12, 'square', 120); break;
     case 'burst': A.noise(0.9, 260, 1.5, 0.7, 'lowpass'); A.tone(70, 0.9, 0.3, 'sawtooth', 30); A.tone(420, 0.6, 0.06, 'square', 900); break;
     case 'pulse': A.tone(180, 0.6, 0.25, 'sawtooth', 900); A.tone(90, 0.7, 0.3, 'sine', 40); A.noise(0.5, 1200, 0.5, 0.2); break;
     case 'nectar': [0, 4, 7, 12, 16].forEach((k, i) => setTimeout(() => A.tone(523 * Math.pow(2, k / 12), 0.9, 0.08, 'sine'), i * 90)); A.tone(130, 1.4, 0.12, 'triangle', 260); break;

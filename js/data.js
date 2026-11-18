@@ -49,11 +49,44 @@ NE.TRAITS = [
   { id: 'bigeater', name: 'Big Eater', good: false, desc: '+30% hunger', mods: { hunger: 1.3 } },
   { id: 'clumsy', name: 'Clumsy', good: false, desc: '+40% fall damage, louder', mods: { fall: 1.4, noise: 1.2 } },
   { id: 'nearsight', name: 'Nearsighted', good: false, desc: '-12% light radius', mods: { sight: 0.88 } },
+  // v0.5 — positive
+  { id: 'marathon', name: 'Marathoner', good: true, desc: '+15 stamina, -10% stamina use', mods: { stamina: 15, staminaCost: 0.9 } },
+  { id: 'surgeon', name: 'Steady Hands', good: true, desc: 'Treatments 20% faster', mods: { treat: 0.8 } },
+  { id: 'brawler2', name: 'Bar Brawler', good: true, desc: '+12% melee damage', mods: { melee: 1.12 } },
+  { id: 'marksman', name: 'Marksman', good: true, desc: '-18% gun spread', mods: { aim: 0.82 } },
+  { id: 'clotter', name: 'Fast Clotter', good: true, desc: 'Wounds clot 25% faster', mods: { clot: 0.25 } },
+  { id: 'climber', name: 'Free Climber', good: true, desc: '+20% climbing, +10% parkour', mods: { climb: 1.2, parkour: 1.1 } },
+  { id: 'ghost', name: 'Light-Footed', good: true, desc: '-20% noise', mods: { noise: 0.8 } },
+  { id: 'immune', name: 'Strong Immunity', good: true, desc: '-25% infection', mods: { infect: 0.75 } },
+  { id: 'camel', name: 'Camel', good: true, desc: '-25% thirst', mods: { thirst: 0.75 } },
+  { id: 'scrounger', name: 'Scrounger', good: true, desc: 'Searches 20% faster', mods: { search: 0.8 } },
+  { id: 'thickbone', name: 'Dense Bones', good: true, desc: '-30% fracture chance', mods: { fracture: 0.7 } },
+  { id: 'warm', name: 'Warm-Blooded', good: true, desc: '-30% cold', mods: { cold: 0.7 } },
+  // negative
+  { id: 'asthma', name: 'Asthmatic', good: false, desc: '-20 stamina, gas hits harder', mods: { stamina: -20, gas: 1.3 } },
+  { id: 'shaky', name: 'Shaky Hands', good: false, desc: '+25% gun spread, slower treatment', mods: { aim: 1.25, treat: 1.15 } },
+  { id: 'sickly', name: 'Sickly', good: false, desc: '+30% infection', mods: { infect: 1.3 } },
+  { id: 'slowheal', name: 'Slow Healer', good: false, desc: 'Wounds clot 25% slower', mods: { clot: -0.25 } },
+  { id: 'heavyfoot', name: 'Heavy-Footed', good: false, desc: '+30% noise', mods: { noise: 1.3 } },
+  { id: 'weakling', name: 'Weak Grip', good: false, desc: '-12% melee damage, -3kg carry', mods: { melee: 0.88, carry: -3 } },
+  { id: 'thirsty', name: 'Dry Mouth', good: false, desc: '+30% thirst', mods: { thirst: 1.3 } },
+  { id: 'claustro', name: 'Claustrophobic', good: false, desc: '+40% stress', mods: { stress: 1.4 } },
+  { id: 'coldsens', name: 'Thin-Blooded', good: false, desc: '+35% cold, +10% bleeding', mods: { cold: 1.35, bleed: 1.1 } },
+  { id: 'butter', name: 'Butterfingers', good: false, desc: 'Slower searching and swaps', mods: { search: 1.25, swing: 0.92 } },
+  // trade-offs
+  { id: 'bruiser', name: 'Bruiser', good: null, desc: '+18% melee, but +20% hunger', mods: { melee: 1.18, hunger: 1.2 } },
+  { id: 'sprinter2', name: 'Sprinter', good: null, desc: '+10% run speed, -10 stamina', mods: { runSpeed: 1.1, stamina: -10 } },
+  { id: 'adrenal', name: 'Adrenaline Junkie', good: null, desc: '+15 pain threshold, +25% stress', mods: { painTol: 15, stress: 1.25 } },
+  { id: 'packmule2', name: 'Pack Mule', good: null, desc: '+6kg carry, -5% speed', mods: { carry: 6, speed: 0.95 } },
+  { id: 'glasscannon', name: 'Glass Cannon', good: null, desc: '+20% melee, +25% bleeding', mods: { melee: 1.2, bleed: 1.25 } },
+  { id: 'insomniac', name: 'Insomniac', good: null, desc: '+15% light radius, +15% stress', mods: { sight: 1.15, stress: 1.15 } },
+  { id: 'skinny', name: 'Wiry', good: null, desc: '+8% speed, -10% max health', mods: { speed: 1.08, hpMul: 0.9 } },
+  { id: 'tank', name: 'Heavyset', good: null, desc: '+15% max health, -6% speed', mods: { hpMul: 1.15, speed: 0.94 } },
 ];
 
 NE.ITEMS = {
-  rag: { name: 'Dirty Rag', icon: 'rag', w: 0.1, stack: 5, cat: 'med', med: 'bandage', q: 0.45, dirty: 0.35, desc: 'Better than nothing. Barely. Can infect.' },
-  cleanrag: { name: 'Sterilized Rag', icon: 'rag', col: '#e8e2d0', w: 0.1, stack: 5, cat: 'med', med: 'bandage', q: 0.65, desc: 'Soaked in alcohol. Decent dressing.' },
+  rag: { name: 'Dirty Rag', icon: 'rag', w: 0.1, stack: 5, cat: 'med', med: 'bandage', q: 0.7, dirty: 0.35, desc: 'Presses shut minor bleeds and slows bad ones — but it\'s filthy, so infection risk goes up. Wash it in clear water to clean it.' },
+  cleanrag: { name: 'Clean Rag', icon: 'rag', col: '#e8e2d0', w: 0.1, stack: 5, cat: 'med', med: 'bandage', q: 0.78, desc: 'Soaked in alcohol. Decent dressing.' },
   bandage: { name: 'Bandage', icon: 'bandage', w: 0.1, stack: 5, cat: 'med', med: 'bandage', q: 1, desc: 'Clean gauze. Slows bleeding a lot.' },
   tourniquet: { name: 'Tourniquet', icon: 'tourniquet', w: 0.2, cat: 'med', med: 'tq', desc: 'Stops limb bleeding completely. Hurts. Don\'t leave it on.' },
   suture: { name: 'Suture Kit', icon: 'suture', w: 0.2, uses: 3, cat: 'med', med: 'suture', desc: 'Closes wounds on a body part. Agonizing without help.' },
@@ -80,8 +113,24 @@ NE.ITEMS = {
   shiv: { name: 'Flint Dagger', icon: 'shiv', w: 0.2, cat: 'weapon', melee: { dmg: 9, kind: 'sharp', reach: 10, stam: 4, cd: 0.34 } },
   crowbar: { name: 'Crowbar', icon: 'crowbar', w: 1.8, cat: 'weapon', tool: 'pry', dig: 0.8, melee: { dmg: 17, kind: 'blunt', reach: 15, stam: 10, cd: 0.65 }, desc: 'Also pries open locks.' },
   axe: { name: 'Ice Axe', icon: 'axe', w: 2.6, cat: 'weapon', twoHand: true, dig: 1.6, melee: { dmg: 28, kind: 'sharp', reach: 16, stam: 16, cd: 0.9 } },
-  pistol: { name: '9mm Pistol', icon: 'pistol', w: 1.0, cat: 'weapon', gun: { dmg: 46, mag: 8, ammo: 'ammo9', spread: 0.05, jam: 0.04, cd: 0.28, range: 230 } },
-  rifle: { name: 'Battle Rifle', icon: 'rifle', w: 3.6, cat: 'weapon', twoHand: true, gun: { dmg: 84, mag: 5, ammo: 'ammo762', spread: 0.025, jam: 0.03, cd: 0.55, range: 330 } },
+  pistol: { name: '9mm Pistol', icon: 'pistol', w: 1.0, cat: 'weapon', gun: { cal: 1, snd: 'gun', dmg: 46, mag: 8, ammo: 'ammo9', spread: 0.05, jam: 0.04, cd: 0.28, range: 230 } },
+  rifle: { name: 'Battle Rifle', icon: 'rifle', w: 3.6, cat: 'weapon', twoHand: true, gun: { cal: 3, snd: 'rifle', dmg: 84, mag: 5, ammo: 'ammo762', spread: 0.025, jam: 0.03, cd: 0.55, range: 330 } },
+  // ---- v0.5 melee: each has its own weight, reach, swing speed and stagger
+  machete: { name: 'Machete', icon: 'knife', col: '#c8ccd0', w: 0.9, cat: 'weapon', melee: { dmg: 19, kind: 'sharp', reach: 13, stam: 7, cd: 0.45 }, desc: 'Fast, long blade. Hacks limbs clean off.' },
+  fireaxe: { name: 'Fire Axe', icon: 'axe', col: '#c03028', w: 3.2, cat: 'weapon', twoHand: true, dig: 1.4, heavyw: 1, melee: { dmg: 34, kind: 'sharp', reach: 17, stam: 18, cd: 1.0 }, desc: 'Slow and brutal. Heavy attacks sever.' },
+  sledge: { name: 'Sledgehammer', icon: 'pipe', col: '#5a5e62', w: 5, cat: 'weapon', twoHand: true, dig: 2.4, heavyw: 1, melee: { dmg: 40, kind: 'blunt', reach: 17, stam: 24, cd: 1.25, stun: 1.8 }, desc: 'Crushes bone. Knocks people flat. Very slow.' },
+  spear: { name: 'Cave Spear', icon: 'crowbar', col: '#8a6a40', w: 1.6, cat: 'weapon', twoHand: true, thrust: 1, melee: { dmg: 21, kind: 'sharp', reach: 22, stam: 9, cd: 0.6 }, desc: 'Longest reach of any melee weapon. Keep them at arm\'s length.' },
+  leadpipe: { name: 'Lead Pipe', icon: 'pipe', col: '#7a8088', w: 1.7, cat: 'weapon', melee: { dmg: 17, kind: 'blunt', reach: 14, stam: 9, cd: 0.6, stun: 1.2 } },
+  baton: { name: 'Riot Baton', icon: 'pipe', col: '#1e2024', w: 0.8, cat: 'weapon', melee: { dmg: 12, kind: 'blunt', reach: 12, stam: 5, cd: 0.4, stun: 1.6 }, desc: 'Light and quick. Staggers hard.' },
+  cleaver: { name: 'Butcher Knife', icon: 'knife', col: '#e0e0e0', w: 0.6, cat: 'weapon', melee: { dmg: 15, kind: 'sharp', reach: 10, stam: 5, cd: 0.36 } },
+  // ---- v0.5 firearms: caliber (cal 1–4) scales recoil, sound, penetration and how badly limbs tear
+  revolver: { name: '.357 Revolver', icon: 'pistol', col: '#b0b4b8', w: 1.3, cat: 'weapon', gun: { cal: 2, snd: 'magnum', dmg: 72, mag: 6, ammo: 'ammo357', spread: 0.04, jam: 0.01, cd: 0.5, range: 260 } },
+  smg: { name: 'Mine SMG', icon: 'pistol', col: '#3a3e44', w: 2.4, cat: 'weapon', gun: { cal: 1, snd: 'smg', dmg: 28, mag: 24, ammo: 'ammo9', spread: 0.09, jam: 0.03, cd: 0.09, range: 200, auto: true }, desc: 'Hold to fire.' },
+  shotgun: { name: 'Pump Shotgun', icon: 'rifle', col: '#6a4a30', w: 3.4, cat: 'weapon', twoHand: true, gun: { cal: 2, snd: 'shotgun', dmg: 20, pellets: 7, mag: 5, ammo: 'shells', spread: 0.15, jam: 0.02, cd: 0.85, range: 150 }, desc: 'Seven pellets. Devastating up close.' },
+  hunting: { name: '.50 Hunting Rifle', icon: 'rifle', col: '#5a3a24', w: 5.2, cat: 'weapon', twoHand: true, gun: { cal: 4, snd: 'big', dmg: 160, mag: 3, ammo: 'ammo50', spread: 0.012, jam: 0.02, cd: 1.3, range: 420 }, desc: 'Punches through several bodies and takes limbs with it.' },
+  ammo357: { name: '.357 Rounds', icon: 'ammo', col: '#d0b060', w: 0.015, stack: 36, cat: 'ammo', value: 2 },
+  shells: { name: '12ga Shells', icon: 'ammo', col: '#c03030', w: 0.03, stack: 24, cat: 'ammo', value: 2 },
+  ammo50: { name: '.50 Rounds', icon: 'ammo', col: '#e0c040', w: 0.05, stack: 15, cat: 'ammo', value: 4 },
   ammo9: { name: '9mm Rounds', icon: 'ammo', w: 0.01, stack: 60, cat: 'ammo', value: 1 },
   ammo762: { name: '7.62 Rounds', icon: 'ammo', col: '#c0a040', w: 0.02, stack: 40, cat: 'ammo', value: 2 },
   flare: { name: 'Road Flare', icon: 'flare', w: 0.3, stack: 4, cat: 'throw', throwable: 'flare', desc: 'Throw: 40s of red light.' },
@@ -94,15 +143,24 @@ NE.ITEMS = {
   keycard: { name: 'Old Mine Key', icon: 'keycard', w: 0.02, cat: 'tool', desc: 'Opens one strongbox or iron lock.' },
   filter: { name: 'Respirator Filter', icon: 'filter', w: 0.3, stack: 3, cat: 'tool', desc: 'Feeds a respirator: 90s of spores or gas.' },
   respirator: { name: 'Respirator', icon: 'respirator', w: 0.6, cat: 'gear', slot: 'face', desc: 'Blocks toxic gas while a filter lasts.' },
-  vest: { name: 'Leather Vest', icon: 'vest', w: 4, cat: 'gear', slot: 'body', armor: 0.35, dur: 100, desc: 'Absorbs torso damage.' },
-  platevest: { name: 'Plate Carrier', icon: 'vest', col: '#3a4430', w: 6, cat: 'gear', slot: 'body', armor: 0.6, dur: 150, desc: 'Real armor.' },
+  vest: { name: 'Leather Jacket', set: 'Leather', icon: 'vest', col: '#6a4428', w: 3, cat: 'gear', slot: 'body', armor: 0.3, res: { sharp: 0.35, bite: 0.45, blunt: 0.2, bullet: 0.1, burn: 0.15 }, spd: 1, dur: 90, desc: 'Leather set. Light, no speed loss. Good against bites and slashes.' },
+  leathercap: { name: 'Leather Cap', set: 'Leather', icon: 'helmet', col: '#6a4428', w: 0.5, cat: 'gear', slot: 'head', armor: 0.2, res: { sharp: 0.3, bite: 0.4, blunt: 0.15, bullet: 0.05 }, spd: 1, dur: 50 },
+  kevlar: { name: 'Kevlar Vest', set: 'Tactical', icon: 'vest', col: '#2e3a2a', w: 4.5, cat: 'gear', slot: 'body', armor: 0.5, res: { bullet: 0.62, sharp: 0.35, blunt: 0.25, bite: 0.3, frag: 0.5 }, spd: 0.96, dur: 130, desc: 'Tactical set. Stops pistol rounds. Slight slowdown.' },
+  scrapplate: { name: 'Scrap Plate Armor', set: 'Scrap', icon: 'vest', col: '#7a6a58', w: 7, cat: 'gear', slot: 'body', armor: 0.5, res: { blunt: 0.5, sharp: 0.55, bite: 0.6, bullet: 0.3, frag: 0.4 }, spd: 0.88, dur: 110, desc: 'Scrap set. Welded junk. Tough but heavy and loud.' },
+  scraphelm: { name: 'Bucket Helm', set: 'Scrap', icon: 'helmet', col: '#7a6a58', w: 1.6, cat: 'gear', slot: 'head', armor: 0.45, res: { blunt: 0.45, sharp: 0.55, bullet: 0.25 }, spd: 0.98, dur: 70 },
+  riot: { name: 'Steel Riot Armor', set: 'Riot', icon: 'vest', col: '#30343a', w: 9, cat: 'gear', slot: 'body', armor: 0.65, res: { blunt: 0.72, sharp: 0.68, bite: 0.75, bullet: 0.45, frag: 0.55 }, spd: 0.82, dur: 180, desc: 'Riot set. Near-immune to melee. Very slow and heavy.' },
+  riothelm: { name: 'Riot Helmet', set: 'Riot', icon: 'helmet', col: '#30343a', w: 1.8, cat: 'gear', slot: 'head', armor: 0.6, res: { blunt: 0.7, sharp: 0.7, bullet: 0.4 }, spd: 0.98, dur: 120 },
+  hazmat: { name: 'Hazmat Suit', set: 'Hazmat', icon: 'vest', col: '#d8c040', w: 3.5, cat: 'gear', slot: 'body', armor: 0.15, res: { burn: 0.65, bite: 0.2, sharp: 0.1, blunt: 0.1, bullet: 0.05 }, spd: 0.9, dur: 70, hazmat: 1, desc: 'Hazmat set. Blocks radiation and burns. Paper-thin against weapons.' },
+  hazhood: { name: 'Hazmat Hood', set: 'Hazmat', icon: 'helmet', col: '#d8c040', w: 0.8, cat: 'gear', slot: 'head', armor: 0.1, res: { burn: 0.6 }, spd: 1, dur: 50, hazmat: 1, desc: 'With the suit: filters gas without filters.' },
+  platevest: { name: 'Plate Carrier', set: 'Tactical', icon: 'vest', col: '#3a4430', w: 6, cat: 'gear', slot: 'body', armor: 0.6, res: { bullet: 0.7, sharp: 0.45, blunt: 0.35, bite: 0.4, frag: 0.6 }, spd: 0.93, dur: 150, desc: 'Tactical set. Real armor.' },
   helmet: { name: 'Caving Helmet', icon: 'helmet', col: '#d0a020', w: 1, cat: 'gear', slot: 'head', armor: 0.3, dur: 60, desc: 'Some head protection.' },
-  milhelmet: { name: 'Combat Helmet', icon: 'helmet', col: '#4a5040', w: 1.4, cat: 'gear', slot: 'head', armor: 0.55, dur: 100, desc: 'Stops a lot.' },
+  milhelmet: { name: 'Combat Helmet', set: 'Tactical', icon: 'helmet', col: '#4a5040', res: { bullet: 0.55, blunt: 0.5, sharp: 0.5 }, w: 1.4, cat: 'gear', slot: 'head', armor: 0.55, dur: 100, desc: 'Stops a lot.' },
   mushroom: { name: 'Cave Mushroom', icon: 'mushroom', w: 0.1, stack: 5, cat: 'food', hunger: 18, desc: 'Foraged. Earthy and filling.' },
   herb: { name: 'Healing Herb', icon: 'herb', w: 0.05, stack: 5, cat: 'med', med: 'drug', drug: 'herb', desc: 'Chew it: dulls pain and fights infection a little.' },
   cactus: { name: 'Prickly Pear', icon: 'cactus', w: 0.3, stack: 4, cat: 'food', thirst: 25, hunger: 8, desc: 'Juicy. Mind the spines.' },
   pickaxe: { name: 'Pickaxe', icon: 'pickaxe', w: 2.2, cat: 'weapon', dig: 3, melee: { dmg: 16, kind: 'sharp', reach: 14, stam: 10, cd: 0.7 }, desc: 'Hold it and click rock to tunnel through. Also a weapon.' },
   dynamite: { name: 'Dynamite', icon: 'dynamite', w: 0.4, stack: 4, cat: 'throw', throwable: 'dynamite', desc: 'Throw it. 2.5s fuse. Blows open rock, and anyone near it.' },
+  royaljelly: { name: 'Royal Jelly', icon: 'nectar', col: '#ff90ff', w: 0.1, cat: 'relic', desc: 'A pearl of violet jelly from a rival brood. Eat it and your Vespa becomes something rare.' },
   nectar: { name: 'Relic Nectar', icon: 'nectar', w: 0.1, stack: 3, cat: 'relic', desc: 'Golden nectar from a relic flower. The Vespa inside you craves it. Drink to awaken something new.' },
   trinket: { name: 'Lost Locket', icon: 'trinket', w: 0.05, stack: 10, cat: 'value', value: 12, desc: 'Someone loved this once. Worth scrap topside.' },
   datashard: { name: 'Crystal Shard', icon: 'datashard', w: 0.05, stack: 10, cat: 'value', value: 20, xp: 40, desc: 'Hums with stored light. Send it up from a town Deep Post for XP and scrap.' },
@@ -114,23 +172,23 @@ NE.BIOMES = [
   { id: 'grotto', name: 'Mossy Grotto', from: 0, dark: 0.7, cold: 0, heat: 0, bleed: 1, infect: 1.2, thirst: 1,
     perk: 'Forage mushrooms & healing herbs. Glowshrooms light the way.', challenge: 'Damp: wounds infect faster. The odd spore puff.',
     pal: { bg: '#0d110c', back: '#1a2116', back2: '#212a1c', tile: '#4a4a36', tile2: '#3a3a2a', edge: '#6a7a4a', top: '#4f7a2e', plat: '#5a5038', ladder: '#9a7a48', lamp: '#ffc070' },
-    enemies: [['feral', 3], ['scav', 4]], decor: ['vines', 'roots', 'moss', 'boulder', 'stalag', 'vines'] },
+    enemies: [['scav', 4], ['feral', 2], ['trog', 2], ['husk', 2]], decor: ['vines', 'roots', 'moss', 'boulder', 'stalag', 'vines'] },
   { id: 'desert', name: 'Sunscorched Sandstone', from: 250, dark: 0.74, cold: 0, heat: 1, bleed: 1, infect: 0.7, thirst: 1.8,
     perk: 'Dry air: wounds rarely infect. Ancient ruins hold trinkets. Prickly pears quench thirst.', challenge: 'Heat: thirst drains almost twice as fast. Sand floors give way.',
     pal: { bg: '#140e08', back: '#2a1d12', back2: '#332416', tile: '#a87a48', tile2: '#8a6036', edge: '#d8a868', top: '#d8b070', plat: '#8a6a40', ladder: '#b08850', lamp: '#ffb050' },
-    enemies: [['scav', 4], ['feral', 2], ['gunner', 1]], decor: ['ruin', 'pottery', 'bones', 'pillar', 'boulder', 'stalag'] },
+    enemies: [['scav', 3], ['husk', 2], ['burrower', 2], ['gunner', 1], ['feral', 1]], decor: ['ruin', 'pottery', 'bones', 'pillar', 'boulder', 'stalag'] },
   { id: 'ice', name: 'Frozen Hollows', from: 500, dark: 0.77, cold: 1.2, heat: 0, bleed: 0.75, infect: 0.8, thirst: 1,
     perk: 'Cold slows bleeding. Fresh water pools everywhere.', challenge: 'Freezing: hypothermia creeps in, ice is slippery, icicles fall.',
     pal: { bg: '#0a0e14', back: '#162030', back2: '#1c2a3c', tile: '#5a7088', tile2: '#4a5e74', edge: '#a8c8e0', top: '#e8f4ff', plat: '#6a7a8a', ladder: '#9aa8b0', lamp: '#a0e0ff' },
-    enemies: [['feral', 3], ['scav', 3], ['gunner', 2]], decor: ['icicles', 'frozen', 'stalag', 'icicles', 'boulder'] },
+    enemies: [['stalker', 2], ['trog', 2], ['scav', 2], ['gunner', 1], ['expedition', 1]], decor: ['icicles', 'frozen', 'stalag', 'icicles', 'boulder'] },
   { id: 'crystal', name: 'Crystal Depths', from: 750, dark: 0.78, cold: 0.3, heat: 0, bleed: 1, infect: 1, thirst: 1,
     perk: 'Glowing crystals light the caves. Crystal Shards (XP) are common.', challenge: 'Crystal radiation sickens you. Shard floors cut. Expedition soldiers patrol.',
     pal: { bg: '#08070f', back: '#151226', back2: '#1c1830', tile: '#3e3a5a', tile2: '#2e2a48', edge: '#7a70b0', top: '#8a7ad0', plat: '#4a4468', ladder: '#8a8070', lamp: '#b0a0ff' },
-    enemies: [['scav', 2], ['gunner', 3], ['specops', 3], ['feral', 2]], decor: ['cluster', 'geode', 'cluster', 'stalag', 'cluster'] },
+    enemies: [['rival', 2], ['expedition', 3], ['specops', 2], ['stalker', 1], ['feral', 1]], decor: ['cluster', 'geode', 'cluster', 'stalag', 'cluster'] },
   { id: 'magma', name: 'Magma Abyss', from: 1000, dark: 0.82, cold: 0, heat: 1.6, bleed: 1.1, infect: 0.8, thirst: 2.2,
     perk: 'Never cold. The richest caches lie here.', challenge: 'Scorching heat, lava pools and steam vents. Deadliest foes.',
     pal: { bg: '#100605', back: '#22100c', back2: '#2c1510', tile: '#3a2622', tile2: '#2a1a18', edge: '#7a4030', top: '#5a2a1e', plat: '#4a2a20', ladder: '#8a6a40', lamp: '#ff9050' },
-    enemies: [['gunner', 3], ['specops', 4], ['scav', 2]], decor: ['obsidian', 'cracks', 'stalag', 'cracks', 'boulder'] },
+    enemies: [['burrower', 2], ['rival', 2], ['specops', 3], ['expedition', 2]], decor: ['obsidian', 'cracks', 'stalag', 'cracks', 'boulder'] },
 ];
 NE.biomeAt = d => { let b = NE.BIOMES[0]; for (const x of NE.BIOMES) if (d >= x.from) b = x; return b; };
 
@@ -188,7 +246,10 @@ NE.RECIPES = [
   { id: 'shiv', name: 'Scrap Shiv', out: ['shiv', 1], need: [['scrap', 2], ['tape', 1]] },
   { id: 'molotov', name: 'Molotov', out: ['molotov', 1], need: [['bottle', 1], ['alcohol', 1], ['rag', 1]] },
   { id: 'lockpick', name: 'Lockpicks', out: ['lockpick', 2], need: [['scrap', 1]], station: 'workbench' },
-  { id: 'vest', name: 'Scrap Vest', out: ['vest', 1], need: [['scrap', 5], ['tape', 2], ['cloth', 2]], station: 'workbench' },
+  { id: 'vest', name: 'Leather Jacket', out: ['vest', 1], need: [['scrap', 2], ['tape', 2], ['cloth', 4]], station: 'workbench' },
+  { id: 'scrapplate', name: 'Scrap Plate Armor', out: ['scrapplate', 1], need: [['scrap', 8], ['tape', 3]], station: 'workbench' },
+  { id: 'scraphelm', name: 'Bucket Helm', out: ['scraphelm', 1], need: [['scrap', 3], ['tape', 1]], station: 'workbench' },
+  { id: 'spear', name: 'Cave Spear', out: ['spear', 1], need: [['shiv', 1], ['pipe', 1], ['tape', 1]] },
   { id: 'dynamite', name: 'Blasting Charge', out: ['dynamite', 1], need: [['alcohol', 1], ['scrap', 2], ['tape', 1]], station: 'workbench' },
   { id: 'boil', name: 'Boil Water', out: ['water', 1], need: [['dirtywater', 1]], station: 'fire' },
 ];
@@ -196,7 +257,7 @@ NE.RECIPES = [
 NE.LOOT = {
   common: [['mushroom', 3], ['herb', 2], ['rag', 10], ['cloth', 7], ['scrap', 9], ['tape', 5], ['water', 4], ['dirtywater', 6], ['ration', 4], ['chocolate', 4], ['spoiled', 3], ['alcohol', 3], ['bottle', 3], ['battery', 4], ['trinket', 3], ['flare', 2], ['glowstick', 2]],
   med: [['bandage', 8], ['rag', 4], ['antiseptic', 5], ['painkillers', 5], ['suture', 3], ['splint', 3], ['tourniquet', 3], ['forceps', 2], ['antibiotics', 2, 200], ['morphine', 1.5, 200], ['bloodbag', 1, 450], ['adrenaline', 1, 350], ['antirad', 2, 850]],
-  weapon: [['pipe', 4], ['knife', 4], ['crowbar', 3], ['axe', 2, 150], ['pistol', 2, 100], ['ammo9', 6], ['rifle', 1, 650], ['ammo762', 2.5, 650], ['vest', 1.5], ['platevest', 0.8, 800], ['helmet', 1.5], ['milhelmet', 0.8, 700], ['lockpick', 3], ['pickaxe', 2], ['dynamite', 2, 120], ['keycard', 1, 250], ['respirator', 1, 200], ['filter', 2, 200]],
+  weapon: [['pipe', 4], ['knife', 4], ['crowbar', 3], ['axe', 2, 150], ['machete', 2.5], ['leadpipe', 3], ['baton', 2], ['cleaver', 2], ['spear', 2, 60], ['fireaxe', 1.2, 200], ['sledge', 1, 250], ['revolver', 1, 300], ['ammo357', 2, 300], ['smg', 0.8, 450], ['shotgun', 1, 350], ['shells', 2.5, 350], ['hunting', 0.4, 800], ['ammo50', 1, 800], ['leathercap', 1.5], ['kevlar', 0.9, 400], ['scrapplate', 1, 200], ['scraphelm', 1.2, 150], ['riot', 0.4, 650], ['riothelm', 0.5, 600], ['hazmat', 0.6, 700], ['hazhood', 0.6, 700], ['pistol', 2, 100], ['ammo9', 6], ['rifle', 1, 650], ['ammo762', 2.5, 650], ['vest', 1.5], ['platevest', 0.8, 800], ['helmet', 1.5], ['milhelmet', 0.8, 700], ['lockpick', 3], ['pickaxe', 2], ['dynamite', 2, 120], ['keycard', 1, 250], ['respirator', 1, 200], ['filter', 2, 200]],
   rare: [['nectar', 0.5, 300], ['dynamite', 1.5], ['datashard', 3, 300], ['herb', 2], ['trinket', 4], ['keycard', 1.5], ['morphine', 1.5], ['bloodbag', 1], ['pistol', 1], ['ammo9', 3], ['adrenaline', 1]],
 };
 NE.CONTAINERS = {
@@ -213,10 +274,17 @@ NE.CONTAINERS = {
 };
 
 NE.ENEMIES = {
-  feral: { name: 'Cave-Mad Wretch', faction: 'infected', speed: 52, hpMul: 0.75, weapon: null, dmg: 9, kind: 'bite', reach: 10, cd: 0.9, sight: 95, skin: '#8a9a80', shirt: '#4a4038', pants: '#3a342e', loot: [['rag', 2], ['spoiled', 1], ['trinket', 1]] },
-  scav: { name: 'Cave Raider', faction: 'scav', speed: 40, hpMul: 1, weapon: ['pipe', 'knife', 'crowbar', 'shiv'], sight: 120, shirt: '#5a4a3a', pants: '#3a3a3a', loot: [['rag', 2], ['scrap', 2], ['water', 1], ['bandage', 1], ['ammo9', 1], ['ration', 1]] },
-  gunner: { name: 'Armed Raider', faction: 'scav', speed: 36, hpMul: 1, weapon: ['pistol'], sight: 150, shirt: '#3a4a3a', pants: '#2a2a2a', loot: [['ammo9', 3], ['bandage', 1], ['painkillers', 1], ['scrap', 1]], gear: [['helmet', 0.3], ['vest', 0.3]] },
-  specops: { name: 'Lost Expedition Soldier', faction: 'remnant', speed: 40, hpMul: 1.25, weapon: ['rifle'], sight: 180, shirt: '#2a3024', pants: '#22281e', loot: [['ammo762', 3], ['bandage', 2], ['morphine', 1], ['datashard', 1]], gear: [['milhelmet', 0.8], ['platevest', 0.7]] },
+  // human = can spawn near the surface. hears = how far noises draw them (blind ones hunt by sound). chitin = flat damage reduction.
+  feral: { name: 'Feral Nectar-Addict', faction: 'infected', speed: 46, hpMul: 0.75, weapon: null, dmg: 8, kind: 'bite', reach: 10, cd: 0.95, sight: 95, hears: 1.2, skin: '#a89a70', shirt: '#4a4038', pants: '#3a342e', eyeGlow: '#ffb020', loot: [['rag', 2], ['spoiled', 1], ['trinket', 1], ['nectar', 0.05]], desc: 'Hosts who tasted relic nectar and lost themselves. Twitchy, fast, weak.' },
+  husk: { name: 'Husked Spelunker', faction: 'infected', speed: 32, hpMul: 1.15, weapon: ['pickaxe', 'axe', 'leadpipe', 'crowbar'], sight: 85, hears: 1, skin: '#9a9478', shirt: '#6a5a2a', pants: '#3a3428', loot: [['battery', 2], ['rag', 2], ['scrap', 2], ['pickaxe', 0.4], ['dynamite', 0.3]], desc: 'A dead caver still walking the routes it knew. Slow, heavy swings.' },
+  trog: { name: 'Pale Troglodyte', faction: 'trog', speed: 50, hpMul: 0.85, weapon: null, dmg: 8, kind: 'bite', reach: 10, cd: 0.75, sight: 70, hears: 1.8, skin: '#e2dcd4', shirt: '#8a8478', pants: '#6a645a', bare: 1, loot: [['mushroom', 2], ['trinket', 1], ['cloth', 2]], desc: 'Cave-born people, bleached and wiry. Ambush in packs.' },
+  stalker: { name: 'Blind Cave Stalker', faction: 'trog', speed: 44, hpMul: 1.3, weapon: null, dmg: 14, kind: 'sharp', reach: 15, cd: 1.15, sight: 0, hears: 2.4, skin: '#c8c0b4', shirt: '#5a5650', pants: '#4a4640', bare: 1, blind: 1, loot: [['trinket', 1], ['herb', 1]], desc: 'Eyeless. Hunts by sound. Crouch-walk past it.' },
+  burrower: { name: 'Chitinous Burrower', faction: 'beast', speed: 30, hpMul: 1.6, weapon: null, dmg: 13, kind: 'bite', reach: 11, cd: 1.0, sight: 60, hears: 1.4, chitin: 0.35, digs: 1, skin: '#6a5232', shirt: '#4a3820', pants: '#3a2a18', bare: 1, loot: [['datashard', 0.6], ['scrap', 1]], desc: 'Armored and slow. Tunnels straight through rock to reach you.' },
+  rival: { name: 'Rival Parasite Host', faction: 'rival', speed: 48, hpMul: 1.15, weapon: ['machete', 'knife', 'spear', 'fireaxe', 'revolver'], sight: 150, hears: 1.2, shirt: '#4a2a4a', pants: '#2a2030', eyeGlow: '#c070ff', loot: [['royaljelly', 0.25], ['nectar', 0.35], ['bandage', 1], ['ammo357', 1]], gear: [['kevlar', 0.25], ['leathercap', 0.3]], desc: 'Another Vespa from a rival brood. Violet eyes. Wants your nectar.' },
+  expedition: { name: 'Deranged Expedition', faction: 'remnant', human: 1, speed: 38, hpMul: 1.1, weapon: ['shotgun', 'revolver', 'smg', 'pistol', 'baton'], sight: 160, hears: 1, shirt: '#5a5030', pants: '#2a2a22', loot: [['shells', 2], ['ammo9', 2], ['ammo357', 1], ['bandage', 1], ['ration', 1], ['battery', 1]], gear: [['kevlar', 0.35], ['milhelmet', 0.3], ['hazmat', 0.08]], desc: 'Survivors of a failed expedition. Paranoid and well armed.' },
+  scav: { name: 'Cave Raider', faction: 'scav', human: 1, speed: 40, hpMul: 1, weapon: ['pipe', 'knife', 'crowbar', 'shiv', 'machete', 'leadpipe', 'baton', 'cleaver'], sight: 120, shirt: '#5a4a3a', pants: '#3a3a3a', loot: [['rag', 2], ['scrap', 2], ['water', 1], ['bandage', 1], ['ammo9', 1], ['ration', 1]] },
+  gunner: { name: 'Armed Raider', faction: 'scav', human: 1, speed: 36, hpMul: 1, weapon: ['pistol'], sight: 150, shirt: '#3a4a3a', pants: '#2a2a2a', loot: [['ammo9', 3], ['bandage', 1], ['painkillers', 1], ['scrap', 1]], gear: [['helmet', 0.3], ['vest', 0.3]] },
+  specops: { name: 'Lost Expedition Soldier', faction: 'remnant', human: 1, speed: 40, hpMul: 1.25, weapon: ['rifle'], sight: 180, shirt: '#2a3024', pants: '#22281e', loot: [['ammo762', 3], ['bandage', 2], ['morphine', 1], ['datashard', 1]], gear: [['milhelmet', 0.8], ['platevest', 0.7]] },
 };
 
 // ---------- The Vespa: abilities awakened by Relic Nectar (each drink grants one, plus a little mutation on the host) ----------
@@ -274,3 +342,55 @@ NE.MONO = {
   burst: ['NO. NOT YET.', 'Out. OUT.'],
 };
 })(window.NE);
+
+// ---------- Vespa variants: every new host is taken by a different strain of the brood ----------
+// add = flat bonus, mul = multiplier on a stat. Higher tiers = stronger passives.
+NE.VTIERS = [
+  { id: 'common', name: 'Common', w: 45, col: '#c8c0a8' }, { id: 'uncommon', name: 'Uncommon', w: 27, col: '#7ad07a' }, { id: 'rare', name: 'Rare', w: 15, col: '#5ab0ff' },
+  { id: 'epic', name: 'Epic', w: 8.5, col: '#c070ff' }, { id: 'legendary', name: 'Legendary', w: 4, col: '#ffb030' }, { id: 'mythical', name: 'Mythical', w: 0.5, col: '#ff4a6a' }, { id: 'secret', name: 'Secret', w: 0, col: '#ffffff' },
+];
+NE.VARIANTS = [
+  // common
+  { id: 'drone', tier: 'common', name: 'Drone Strain', eye: '#ffd23a', glow: '#ffd23a', desc: 'The baseline brood. +5% stamina regen.', mul: { staminaCost: 0.95 } },
+  { id: 'amberc', tier: 'common', name: 'Dull Amber', eye: '#e0a030', glow: '#d09020', desc: '-5% bleeding.', mul: { bleed: 0.95 } },
+  { id: 'pollen', tier: 'common', name: 'Pollen Drifter', eye: '#f0e070', glow: '#f8f0a0', desc: 'Food fills 8% more.', mul: { hunger: 0.92 } },
+  { id: 'wax', tier: 'common', name: 'Waxworker', eye: '#f0d890', glow: '#ffe8b0', desc: 'Treatments 6% faster.', mul: { treat: 0.94 } },
+  { id: 'dusk', tier: 'common', name: 'Dusk Forager', eye: '#d8a060', glow: '#e0a060', desc: 'Quieter steps (-6% noise).', mul: { noise: 0.94 } },
+  { id: 'sap', tier: 'common', name: 'Sap Clinger', eye: '#c8b040', glow: '#d8c050', desc: '+6% climbing.', mul: { climb: 1.06 } },
+  { id: 'ember1', tier: 'common', name: 'Ember Larva', eye: '#ff9a40', glow: '#ff8a30', desc: 'Resists cold a little.', mul: { cold: 0.9 } },
+  { id: 'moss', tier: 'common', name: 'Moss Nester', eye: '#b8d060', glow: '#a8d050', desc: '-6% infection.', mul: { infect: 0.94 } },
+  // uncommon
+  { id: 'jade', tier: 'uncommon', name: 'Jade Swarm', eye: '#50e0a0', glow: '#40d090', desc: '-12% infection, -6% toxins.', mul: { infect: 0.88, tox: 0.94 } },
+  { id: 'rust', tier: 'uncommon', name: 'Rust Stinger', eye: '#e06a3a', glow: '#d05a2a', desc: '+8% melee damage.', mul: { melee: 1.08 } },
+  { id: 'frost', tier: 'uncommon', name: 'Frost Drone', eye: '#90d8ff', glow: '#a0e0ff', desc: 'Strong cold resistance, -8% bleeding.', mul: { cold: 0.7, bleed: 0.92 } },
+  { id: 'sprint', tier: 'uncommon', name: 'Darting Scout', eye: '#f0f060', glow: '#ffff80', desc: '+6% run speed.', mul: { runSpeed: 1.06 } },
+  { id: 'iron', tier: 'uncommon', name: 'Iron Comb', eye: '#a0a8b8', glow: '#c0c8d8', desc: '-10% fracture chance, +5 pain tolerance.', mul: { fracture: 0.9 }, add: { painTol: 5 } },
+  { id: 'gill', tier: 'uncommon', name: 'Gill Brood', eye: '#4ac0d0', glow: '#5ad0e0', desc: 'Drinks 10% less water, shrugs off gas.', mul: { thirst: 0.9, gas: 0.85 } },
+  { id: 'hush', tier: 'uncommon', name: 'Hush Weaver', eye: '#8a90c0', glow: '#9aa0d8', desc: '-15% noise.', mul: { noise: 0.85 } },
+  // rare
+  { id: 'azure', tier: 'rare', name: 'Azure Queenling', eye: '#3a8aff', glow: '#5aa0ff', desc: '+10% stamina, -10% bleeding.', add: { stamina: 10 }, mul: { bleed: 0.9 } },
+  { id: 'crimson', tier: 'rare', name: 'Crimson Lancer', eye: '#ff3a3a', glow: '#ff5040', desc: '+14% melee damage, +5% swing speed.', mul: { melee: 1.14, swing: 1.05 } },
+  { id: 'glass', tier: 'rare', name: 'Glasswing', eye: '#c0f0ff', glow: '#e0ffff', desc: '-25% fall damage, +10% parkour.', mul: { fall: 0.75, parkour: 1.1 } },
+  { id: 'deadeye', tier: 'rare', name: 'Deadeye Brood', eye: '#ffe0a0', glow: '#fff0c0', desc: '-15% gun spread.', mul: { aim: 0.85 } },
+  { id: 'bloodsap', tier: 'rare', name: 'Bloodsap', eye: '#c0203a', glow: '#e03050', desc: 'Wounds clot 20% faster.', add: { clot: 0.2 } },
+  { id: 'cinder', tier: 'rare', name: 'Cinder Hive', eye: '#ff7a20', glow: '#ff6010', desc: 'Heat-born: thirst -15%, burns hurt less.', mul: { thirst: 0.85 } },
+  // epic
+  { id: 'violet', tier: 'epic', name: 'Violet Matriarch', eye: '#b050ff', glow: '#c070ff', desc: '+12% max health, +10 pain tolerance.', mul: { hpMul: 1.12 }, add: { painTol: 10 } },
+  { id: 'onyx', tier: 'epic', name: 'Onyx Carapace', eye: '#2a2a3a', glow: '#8070a0', desc: '-20% fracture, -12% bleeding, +8% melee.', mul: { fracture: 0.8, bleed: 0.88, melee: 1.08 } },
+  { id: 'tempest', tier: 'epic', name: 'Tempest Flier', eye: '#70ffe0', glow: '#80fff0', desc: '+10% speed, +10% run speed.', mul: { speed: 1.1, runSpeed: 1.1 } },
+  { id: 'nurse', tier: 'epic', name: 'Nurse Caste', eye: '#ff90c0', glow: '#ffa0d0', desc: 'Treatments 25% faster, -20% infection.', mul: { treat: 0.75, infect: 0.8 } },
+  // legendary
+  { id: 'solar', tier: 'legendary', name: 'Solar Sovereign', eye: '#fff060', glow: '#ffffa0', desc: '+18% melee, +15% max health, -15% bleeding.', mul: { melee: 1.18, hpMul: 1.15, bleed: 0.85 } },
+  { id: 'abyssal', tier: 'legendary', name: 'Abyssal Choir', eye: '#3040ff', glow: '#4050ff', desc: 'Silent hunter: -35% noise, +20% stamina.', mul: { noise: 0.65 }, add: { stamina: 20 } },
+  { id: 'phoenix', tier: 'legendary', name: 'Phoenix Brood', eye: '#ff5020', glow: '#ff7030', desc: 'Clotting +40%, -30% fall damage, +10 pain tolerance.', add: { clot: 0.4, painTol: 10 }, mul: { fall: 0.7 } },
+  // mythical
+  { id: 'empress', tier: 'mythical', name: 'Hive Empress', eye: '#ffffff', glow: '#ffe8a0', desc: '+25% melee, +25% health, -25% bleeding, +15% speed.', mul: { melee: 1.25, hpMul: 1.25, bleed: 0.75, speed: 1.15 } },
+  { id: 'void', tier: 'mythical', name: 'Void-Eater', eye: '#100018', glow: '#a020ff', desc: 'Eyes like holes. +30% melee, -40% noise, sees in the dark.', mul: { melee: 1.3, noise: 0.6 }, see: 1 },
+  // secret (relic flowers / hidden drops only)
+  { id: 'relicborn', tier: 'secret', name: 'Relicborn', eye: '#ffc0ff', glow: '#ff90ff', desc: 'Grew from a relic flower. +20% everything that matters.', mul: { melee: 1.2, hpMul: 1.2, bleed: 0.8, speed: 1.08, staminaCost: 0.85 } },
+  { id: 'prism', tier: 'secret', name: 'Prism Heart', eye: '#80ffff', glow: '#ff80ff', desc: 'Shimmering, shifting eyes. Immune to radiation sickness, +15% health.', mul: { rad: 0.1, hpMul: 1.15 } },
+  { id: 'firstqueen', tier: 'secret', name: 'The First Queen', eye: '#ffd700', glow: '#fff4b0', desc: 'Older than this world. +35% melee, +30% health, -35% bleeding.', mul: { melee: 1.35, hpMul: 1.3, bleed: 0.65 } },
+];
+NE.rollVariant = function () { const t = NE.wpick(NE.VTIERS.filter(t => t.w > 0).map(t => [t.id, t.w])); return NE.pick(NE.VARIANTS.filter(v => v.tier === t)).id; };
+NE.variantOf = id => NE.VARIANTS.find(v => v.id === id) || NE.VARIANTS[0];
+NE.applyVariant = function (s, id) { const v = NE.variantOf(id); for (const k in (v.mul || {})) s[k] = (s[k] == null ? 1 : s[k]) * v.mul[k]; for (const k in (v.add || {})) s[k] = (s[k] || 0) + v.add[k]; return s; };

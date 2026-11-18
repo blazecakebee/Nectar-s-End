@@ -12,8 +12,8 @@ NE.PANTS = ['#3a3a4a', '#4a3a2a', '#2a2a2a', '#5a5048', '#33404a', '#4a4a3a'];
 NE.EYEC = ['#4a2e1a', '#6a4424', '#3a5a8a', '#4a7a4a', '#7a7a8a', '#2a2a2a', '#8a6a3a'];
 NE.makeSurvivor = function () {
   const occ = pick(NE.OCCUPATIONS);
-  const goods = NE.TRAITS.filter(t => t.good), bads = NE.TRAITS.filter(t => !t.good);
-  const traits = [pick(goods), pick(bads)]; if (chance(0.25)) { const g2 = pick(goods); if (!traits.includes(g2)) traits.push(g2); }
+  const goods = NE.TRAITS.filter(t => t.good === true), bads = NE.TRAITS.filter(t => t.good === false), mixed = NE.TRAITS.filter(t => t.good === null);
+  const traits = [pick(goods), pick(bads)]; if (chance(0.4)) traits.push(pick(mixed)); if (chance(0.25)) { const g2 = pick(goods); if (!traits.includes(g2)) traits.push(g2); }
   const age = ri(19, 63); const sex = chance(0.5) ? 'f' : 'm';
   let hairCol = ri(0, NE.HAIRC.length - 1); if (age > 50 && chance(0.6)) hairCol = chance(0.5) ? 6 : 7;
   let hair = pick(sex === 'f' ? NE.HAIR_F : NE.HAIR_M); if (sex === 'm' && age > 48 && chance(0.35)) hair = pick(['bald', 'buzz', 'crew']);
@@ -26,7 +26,7 @@ NE.makeSurvivor = function () {
   return { first, last, name: first + ' ' + last, age, occ: occ.id, traits: traits.map(t => t.id), look, tears: 0 };
 };
 
-const ADD = new Set(['stamina', 'carry', 'painTol', 'slots', 'craft']);
+const ADD = new Set(['stamina', 'carry', 'painTol', 'slots', 'craft', 'clot']);
 function applyMods(s, m) { if (!m) return; for (const k in m) { if (k === 'lungs') s.lungs = m[k]; else if (ADD.has(k)) s[k] += m[k]; else s[k] = (s[k] == null ? 1 : s[k]) * m[k]; } }
 NE.computeStats = function (meta, surv) {
   const s = { speed: 1, stamina: 0, staminaCost: 1, fall: 1, noise: 1, climb: 1, gas: 1, sight: 1, aim: 1, tox: 1, rad: 1, infect: 1, bleed: 1, painTol: 0, fracture: 1, hunger: 1, thirst: 1, cold: 1, melee: 1, carry: 0, slots: 0, stress: 1, barter: 1, treat: 1, search: 1, loot: 1, coldblood: false, medEff: 1, battery: 1, craft: 0, lungs: 100, heat: 1 };
@@ -91,12 +91,12 @@ const PARTS = NE.PARTS = ['head', 'torso', 'larm', 'rarm', 'lleg', 'rleg'];
 NE.PART_NAMES = { head: 'Head', torso: 'Torso', larm: 'Left Arm', rarm: 'Right Arm', lleg: 'Left Leg', rleg: 'Right Leg' };
 const PMAX = { head: 60, torso: 120, larm: 70, rarm: 70, lleg: 80, rleg: 80 };
 const WT = NE.WOUNDS = {
-  cut: { name: 'Cut', bleed: [0.3, 0.9], clot: 40, pain: 5 },
-  lac: { name: 'Laceration', bleed: [1.2, 2.8], clot: 120, pain: 12 },
-  punct: { name: 'Puncture', bleed: [0.8, 2], clot: 100, pain: 13 },
+  cut: { name: 'Cut', bleed: [0.25, 0.7], clot: 22, pain: 5 },
+  lac: { name: 'Laceration', bleed: [0.9, 2.0], clot: 70, pain: 12 },
+  punct: { name: 'Puncture', bleed: [0.6, 1.5], clot: 60, pain: 13 },
   art: { name: 'Arterial Bleed', bleed: [8, 12], clot: 0, pain: 16 },
-  gsw: { name: 'Gunshot Wound', bleed: [2, 4], clot: 180, pain: 20 },
-  bite: { name: 'Bite', bleed: [0.8, 2], clot: 100, pain: 12 },
+  gsw: { name: 'Gunshot Wound', bleed: [1.4, 3], clot: 150, pain: 20 },
+  bite: { name: 'Bite', bleed: [0.5, 1.4], clot: 55, pain: 12 },
   burn: { name: 'Burn', bleed: [0, 0], clot: 1, pain: 11 },
   bruise: { name: 'Bruise', bleed: [0, 0], clot: 1, pain: 4 },
 };
@@ -129,10 +129,10 @@ class Anatomy {
   damage(part, amt, kind, src) {
     if (this.dead) return; const P = this.parts[part]; const s = this.s; this.lastHit = src || this.lastHit;
     P.hp = Math.max(0, P.hp - amt); this.painSpike += amt * 0.8; this.stress += amt * 0.6;
-    const add = (t, dirty, extra) => { const W = WT[t]; const w = Object.assign({ t, bleed: rf(W.bleed[0], W.bleed[1]) * (0.6 + amt / 30), dirty: dirty || 0, inf: 0, closed: false, age: 0, bullet: false }, extra || {}); if (t === 'burn' || t === 'bruise') w.closed = true; P.wounds.push(w); if (P.wounds.length > 6) P.wounds.shift(); return w; };
-    if (kind === 'sharp') { add(amt > 13 ? 'lac' : 'cut', 0.15); if (limb(part) && amt > 15 && chance(0.15)) { add('art', 0.1); this.ev.push('artery'); } else this.ev.push('bleed'); }
+    const add = (t, dirty, extra) => { const W = WT[t]; const w = Object.assign({ t, bleed: rf(W.bleed[0], W.bleed[1]) * clamp(0.5 + amt / 55, 0.5, 1.7), dirty: dirty || 0, inf: 0, closed: false, age: 0, bullet: false }, extra || {}); if (t === 'burn' || t === 'bruise') w.closed = true; P.wounds.push(w); if (P.wounds.length > 6) P.wounds.shift(); return w; };
+    if (kind === 'sharp') { add(amt > 22 ? 'lac' : 'cut', 0.15); if (limb(part) && amt > 28 && chance(0.12)) { add('art', 0.1); this.ev.push('artery'); } else this.ev.push('bleed'); }
     else if (kind === 'bite') { add('bite', 0.65); this.ev.push('bleed'); }
-    else if (kind === 'bullet') { add('gsw', 0.3, { bullet: chance(0.6) }); if (limb(part) && chance(0.22)) { add('art', 0.2); this.ev.push('artery'); } else this.ev.push('bleed'); if (limb(part) && chance(0.25 * s.fracture)) this.fracture(part); }
+    else if (kind === 'bullet') { add(amt < 25 ? 'punct' : 'gsw', 0.3, { bullet: chance(0.6) }); if (limb(part) && chance(amt > 80 ? 0.3 : amt > 45 ? 0.1 : 0.03)) { add('art', 0.2); this.ev.push('artery'); } else this.ev.push('bleed'); if (limb(part) && chance(0.25 * s.fracture)) this.fracture(part); }
     else if (kind === 'frag') { add('punct', 0.4, { bullet: chance(0.5) }); this.ev.push('bleed'); }
     else if (kind === 'burn') { add('burn', 0.25); }
     else if (kind === 'glass') { add('cut', 0.3, { bleed: rf(0.4, 1) }); this.ev.push('bleed'); }
@@ -167,7 +167,7 @@ class Anatomy {
         if (!w.closed) {
           const b = this.woundBleed(P, w, p); bleed += b; open++;
           if (P.bandage) P.bandage.soak = Math.min(1, P.bandage.soak + b * dt / 450);
-          if (W.clot > 0 && !(P.tq && limb(p))) { w.bleed *= Math.exp(-dt / (W.clot * s.bleed * (P.bandage ? 0.45 : 1) * (w.bullet ? 2.5 : 1) * (s.amber ? 0.33 : 1))); if (w.bleed < 0.04 && !w.bullet) { w.closed = true; w.bleed = 0; } }
+          if (W.clot > 0 && !(P.tq && limb(p))) { w.bleed *= Math.exp(-dt / (W.clot / Math.max(0.4, 1 + (s.clot || 0)) * s.bleed * (P.bandage ? 0.45 : 1) * (w.bullet ? 2.5 : 1) * (s.amber ? 0.33 : 1))); if (w.bleed < (w.t === 'gsw' ? 0.05 : 0.14) && !w.bullet) { w.closed = true; w.bleed = 0; } }
         } else { w.age += dt; if (w.age > (w.t === 'bruise' ? 50 : w.t === 'burn' ? 160 : w.sutured ? 90 : 140) && w.inf < 20) { P.wounds.splice(i, 1); continue; } }
         if (env.dirtyWater && !P.bandage) w.dirty = Math.min(1, w.dirty + dt * 0.02);
         const bandClean = P.bandage && !P.bandage.dirty ? 0.4 : 1;
@@ -269,6 +269,8 @@ class Anatomy {
   }
 }
 NE.Anatomy = Anatomy;
+// untreated problems: open (unbandaged) wounds, unsplinted fractures, lodged fragments
+NE.injuryCount = A => { let n = 0; for (const p of PARTS) { const P = A.parts[p]; if (P.severed) continue; const open = P.wounds.filter(w => !w.closed && w.t !== 'burn' && w.t !== 'bruise').length; if (open && !P.bandage) n += open; if (P.frac && !P.splint) n++; n += P.wounds.filter(w => w.bullet).length; } return n; };
 
 // ---------------- Ragdoll ----------------
 // 0 head,1 chest,2 pelvis,3 bElbow,4 bHand,5 fElbow,6 fHand,7 bKnee,8 bFoot,9 fKnee,10 fFoot
@@ -374,7 +376,7 @@ NE.drawHuman = function (ctx, rag, look, o) {
   if (o.pack) { const dx = p[2].x - p[1].x, dy = p[2].y - p[1].y; const L = Math.hypot(dx, dy) || 1; const nx = dy / L * f, ny = -dx / L * f; const bx = p[1].x - f * 3 + nx * 0, by = p[1].y + 1;
     NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 5, OL(o.pack[0])); NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 4, N(o.pack[0])); R(bx - 1 + (f > 0 ? 0 : 1), by + dy * 0.35, 2, 1, N(o.pack[1])); R(bx - (f > 0 ? 2 : -1), by + 1, 1, Math.round(dy * 0.5), NE.shade(o.pack[0], 0.8)); }
   // torso: 5px with outline, belt, collar
-  const tc = o.vest ? '#3a3e36' : shirt, FEM = look.sex === 'f';
+  const tc = o.vest ? (typeof o.vest === 'string' ? o.vest : '#3a3e36') : shirt, FEM = look.sex === 'f';
   if (FEM) { // feminine silhouette: bust, cinched waist, wider hips — follows the torso so every shirt/armour inherits it
     const lx = (t) => p[1].x + (p[2].x - p[1].x) * t, ly = (t) => p[1].y + (p[2].y - p[1].y) * t;
     NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 5, OL(tc)); NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 4, N(tc));
@@ -384,7 +386,7 @@ NE.drawHuman = function (ctx, rag, look, o) {
   } else { NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 6, OL(tc)); NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 5, N(tc)); }
   NE.pline(ctx, p[1].x + f * 1.5, p[1].y + 1, p[2].x + f * 1.5, p[2].y - 1, 1, NE.shade(tc, 1.12 * dark));
   R(p[2].x - 2, p[2].y - 1, 5, 2, N(pants)); R(p[2].x - 2, p[2].y - 2, 5, 1, '#2a2018');
-  if (o.vest) { R(p[1].x - 2, p[1].y + 2, 5, 1, '#5a6050'); R(p[1].x - 2, p[1].y + 5, 5, 1, '#5a6050'); }
+  if (o.vest) { const vl = NE.shade(tc, 1.35); R(p[1].x - 2, p[1].y + 2, 5, 1, vl); R(p[1].x - 2, p[1].y + 5, 5, 1, vl); }
   partMark('torso', p[1].x, p[1].y, p[2].x, p[2].y);
   if (sv[bk + 'leg'] || sv[fr + 'leg']) stump(p[2], 0); if (sv[bk + 'arm']) stump(p[1], -f);
   // front leg
@@ -401,7 +403,9 @@ NE.drawHuman = function (ctx, rag, look, o) {
   NE.drawHair6(ctx, look.hair, X0, Y0, f, N(hair), OL(hair));
   if (o.helmet) { R(X0 - 1, Y0 - 2, 8, 3, N(o.helmet)); R(X0 - 1, Y0 - 2, 8, 1, NE.shade(o.helmet, 1.25)); R(f > 0 ? X0 + 5 : X0 - 2, Y0, 3, 1, OL(o.helmet)); }
   const ex = f > 0 ? X0 + 4 : X0 + 1, ey = hy - 1;
-  if (o.vespa && !o.dead) { ctx.fillStyle = 'rgba(255,210,58,0.35)'; ctx.fillRect(ex - 1, ey - 1, 3, 3); R(ex, ey, 1, 1, '#ffd23a'); if ((o.infest || 0) > 0.5) R(ex, ey + 1, 1, 1, 'rgba(255,200,40,0.7)'); }
+  if (o.blind && !o.dead) { R(ex - (f > 0 ? 1 : 0), ey, 2, 1, NE.shade(skin, 0.75)); }
+  else if (o.eyeGlow && !o.dead) { ctx.fillStyle = o.eyeGlow + '55'; ctx.fillRect(ex - 1, ey - 1, 3, 3); R(ex, ey, 1, 1, o.eyeGlow); }
+  else if (o.vespa && !o.dead) { ctx.fillStyle = (o.vcol || '#ffd23a') + '5a'; ctx.fillRect(ex - 1, ey - 1, 3, 3); R(ex, ey, 1, 1, o.vcol || '#ffd23a'); if ((o.infest || 0) > 0.5) R(ex, ey + 1, 1, 1, 'rgba(255,200,40,0.7)'); }
   else { R(ex, ey, 1, 1, o.dead ? '#3a2a2a' : '#141010'); if ((o.glasses || look.glasses)) R(ex - (f > 0 ? 1 : 0), ey, 2, 1, '#9ad'); }
   R(ex - (f > 0 ? 1 : 0), ey - 1, 2, 1, NE.shade(hair, 0.85 * dark)); // brow
   if (o.mask) { R(f > 0 ? X0 + 2 : X0 - 1, hy + 1, 5, 2, '#2a2e30'); R(f > 0 ? X0 + 5 : X0 - 1, hy + 1, 1, 2, '#4a5054'); }
@@ -417,15 +421,19 @@ NE.drawHuman = function (ctx, rag, look, o) {
   // weapon
   if (o.weapon) {
     const it = NE.ITEMS[o.weapon]; const hxw = p[6].x, hyw = p[6].y;
-    if (it && it.gun) { const d = o.aimDir || { x: f, y: 0 }; const L = it.id === 'rifle' ? 11 : 6; NE.pline(ctx, hxw, hyw, hxw + d.x * L, hyw + d.y * L, 2, '#24242a'); NE.pline(ctx, hxw, hyw - 1, hxw + d.x * L, hyw + d.y * L - 1, 1, '#3c3c46'); if (it.id === 'rifle') NE.pline(ctx, hxw - d.x * 3, hyw - d.y * 3 + 1, hxw, hyw, 2, '#5a3a20'); else R(hxw - 1, hyw + 1, 1, 2, '#24242a'); }
+    if (it && it.gun) { const d = o.aimDir || { x: f, y: 0 }; const L = { rifle: 11, hunting: 13, shotgun: 11, smg: 8, revolver: 7 }[it.id] || 6; const gc = it.id === 'revolver' ? '#8a8e94' : '#24242a'; NE.pline(ctx, hxw, hyw, hxw + d.x * L, hyw + d.y * L, it.id === 'hunting' || it.id === 'shotgun' ? 2 : 2, gc); NE.pline(ctx, hxw, hyw - 1, hxw + d.x * L, hyw + d.y * L - 1, 1, '#3c3c46'); if (it.twoHand) NE.pline(ctx, hxw - d.x * 3, hyw - d.y * 3 + 1, hxw, hyw, 2, it.col && it.id !== 'rifle' ? it.col : '#5a3a20'); if (it.id === 'smg') R(hxw + d.x * 3, hyw + 1, 1, 3, '#24242a'); else R(hxw - 1, hyw + 1, 1, 2, '#24242a'); }
     else if (it && it.melee) {
       let dx = p[6].x - p[5].x, dy = p[6].y - p[5].y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; if (o.wdir) { dx = o.wdir.x; dy = o.wdir.y; }
-      const len = { pipe: 9, knife: 4.5, shiv: 4, crowbar: 10, axe: 11, pickaxe: 10 }[it.id] || 7; const col = { pipe: '#8a8f94', knife: '#d0d0d0', shiv: '#a0a0a0', crowbar: '#a0302a', axe: '#6a4a2a', pickaxe: '#6a4a2a' }[it.id] || '#888';
+      const len = (NE.Combat && NE.Combat.WLEN[it.id]) || 7; const col = { pipe: '#8a8f94', knife: '#d0d0d0', shiv: '#a0a0a0', crowbar: '#a0302a', axe: '#6a4a2a', pickaxe: '#6a4a2a', machete: '#3a2a1a', fireaxe: '#a02820', sledge: '#6a4a2a', spear: '#8a6a40', leadpipe: '#7a8088', baton: '#1e2024', cleaver: '#3a2a1a' }[it.id] || '#888';
       NE.pline(ctx, hxw, hyw, hxw + dx * len, hyw + dy * len, it.id === 'knife' || it.id === 'shiv' ? 1 : 2, col);
       const tx = hxw + dx * len, ty = hyw + dy * len;
       if (it.id === 'axe') { R(tx - 1, ty - 1, 3, 3, '#c0c4c8'); }
       if (it.id === 'pickaxe') { NE.pline(ctx, tx - dy * 3, ty + dx * 3, tx + dy * 3, ty - dx * 3, 1, '#b0b4b8'); }
       if (it.id === 'pipe') R(tx - 1, ty - 1, 3, 3, '#6a6f74');
+      if (it.id === 'machete' || it.id === 'cleaver') { NE.pline(ctx, hxw + dx * 2, hyw + dy * 2, tx, ty, it.id === 'cleaver' ? 2 : 1, '#d8dce0'); }
+      if (it.id === 'fireaxe') { R(tx - 2, ty - 2, 4, 4, '#c8ccd0'); R(tx - 1, ty - 1, 2, 2, '#e0e4e8'); }
+      if (it.id === 'sledge') { NE.pline(ctx, tx - dy * 3, ty + dx * 3, tx + dy * 3, ty - dx * 3, 3, '#4a4e52'); NE.pline(ctx, tx - dy * 3, ty + dx * 3, tx + dy * 3, ty - dx * 3, 2, '#6a6e72'); }
+      if (it.id === 'spear') { NE.pline(ctx, tx, ty, tx + dx * 3, ty + dy * 3, 1, '#d0d0d0'); R(tx - 1, ty - 1, 2, 2, '#b0b4b8'); }
     }
   }
 };
@@ -536,7 +544,7 @@ function buildPortrait(look, o) {
   // (no earring pixel)
   // (clean face: no jaw stripe)
   // ---- eyes (gold = the Vespa)
-  const eyeY = 26, gold = o.vespa; const iris = gold ? '#ffcc2a' : NE.EYEC[look.eyeCol || 0], irisD = gold ? '#b86a00' : NE.shade(iris, 0.55), irisL = gold ? '#fff2a0' : NE.shade(iris, 1.5);
+  const eyeY = 26, gold = o.vespa; const iris = gold ? (look.veye || '#ffcc2a') : NE.EYEC[look.eyeCol || 0], irisD = gold ? NE.shade(look.veye || '#ffcc2a', 0.5) : NE.shade(iris, 0.55), irisL = gold ? NE.shade(look.veye || '#ffcc2a', 1.5) : NE.shade(iris, 1.5);
   const closed = o.blink || o.expr === 'uncon' || o.expr === 'dead'; const eh = look.eyes === 2 ? 5 : 6;
   for (const sd of [-1, 1]) {
     const ex = sd < 0 ? cx - 9 : cx + 3;
@@ -547,7 +555,7 @@ function buildPortrait(look, o) {
     R(ix + 1, top + 2, 2, Math.max(1, h - 4), gold ? '#5a2800' : '#140c0a');
     R(ix, top + 2, 2, 2, '#ffffff'); R(ix + 3, top + h - 2, 1, 1, 'rgba(255,255,255,0.75)');
     R(ex - 1, top, 8, 1, '#1e1210'); R(ex, top - 1, 6, 1, F ? '#1e1210' : 'rgba(0,0,0,0)'); R(sd < 0 ? ex - 1 : ex + 6, top + 1, 1, 1, '#1e1210');
-    if (gold) { x.globalAlpha = 0.28; R(ex - 1, top + 1, 8, h, '#ffe060'); x.globalAlpha = 1; R(ix, top + 2, 2, 2, '#ffffff'); }
+    if (gold) { x.globalAlpha = 0.28; R(ex - 1, top + 1, 8, h, look.vglow || '#ffe060'); x.globalAlpha = 1; R(ix, top + 2, 2, 2, '#ffffff'); }
     if (look.glasses) { x.strokeStyle = '#2a2a30'; x.lineWidth = 1; x.strokeRect(ex - 1.5, top - 0.5, 9, h + 2); }
   }
   if (look.glasses) R(cx - 2, eyeY + 1, 5, 1, '#2a2a30');

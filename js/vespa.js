@@ -10,19 +10,19 @@ G.eyePos = function (a) { const h = a.rag.pts[0]; const hx = Math.round(h.x), hy
 G.trail = function (a, dt) {
   if (!a.alive || !a.vespa) return; const e = G.eyePos(a); const ink = a.infest || 0.2;
   if (!a._le) a._le = e; const moved = Math.hypot(e.x - a._le.x, e.y - a._le.y);
-  if (moved > 0.6 || Math.random() < dt * 2) { G.addP(e.x, e.y, rf(-2, 2), rf(-3, 1), 0.25 + ink * 0.9, ink > 0.6 ? '#ffb020' : GOLD, 'glow', 0); a._le = e; }
+  if (moved > 0.6 || Math.random() < dt * 2) { G.addP(e.x, e.y, rf(-2, 2), rf(-3, 1), 0.25 + ink * 0.9, a.vglow || (ink > 0.6 ? '#ffb020' : GOLD), 'glow', 0); a._le = e; }
 };
 G.vespaTick = function (p, dt) {
   G.trail(p, dt); if (G.net && G.net.peer) G.trail(G.net.peer, dt);
   p.pulseCD = Math.max(0, (p.pulseCD || 0) - dt);
   if (p.stats.heart) p.anat.bpm = Math.max(p.anat.bpm, 88);
-  G.flashT = Math.max(0, (G.flashT || 0) - dt);
+  G.flashT = Math.max(0, (G.flashT || 0) - dt); if (G.burstFx) { G.burstFx.t -= dt; if (G.burstFx.t <= 0) G.burstFx = null; }
 };
 G.drawGlow = function (ctx) {
   for (const q of G.parts) { if (q.kind !== 'glow') continue; const k = q.life / q.max; ctx.globalAlpha = k * 0.85; ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); if (k > 0.75) { ctx.globalAlpha = k * 0.25; ctx.fillRect(Math.round(q.x) - 1, Math.round(q.y), 3, 1); } }
   ctx.globalAlpha = 1;
   // the Vespa's eyes cut through any darkness
-  const eyes = a => { if (!a || !a.alive || !a.vespa) return; const e = G.eyePos(a); ctx.fillStyle = 'rgba(255,200,40,0.35)'; ctx.fillRect(e.x - 1, e.y - 1, 3, 3); ctx.fillStyle = '#fff1a0'; ctx.fillRect(e.x, e.y, 1, 1); };
+  const eyes = a => { if (!a || !a.alive || !a.vespa) return; const e = G.eyePos(a); ctx.fillStyle = (a.vglow || '#ffc828') + '5a'; ctx.fillRect(e.x - 1, e.y - 1, 3, 3); ctx.fillStyle = a.vglow ? NE.shade(a.vglow, 1.3) : '#fff1a0'; ctx.fillRect(e.x, e.y, 1, 1); };
   eyes(G.player); if (G.net && G.net.peer) eyes(G.net.peer);
   if (G.player && G.player.abil && G.player.abil.includes('eyes')) for (const a of G.actors) if (a.alive && !a.vespa && !a.town && a.D && Math.abs(a.y - G.player.y) < 200) { const e = G.eyePos(a); ctx.fillStyle = 'rgba(255,60,40,' + (0.6 + 0.3 * Math.sin(G.t * 5 + a.x)) + ')'; ctx.fillRect(e.x, e.y, 1, 1); }
   for (const q of G.amb) if (q.glow) { ctx.globalAlpha = q.a * (0.55 + 0.45 * Math.sin(G.t * q.tw + q.ph)); ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
@@ -51,8 +51,14 @@ G.drawAmbient = function (ctx) { for (const q of G.amb) if (!q.glow) { ctx.globa
 
 // ---------- relic flowers & nectar ----------
 G.harvestRelic = function (o) { const p = G.player; p.search = { obj: o, t: 0, dur: 2.2, relic: true }; NE.Audio.play('chime'); G.say(pick(NE.MONO.relic), 0.6); };
+G.mutateVariant = function (p, src) {
+  const sec = NE.VARIANTS.filter(v => v.tier === 'secret'); const v = src === 'jelly' && chance(0.5) ? NE.variantOf(pick(['violet', 'onyx', 'tempest', 'nurse', 'solar', 'abyssal', 'phoenix'])) : pick(sec);
+  p.surv.variant = v.id; p.surv.look.veye = v.eye; p.surv.look.vglow = v.glow; p.vglow = v.glow; const ns = NE.computeStats(G.meta, p.surv); NE.applyVariant(ns, v.id); Object.assign(p.stats, ns);
+  G.flashT = 1.4; G.burstFx = { x: p.x, y: p.cy, t: 0.8, col: v.glow }; NE.Audio.play('nectar'); NE.Audio.play('screech', 0.5); if (p.portrait) p.portrait.dirty = true;
+  const T2 = NE.VTIERS.find(t => t.id === v.tier); NE.UI.banner('THE BROOD SHIFTS', v.name + ' (' + T2.name + ') — ' + v.desc); G.log('Your Vespa mutates into ' + v.name + ' [' + T2.name + ']: ' + v.desc, 'good');
+};
 G.finishRelic = function (o) {
-  const p = G.player; o.type = 'dead'; o.act = null; for (let i = 0; i < 26; i++) G.addP(o.x, o.y - 10, rf(-40, 40), rf(-70, 0), rf(0.6, 1.4), pick(['#ffd040', '#fff0a0', '#ffb020']), 'glow', 0.2);
+  const p = G.player; if (chance(0.07)) setTimeout(() => G.mutateVariant(p, 'relic'), 600); o.type = 'dead'; o.act = null; for (let i = 0; i < 26; i++) G.addP(o.x, o.y - 10, rf(-40, 40), rf(-70, 0), rf(0.6, 1.4), pick(['#ffd040', '#fff0a0', '#ffb020']), 'glow', 0.2);
   if (G.net && G.net.on) G.net.send({ t: 'objdead', x: o.x, y: o.y });
   const left = p.inv.add('nectar', 1); if (left) G.dropEntry({ id: 'nectar', n: 1 });
   NE.UI.dialog('Relic Nectar', 'Thick, golden, warm as blood. The Vespa inside ' + p.surv.first + ' <b>screams</b> for it.', [{ label: 'Drink it now', fn: () => { const e = p.inv.find('nectar'); if (e) NE.consume(p, e); } }, { label: 'Save it for later', hint: 'Drink it from your inventory any time' }]);
@@ -78,9 +84,12 @@ G.hivePulse = function (p) {
 // ---------- death: the Vespa bursts out for 10 seconds ----------
 G.startBurst = function (p) {
   G.state = 'burst'; const g = Object.create(NE.Actor.prototype); Object.assign(g, { g: G, x: p.x, y: p.y - 1, vx: 0, vy: -140, w: 7, h: 6, onGround: false, dropT: 0, climbing: false, t: 10, cd: 0, lashT: 0, tgt: null, kills: 0, facing: p.facing, wob: 0 });
-  G.goop = g; G.sayCD = 0; G.say(pick(NE.MONO.burst)); NE.Audio.play('burst'); G.shake(6); NE.Audio.music('burst');
-  for (let i = 0; i < 50; i++) G.addP(p.x, p.cy, rf(-90, 90), rf(-120, 10), rf(0.6, 1.5), pick(['#ffc21a', '#e09010', '#ffe070']), 'goo');
-  NE.UI.banner('THE VESPA ERUPTS', 'Ten seconds. Take them with you. [LMB] lash  •  climb walls');
+  G.goop = g; G.sayCD = 0; G.say(pick(NE.MONO.burst)); NE.Audio.play('screech'); NE.Audio.play('burst'); G.shake(9); NE.Audio.music('burst');
+  // rupture: blinding light, a ring of gore and glowing ichor
+  const vc = p.vglow || '#ffc21a'; G.flashT = 1.1; G.burstFx = { x: p.x, y: p.cy, t: 1, col: vc }; G.slowmo = 0.35;
+  for (let i = 0; i < 70; i++) { const a = i / 70 * Math.PI * 2; const sp = rf(80, 220); G.addP(p.x, p.cy, Math.cos(a) * sp, Math.sin(a) * sp - 40, rf(0.6, 1.5), pick([vc, '#ffc21a', '#e09010', '#fff6c0']), i % 3 ? 'goo' : 'glow', i % 3 ? undefined : 0); }
+  if (NE.Combat) NE.Combat.spray(p.x, p.cy, 0, -1, 30);
+  NE.UI.banner('THE VESPA ERUPTS', 'Ten seconds. [LMB] lash  •  [Space] leap & latch onto someone  •  climb walls');
   for (const a of G.actors) if (a.alive && a.D && NE.dist(a.x, a.y, p.x, p.y) < 90 && chance(0.5)) { a.state = 'flee'; a.target = p; }
   if (G.net && G.net.on) G.net.send({ t: 'burst' });
 };
@@ -96,8 +105,16 @@ G.goopUpdate = function (dt) {
   const py = g.y; g.y += g.vy * dt; g.collideY(py, false);
   g.t -= dt; g.cd = Math.max(0, g.cd - dt); g.lashT = Math.max(0, g.lashT - dt); g.wob += dt;
   if (Math.random() < dt * 14) G.addP(g.x + rf(-3, 3), g.y - 2, rf(-15, 15), rf(-20, 5), rf(0.4, 0.9), pick(['#ffc21a', '#d08a10']), 'goo');
-  if (G.mouse.l && g.cd <= 0) G.goopLash();
-  if (g.t <= 0) { G.goop = null; G.state = 'dying'; G.dieT = 2.4; NE.Audio.play('death'); for (let i = 0; i < 30; i++) G.addP(g.x, g.y - 3, rf(-50, 50), rf(-70, 0), rf(0.6, 1.2), '#a07010', 'goo'); G.log('The Vespa dissolves into the rock.' + (g.kills ? ' It took ' + g.kills + ' with it.' : ''), 'bad'); if (G.net && G.net.on) G.net.send({ t: 'burstend' }); }
+  // leap & latch: spring toward the cursor; hit someone mid-air and clamp onto them, stabbing with tendrils
+  const jp = !block && G.kd('jump'); if (jp && !g._jh && (g.onGround || g.latch)) { const m = G.mouse; let dx = m.wx - g.x, dy = m.wy - (g.y - 3); const L = Math.hypot(dx, dy) || 1; if (g.latch) { g.latch = null; g.y -= 4; } g.vx = dx / L * 230; g.vy = Math.min(-120, dy / L * 230 - 60); g.onGround = false; g.leap = 0.6; NE.Audio.play('squelch', 0.8); }
+  g._jh = jp; g.leap = Math.max(0, (g.leap || 0) - dt);
+  if (g.leap > 0 && !g.latch) for (const a of G.actors) { if (!a.alive || a.isPlayer || a.isRemote || a.town) continue; if (Math.abs(a.x - g.x) < 7 && g.y > a.y - a.h - 2 && g.y - 6 < a.y) { g.latch = a; g.leap = 0; g.stabT = 0; NE.Audio.play('latch'); G.shake(3); if (a.onAggro) a.onAggro(G.player); a.stagger = 1; break; } }
+  if (g.latch) { const a = g.latch; if (!a.alive || a.gone) { g.latch = null; } else { g.x = a.x - g.facing * 2; g.y = a.y - a.h + 4; g.vx = a.vx; g.vy = 0; a.stagger = Math.max(a.stagger || 0, 0.3); g.stabT -= dt;
+      if (g.stabT <= 0 || (G.mouse.l && g.cd <= 0)) { g.stabT = 0.32; g.cd = 0.18; g.lashT = 0.12; g.tgt = { x: a.x + rf(-3, 3), y: a.cy + rf(-4, 4) }; const part = pick(['head', 'torso', 'torso', 'larm', 'rarm']); const was = a.alive; a.hurt(part, rf(16, 26), 'sharp', 'The Vespa', { x: g.facing, y: 0.3 }); NE.Audio.play('slash', 0.8); NE.Combat.spray(a.x, a.cy, rf(-1, 1), -0.5, 10);
+        for (let i = 0; i < 4; i++) G.addP(a.x, a.cy, rf(-40, 40), rf(-50, 0), 0.6, g.latch && G.player.vglow || '#d8a020', 'goo');
+        if (was && a.anat.dead) { g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; G.toast('+35 XP — Vespa kill'); g.latch = null; } } } }
+  if (G.mouse.l && g.cd <= 0 && !g.latch) G.goopLash();
+  if (g.t <= 0) { G.goop = null; G.state = 'dying'; G.dieT = 2.4; NE.Audio.play('retract'); NE.Audio.play('death'); G.burstFx = { x: g.x, y: g.y - 3, t: 0.5, col: '#a07010' }; for (let i = 0; i < 30; i++) G.addP(g.x, g.y - 3, rf(-50, 50), rf(-70, 0), rf(0.6, 1.2), '#a07010', 'goo'); G.log('The Vespa dissolves into the rock.' + (g.kills ? ' It took ' + g.kills + ' with it.' : ''), 'bad'); if (G.net && G.net.on) G.net.send({ t: 'burstend' }); }
 };
 G.goopLash = function () {
   const g = G.goop; if (!g || g.cd > 0) return; g.cd = 0.32; g.lashT = 0.18; const m = G.mouse; let dx = m.wx - g.x, dy = m.wy - (g.y - 3); const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; const reach = 38;
@@ -107,7 +124,7 @@ G.goopLash = function () {
     const part = pick(['torso', 'torso', 'head', 'larm', 'rarm', 'lleg', 'rleg']); const wasAlive = a.alive;
     a.hurt(part, rf(30, 44), 'sharp', 'The Vespa', { x: dx, y: dy }); a.vx += dx * 160; a.vy -= 60; if (a.onAggro) a.onAggro(G.player);
     for (let i = 0; i < 8; i++) G.addP(a.x, a.cy, dx * rf(20, 70), rf(-50, 10), 0.8, '#d8a020', 'goo');
-    if (a.anat.dead && wasAlive) g.kills++; G.shake(2);
+    if (a.anat.dead && wasAlive) { g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; G.toast('+35 XP — Vespa kill'); } G.shake(2);
   }
   G.phys.impulse(g.tgt.x, g.tgt.y, 14, 300);
 };
@@ -125,6 +142,46 @@ G.drawGoop = function (ctx) {
 G.drawGoopGlow = function (ctx) {
   const g = G.goop; ctx.fillStyle = '#fff1a0'; ctx.fillRect(Math.round(g.x) + g.facing * 2, Math.round(g.y) - 4, 1, 1); ctx.fillRect(Math.round(g.x) + g.facing * 2 - 2, Math.round(g.y) - 4, 1, 1);
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = 'bold 16px "Pixelify Sans", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = g.t < 3 ? (Math.sin(G.t * 12) > 0 ? '#ff6040' : '#ffd040') : '#ffd040'; ctx.fillText(Math.max(0, g.t).toFixed(1), NE.VW / 2, 30); ctx.restore();
+};
+
+// ---------- run intro: the Vespa finds its host ----------
+// A spark of hive-light falls down the shaft, circles the dazed caver, and pours in through the eyes.
+G.startInfest = function () {
+  const p = G.player; if (!p) return; const v = NE.variantOf(p.surv.variant); setTimeout(() => { if (G.infest) NE.UI.hideHUD(); }, 0);
+  G.infest = { t: 0, x: p.x + 60, y: p.y - 120, col: v.glow, v, trail: [], done: false };
+  p.vespa = false; p.anat.stam = Math.min(p.anat.stam, 40); NE.Audio.play('chime', 0.6);
+};
+G.skipInfest = function () { const I = G.infest; if (!I || I.t > 4.6) return; I.t = 4.6; };
+G.infestUpdate = function (dt) {
+  const I = G.infest, p = G.player; I.t += dt; const t = I.t; const hx = p.rag.pts[0].x, hy = p.rag.pts[0].y;
+  p.crouch = t < 4.2; p.facing = 1;
+  let tx, ty;
+  if (t < 1.6) { const k = t / 1.6; tx = p.x + 60 - k * 40 + Math.sin(t * 5) * 10; ty = p.y - 120 + k * 90; } // drifting down the shaft
+  else if (t < 3.4) { const a = (t - 1.6) * 5.2; const r = 22 - (t - 1.6) * 8; tx = hx + Math.cos(a) * r; ty = hy - 4 + Math.sin(a) * r * 0.6; } // circling, tasting
+  else if (t < 3.9) { const k = (t - 3.4) / 0.5; tx = lerp(I.x, hx + 1, k * k); ty = lerp(I.y, hy - 1, k * k); if (!I.dove) { I.dove = 1; NE.Audio.play('screech', 0.55); } } // the dive
+  else { tx = hx + 1; ty = hy - 1; if (!I.inside) { I.inside = 1; NE.Audio.play('squelch', 1); NE.Audio.play('burst', 0.4); G.shake(5); G.flashT = 0.7; p.vespa = true; p.vglow = I.v.glow; for (let i = 0; i < 40; i++) G.addP(hx, hy, rf(-70, 70), rf(-90, 20), rf(0.4, 1.1), pick([I.col, '#fff6c0', '#ffd23a']), 'glow', 0.2); } }
+  I.x = lerp(I.x, tx, Math.min(1, dt * (t < 3.4 ? 6 : 14))); I.y = lerp(I.y, ty, Math.min(1, dt * (t < 3.4 ? 6 : 14)));
+  if (t < 4) { I.trail.push({ x: I.x, y: I.y, a: 1 }); if (I.trail.length > 26) I.trail.shift(); if (Math.random() < dt * 30) G.addP(I.x, I.y, rf(-8, 8), rf(-8, 8), 0.6, I.col, 'glow', 0); }
+  for (const q of I.trail) q.a -= dt * 2;
+  // host convulses as it takes hold
+  if (t > 3.9 && t < 5.2) { for (const q of p.rag.pts) { q.x += rf(-0.6, 0.6); q.y += rf(-0.4, 0.4); } if (Math.random() < dt * 8) NE.Combat && NE.Combat.spray(hx, hy + 2, rf(-1, 1), -0.3, 2); }
+  if (t > 5.4 && !I.done) { I.done = true; G.infest = null; p.crouch = false; NE.UI.showHUD && NE.UI.showHUD(); const T2 = NE.VTIERS.find(x => x.id === I.v.tier);
+    NE.UI.banner(p.surv.first.toUpperCase() + ' IS TAKEN', I.v.name + ' · ' + T2.name + ' strain — ' + I.v.desc); G.log('Vespa strain: ' + I.v.name + ' [' + T2.name + '] — ' + I.v.desc, 'good'); }
+};
+G.drawInfest = function (ctx) {
+  const I = G.infest; if (!I) return; const t = I.t;
+  for (const q of I.trail) if (q.a > 0) { ctx.globalAlpha = q.a * 0.6; ctx.fillStyle = I.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
+  ctx.globalAlpha = 1;
+  if (t < 4) { const x = Math.round(I.x), y = Math.round(I.y), pul = Math.sin(t * 12) > 0;
+    ctx.fillStyle = I.col + '44'; ctx.fillRect(x - 3, y - 3, 7, 7); ctx.fillStyle = I.col + '88'; ctx.fillRect(x - 2, y - 1, 5, 3); ctx.fillRect(x - 1, y - 2, 3, 5);
+    ctx.fillStyle = pul ? '#fff6c0' : I.col; ctx.fillRect(x - 1, y - 1, 3, 3); ctx.fillStyle = '#3a2408'; ctx.fillRect(x - 1, y, 3, 1); // tiny striped spark
+    ctx.fillStyle = 'rgba(255,240,180,0.7)'; ctx.fillRect(x - 3 + (pul ? 0 : 1), y - 3, 2, 1); ctx.fillRect(x + 2 - (pul ? 0 : 1), y - 3, 2, 1); } // flickering wings
+  // letterbox + caption
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); const k = Math.min(1, t * 2, Math.max(0, (5.4 - t) * 2)); const bar = Math.round(22 * k);
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, NE.VW, bar); ctx.fillRect(0, NE.VH - bar, NE.VW, bar);
+  ctx.globalAlpha = k; ctx.font = '7px "Pixelify Sans", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#e8e2d0';
+  const cap = t < 1.6 ? 'Something small and bright falls down the shaft...' : t < 3.4 ? 'It circles the caver. Tasting. Choosing.' : t < 4.4 ? 'It pours in through the eyes.' : 'The eyes open gold.';
+  ctx.fillText(cap, NE.VW / 2, NE.VH - 8); ctx.fillStyle = '#8f897c'; ctx.font = '5px monospace'; ctx.fillText('click / space to skip', NE.VW - 40, 14); ctx.restore(); ctx.globalAlpha = 1; ctx.textAlign = 'left';
 };
 
 // ---------- co-op: the Vespa drifts to a new host near your partner ----------

@@ -1,5 +1,6 @@
 // Nectar's End — procedural endless CAVE descent: organic bands, ropes, pits, stalactites, five cave biomes
 (function (NE) {
+const G_t = () => (NE.G && NE.G.t) || performance.now() / 1000;
 'use strict';
 const { ri, rf, pick, chance, clamp } = NE; const T = NE.T;
 const TL = NE.TL = { AIR: 0, SOLID: 1, PLAT: 2, LADDER: 3, SHARDS: 4, WATER: 5, CRUMBLE: 6, VENT: 7, METAL: 8, LAVA: 9, ICE: 10 };
@@ -46,7 +47,7 @@ class World {
     fl.objs.push({ type: 'fire', x: 44 * T, y: fy, label: 'Campfire' });
     fl.objs.push({ type: 'elevator', kind: 'descent', x: 52 * T, y: fy, label: 'Descent Winch Lift', act: 'descend' });
     for (const lx of [8, 18, 28, 37]) fl.objs.push({ type: 'lamp', x: lx * T + 4, y: c[lx] * T + 1, on: true, col: '#ffc070', flick: chance(0.4) ? rf(0.2, 0.6) : 0 });
-    fl.decor = [{ k: 'tent', x: 3 * T, y: fy }, { k: 'crates', x: 33 * T, y: fy }, { k: 'roots', x: 24 * T, y: 4 * T }, { k: 'roots', x: 15 * T, y: 4 * T }];
+    fl.decor = [{ k: 'tent', x: 3 * T, y: fy }, { k: 'crates', x: 33 * T, y: fy }, { k: 'rug', x: 8 * T, y: fy }, { k: 'sofa', x: 4 * T + 6, y: fy }, { k: 'desk', x: 14 * T, y: fy }, { k: 'plant', x: 17 * T + 4, y: fy }, { k: 'fridge', x: 23 * T, y: fy }, { k: 'shelf', x: 25 * T, y: fy }, { k: 'genset', x: 34 * T + 4, y: fy }, { k: 'plant', x: 41 * T, y: fy }, { k: 'neon', x: 26 * T, y: fy }, { k: 'roots', x: 24 * T, y: 4 * T }, { k: 'roots', x: 15 * T, y: 4 * T }];
     w.floors.push(fl); return w;
   }
   ensure(f, cb) { while (this.floors.length <= f) { const n = this.floors.length; const fl = NE.withSeed((this.seed + n * 7919) >>> 0, () => this.genFloor(n)); this.applyMods(fl); if (cb) cb(fl); } }
@@ -66,7 +67,7 @@ class World {
     const chamber = rf(0.6, 1.4);
     for (let x = 0; x < W; x++) {
       g[x] = clamp(FH - 4 + Math.round(nG(x) * 1.7), FH - 6, FH - 3);
-      c[x] = clamp(1 + Math.round(nC(x) * 1.6 * chamber + 0.3), 0, 4);
+      c[x] = clamp(2 + Math.round(nC(x) * 1.9 * chamber + Math.sin(x * 0.21 + f) * 0.8), 0, 5); // lower, wavier ceilings = narrower, organic passages
     }
     for (let x = 1; x < W; x++) { if (g[x] > g[x - 1] + 1) g[x] = g[x - 1] + 1; if (g[x] < g[x - 1] - 1) g[x] = g[x - 1] - 1; }
     for (let x = 0; x < W; x++) if (g[x] - c[x] < 6) c[x] = Math.max(0, g[x] - 6);
@@ -94,20 +95,32 @@ class World {
     if (f === 0) for (let x = 3; x <= 16; x++) for (let r = c[x]; r < g[x]; r++) rows[r][x] = 0;
     if (poiX > 0) for (let x = poiX; x <= poiX + poiW2; x++) for (let r = c[x]; r < g[x]; r++) rows[r][x] = 0;
     for (const [a, b] of fl.pitIn) for (let x = a; x <= b; x++) for (let r = 0; r < g[x]; r++) rows[r][x] = 0;
+    for (const [a, b, dir, cav] of fl.pitIn) { if (dir) { const x0 = dir > 0 ? b : a; for (let i = 1; i < 16; i++) { const x = x0 + dir * i, r = i; if (x < 3 || x > W - 4 || r >= g[x] - 1) break; if (rows[r][x] === 0) rows[r][x] = 2; if (i % 4 === 0 && rows[r + 1] && rows[r + 1][x] === 0) rows[r + 1][x] = 1; } }
+      if (cav) for (let r = 1, side = 0; r < g[a] - 2; r += 2, side ^= 1) { const sx = side ? b - 1 : a; if (rows[r][sx] === 0) rows[r][sx] = 2; } }
     if (crawl) { const gv = FH - 4; for (let x = crawl[0]; x <= crawl[1]; x++) for (let r = 0; r < gv; r++) rows[r][x] = r === gv - 1 ? 0 : 1; fl.objs.push(this.container('stash', ((crawl[0] + crawl[1]) / 2) * T, 0, depth)); fl.crawl = crawl; }
     // ropes down (narrow shafts)
-    const lads = []; for (let k = 0; k < (f === 0 ? 1 : ri(1, 2)); k++) { const x = tryX(0, 3); if (x > 0) { lads.push(x); for (let r = g[x]; r < FH; r++) rows[r][x] = 3; } }
+    // winding chutes: sloped tunnels that snake down through the floor rock into the band below (replace most rope shafts)
+    const chutes = []; for (let k = 0; k < (f === 0 ? 1 : ri(2, 3)); k++) {
+      const len = ri(7, 12), x = tryX(len + 1, 2); if (x <= 0) continue; const dir = chance(0.5) ? 1 : -1; const g0 = g[dir > 0 ? x : x + len];
+      let xe = 0; for (let i = 0; i <= len; i++) { const xx = dir > 0 ? x + i : x + len - i; const fl2 = Math.min(FH, g0 + Math.round((FH - g0) * (i + 1) / (len + 1)) + (i > 1 && i < len - 1 && chance(0.3) ? 1 : 0));
+        for (let r = Math.max(0, fl2 - 5); r < Math.min(FH, fl2); r++) rows[r][xx] = 0; if (i >= len - 1) for (let r = fl2; r < FH; r++) rows[r][xx] = 0; xe = xx; }
+      chutes.push([Math.min(xe, xe - dir), Math.max(xe, xe - dir), dir]);
+    }
+    const lads = []; for (let k = 0; k < (f === 0 ? 1 : chutes.length ? (chance(0.3) ? 1 : 0) : 1); k++) { const x = tryX(0, 3); if (x > 0) { lads.push(x); for (let r = g[x]; r < FH; r++) rows[r][x] = 3; } }
     if (!lads.length) { const x = 24; lads.push(x); for (let r = g[x]; r < FH; r++) rows[r][x] = 3; }
     this.ladNext = lads;
     // open pits (risky shortcut drops)
     const pits = []; for (let k = 0; k < (f === 0 ? 0 : ri(0, 2)); k++) { const w = ri(2, 3); const x = tryX(w, 2); if (x > 0) { pits.push([x, x + w - 1]); for (let i = 0; i < w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0; } }
-    this.pitNext = pits;
+    if (f > 0 && chance(0.55)) { const w = ri(5, 8), x = tryX(w, 2); if (x > 0) { for (let i = 0; i <= w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0;
+        for (let r = g[x] + 1, side = 0; r < FH; r += 2, side ^= 1) { const sx = side ? x + w - 1 : x; rows[r][sx] = 1; rows[r][sx + (side ? -1 : 1)] = 2; }
+        pits.push([x, x + w, 0, 1]); } }
+    this.pitNext = pits.concat(chutes);
     // stalactites & stalagmites & pillars
     for (let k = 0; k < ri(4, 9); k++) { const x = ri(5, W - 6); if (!free(x, x)) continue; const len = ri(1, 3); for (let r = c[x]; r < Math.min(g[x] - 4, c[x] + len); r++) rows[r][x] = 1; if (len > 1 && rows[c[x]][x + 1] === 0) rows[c[x]][x + 1] = 1; }
     for (let k = 0; k < ri(2, 5); k++) { const x = ri(5, W - 6); if (!free(x - 1, x + 1)) continue; if (g[x] > c[x] + 6 && rows[g[x] - 1][x] === 0) rows[g[x] - 1][x] = 1; }
     for (let k = 0; k < ri(0, 2); k++) { const x = tryX(1, 2); if (x > 0) for (let r = c[x]; r < g[x] - 4; r++) { rows[r][x] = 1; if (r < g[x] - 6) rows[r][x + 1] = 1; } }
     // rock ledges (one-way)
-    for (let k = 0; k < ri(1, 3); k++) { const len = ri(4, 8), x = ri(5, W - len - 5); const row = Math.min(...g.slice(x, x + len)) - ri(3, 4); if (row < 2) continue; for (let i = 0; i < len; i++) if (rows[row][x + i] === 0 && rows[row + 1][x + i] !== 3) rows[row][x + i] = 2; }
+    for (let k = 0; k < ri(1, 3); k++) { const len = ri(4, 8), x = ri(5, W - len - 5); const row = Math.min(...g.slice(x, x + len)) - ri(3, 4); if (row < 2) continue; const rock = chance(0.5); for (let i = 0; i < len; i++) if (rows[row][x + i] === 0 && rows[row + 1][x + i] !== 3) { rows[row][x + i] = rock ? 1 : 2; if (rock && i > 0 && i < len - 1 && row > 1 && rows[row - 1][x + i] === 0 && chance(0.25)) rows[row - 1][x + i] = 1; } }
     // ----- biome features
     const span = (minW, maxW, pad) => { const w = ri(minW, maxW); const x = tryX(w, pad || 1); return x > 0 ? [x, x + w] : null; };
     if (B === 'grotto' || B === 'ice') for (let k = 0; k < ri(0, 2); k++) { const s = span(4, 9); if (!s) continue; for (let x = s[0]; x <= s[1]; x++) { const d = (x === s[0] || x === s[1]) ? 1 : 2; for (let r = g[x]; r < g[x] + d; r++) rows[r][x] = 0; for (let r = g[x]; r < g[x] + d; r++) rows[r][x] = 5; } fl.pool = true; }
@@ -139,7 +152,8 @@ class World {
     // spawns
     if (f > 0) {
       const n = clamp(Math.floor(rf(0.3, 1.6) + depth / 170), 0, 6);
-      for (let k = 0; k < n; k++) fl.spawns.push({ kind: 'enemy', type: NE.wpick(biome.enemies), x: ri(8, W - 8) * T });
+      const tbl = depth < 120 ? [['scav', 5], ['gunner', depth > 60 ? 1 : 0.01]] : biome.enemies; // only people near the surface
+      for (let k = 0; k < n; k++) { const ty = NE.wpick(tbl); const pack = (ty === 'trog' && chance(0.5)) ? 2 : 1; for (let q = 0; q < pack; q++) fl.spawns.push({ kind: 'enemy', type: ty, x: ri(8, W - 8) * T }); }
       if (f >= 2 && chance(0.13)) fl.spawns.push({ kind: 'survivor', x: ri(10, W - 10) * T });
       if (depth > 300 && chance(0.05)) fl.spawns.push({ kind: 'trader', x: ri(10, W - 10) * T });
       if (f >= 3 && chance(0.12)) fl.spawns.push({ kind: 'standoff', x: ri(15, W - 15) * T });
@@ -171,6 +185,7 @@ class World {
     fl.objs.push({ type: 'sign', x: at(12), label: name });
     for (let x = 8; x < W - 8; x += 7) fl.objs.push({ type: 'lamp', x: x * T + 4, y: 0, on: true, col: pick(['#ffc070', '#ffd890', '#ffb060']), flick: 0 });
     for (let x = 10; x < W - 10; x += 16) fl.decor.push({ k: 'bunting', x: x * T, y: 0 });
+    for (const [k, x] of [['table2', 24], ['plant', 33], ['shelf', W - 36], ['table2', W - 26], ['genset', 40], ['plant', W - 42]]) fl.decor.push({ k, x: x * T, y: 0 });
     const npc = (role, x) => { const sv = NE.makeSurvivor(); fl.spawns.push({ kind: 'town', role, x: x * T, name: sv.name, look: sv.look }); };
     npc('trader', 30); npc('doctor', W - 30); for (let i = 0; i < ri(3, 5); i++) npc('folk', ri(14, W - 14));
     fl.feetY = (fl.y0 + gv) * T; for (const r of rows) this.rows.push(r);
@@ -280,6 +295,16 @@ NE.drawDecor = function (ctx, d, pal, time, fl) {
     case 'stalag': ctx.fillStyle = c1; for (let i = 0; i < 18; i++) { const w = Math.max(1, 5 - Math.floor(i / 4)); ctx.fillRect(x - Math.floor(w / 2), y - i, w, 1); } ctx.fillStyle = c0; for (let i = 0; i < 14; i++) { const w = Math.max(1, 4 - Math.floor(i / 4)); ctx.fillRect(x + 20 - Math.floor(w / 2), ceil + i, w, 1); } break;
     case 'pillar': ctx.fillStyle = c1; ctx.fillRect(x, ceil, 6, y - ceil); ctx.fillStyle = c0; ctx.fillRect(x + 4, ceil, 2, y - ceil); break;
     case 'pottery': ctx.fillStyle = '#8a5a30'; ctx.fillRect(x, y - 6, 5, 6); ctx.fillRect(x + 1, y - 7, 3, 1); ctx.fillStyle = '#6a4020'; ctx.fillRect(x, y - 4, 5, 1); ctx.fillStyle = '#7a4a28'; ctx.fillRect(x + 8, y - 4, 4, 4); break;
+    // ---- v0.5 hub furniture (base camp is a modern field station dug into the rock)
+    case 'sofa': { const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; R(0, -9, 22, 4, '#3a4a5a'); R(0, -6, 22, 4, '#4a5e70'); R(-1, -8, 3, 6, '#33414e'); R(20, -8, 3, 6, '#33414e'); R(2, -5, 8, 1, '#5a7088'); R(12, -5, 8, 1, '#5a7088'); R(1, -2, 1, 2, '#1a1410'); R(20, -2, 1, 2, '#1a1410'); R(4, -11, 5, 3, '#c0603a'); break; }
+    case 'desk': { const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; R(0, -8, 18, 2, '#6a6e74'); R(1, -6, 1, 6, '#4a4e54'); R(16, -6, 1, 6, '#4a4e54'); R(10, -6, 6, 4, '#3a3e44'); R(3, -16, 9, 7, '#1a1e24'); R(4, -15, 7, 5, (Math.floor(G_t() * 2) % 2) ? '#2a6a8a' : '#2a7aa0'); R(5, -14, 3, 1, '#9ae0ff'); R(5, -12, 4, 1, '#6ac0e0'); R(7, -9, 1, 1, '#1a1e24'); R(13, -10, 3, 2, '#e8e2d0'); break; }
+    case 'fridge': { const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; R(0, -20, 9, 20, '#d8dcd8'); R(0, -20, 9, 1, '#f0f4f0'); R(0, -12, 9, 1, '#a0a4a0'); R(7, -18, 1, 4, '#8a8e8a'); R(7, -10, 1, 6, '#8a8e8a'); R(2, -17, 2, 2, '#e05040'); R(4, -16, 2, 2, '#40a0e0'); break; }
+    case 'shelf': { const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; R(0, -22, 14, 1, '#7a5a3a'); R(0, -14, 14, 1, '#7a5a3a'); R(0, -22, 1, 22, '#5a4028'); R(13, -22, 1, 22, '#5a4028'); const cols = ['#c04040', '#e0c050', '#5a9ad0', '#6ab060', '#d0d0c0']; for (let i = 0; i < 5; i++) { R(1 + i * 2.5, -26 + (i % 2), 2, 4 - (i % 2), cols[i]); R(2 + i * 2, -18, 2, 4, cols[(i + 2) % 5]); } R(2, -6, 10, 6, '#5a4a30'); R(2, -6, 10, 1, '#7a6a48'); break; }
+    case 'plant': { const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; R(1, -5, 6, 5, '#a0603a'); R(1, -5, 6, 1, '#c07a4a'); for (let i = 0; i < 6; i++) { const lx = i - 1, h = 4 + (i * 7) % 5; R(lx + 1, -5 - h, 1, h, i % 2 ? '#4a8a3a' : '#6ab04a'); } R(0, -9, 2, 1, '#6ab04a'); R(6, -10, 2, 1, '#4a8a3a'); break; }
+    case 'rug': { ctx.fillStyle = '#7a3a2a'; ctx.fillRect(x, y - 1, 30, 1); ctx.fillStyle = '#c0803a'; for (let i = 0; i < 30; i += 3) ctx.fillRect(x + i, y - 1, 1, 1); break; }
+    case 'neon': { const on = Math.sin(G_t() * 7) > -0.9; ctx.fillStyle = on ? '#ffd040' : '#6a5020'; const L = [[3, 0, 5, 1], [1, 1, 2, 1], [8, 1, 2, 1], [0, 2, 1, 4], [10, 2, 1, 4], [1, 6, 2, 1], [8, 6, 2, 1], [3, 7, 5, 1], [4, 3, 3, 1], [4, 5, 3, 1]]; for (const r of L) ctx.fillRect(x + r[0], y - 40 + r[1], r[2], r[3]); if (on) { ctx.fillStyle = 'rgba(255,208,64,0.12)'; ctx.fillRect(x - 3, y - 43, 17, 14); } break; }
+    case 'genset': { const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; R(0, -9, 16, 9, '#5a6a40'); R(0, -9, 16, 1, '#7a8a58'); for (let i = 0; i < 4; i++) R(2 + i * 3, -7, 2, 4, '#3a4428'); R(12, -12, 2, 3, '#3a3a3a'); if (Math.random() < 0.08) R(12, -14 - Math.random() * 3, 1, 1, '#8a8a8a'); R(14, -5, 1, 1, (Math.floor(G_t() * 3) % 2) ? '#40ff60' : '#106020'); break; }
+    case 'table2': { const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; R(0, -7, 14, 2, '#6a4a2e'); R(1, -5, 1, 5, '#4a3420'); R(12, -5, 1, 5, '#4a3420'); R(3, -9, 2, 2, '#e8e2d0'); R(8, -10, 2, 3, '#5a8a6a'); R(-4, -6, 3, 1, '#5a4030'); R(-4, -5, 1, 5, '#4a3420'); R(15, -6, 3, 1, '#5a4030'); R(17, -5, 1, 5, '#4a3420'); break; }
     case 'bones': ctx.fillStyle = '#c8c0a8'; ctx.fillRect(x, y - 1, 7, 1); ctx.fillRect(x + 1, y - 3, 3, 2); ctx.fillStyle = '#111'; ctx.fillRect(x + 2, y - 3, 1, 1); break;
     case 'ruin': ctx.fillStyle = c2; ctx.fillRect(x, y - 22, 5, 22); ctx.fillRect(x - 2, y - 24, 9, 2); ctx.fillStyle = c0; ctx.fillRect(x + 1, y - 18, 1, 14); break;
     case 'icicles': ctx.fillStyle = 'rgba(190,230,250,0.55)'; for (let i = 0; i < 5; i++) { const L = 3 + Math.floor(NE.hash(x + i, 2) * 8); ctx.fillRect(x + i * 3, ceil, 1, L); } break;

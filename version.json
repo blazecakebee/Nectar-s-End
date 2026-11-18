@@ -1,6 +1,33 @@
 {
  "log": [
   {
+   "version": "0.5.0",
+   "date": "2026-11-18",
+   "title": "Into the Deep — the big overhaul",
+   "changes": [
+    "Each new host now starts with a short cutscene: a spark of hive-light falls down the shaft, circles the caver, and pours in through the eyes. Click or press Space to skip.",
+    "Run grades: the death screen grades your run from F to S. It shows a score breakdown (depth, kills, Vespa kills, survivors helped, towns reached, nectar gifts, time alive) and how many skill points you earned. Grades S, A, B and C give 3, 2, 1 and 1 bonus skill points.",
+    "Caves are more winding, with several ways down. Sloped tunnels snake through the rock into the next band and carry on as stair-step ledges. Collapsed caverns have switchback ledges. Ceilings are lower and wavier, some ledges are solid rock you can climb onto, and ropes are now rare.",
+    "30 Vespa strains in six tiers: Common, Uncommon, Rare, Epic, Legendary and Mythical. Each host rolls one, which sets its eye color, glow and a passive bonus, and higher tiers are stronger. There are also 3 Secret strains, which you can only get from relic flowers or from Royal Jelly dropped by rival hosts.",
+    "Vespa burst: a screech, a blinding flash and a ring of glowing ichor, then a wet retraction when it ends. Press Space to leap toward the cursor and latch onto an enemy, stabbing them with tendrils. Vespa kills are worth +35 XP each.",
+    "New enemies: Feral Nectar-Addicts, Husked Spelunkers, Pale Troglodytes (which hunt in packs), Blind Cave Stalkers (which hunt by sound, so crouch-walk past them), Chitinous Burrowers (armored, and they dig through rock to reach you), Rival Parasite Hosts (violet eyes) and Deranged Expeditions. Each biome has its own mix, and only humans spawn near the surface.",
+    "Enemies wind up before every swing so you can read and dodge it. Heavy hits stagger them. If you get knocked out, an enemy can stand over you and finish you with one blow. Enemies and NPCs now take fall damage too.",
+    "+20% player damage. Weapons outreach fists and claws. Every heavy attack is now an overhead chop or slam, fists included. When a gun runs dry, you pistol-whip or rifle-butt instead.",
+    "New melee weapons: Machete, Fire Axe, Sledgehammer, Cave Spear (the longest reach), Lead Pipe, Riot Baton and Butcher Knife. Heavy blades can take limbs off.",
+    "New guns: .357 Revolver, Mine SMG (hold to fire), Pump Shotgun (7 pellets) and .50 Hunting Rifle. Caliber now scales recoil, sound, penetration, how hard targets are shoved and staggered, and how often limbs are torn off.",
+    "Armor sets: Leather, Tactical (Kevlar), Scrap Plate, Steel Riot and Hazmat. Each has different resistances per damage type, plus its own weight and speed cost. A full Hazmat set blocks gas and most radiation.",
+    "Bleeding rebalance: normal hits cause lighter wounds, and heavy bleeding comes from big hits, high calibers and heavy blades. Minor and moderate wounds clot on their own much faster. Bandages and rags press shut minor bleeds and cut worse ones down hard. Dirty rags work as dressings but raise infection risk.",
+    "Cave water: stand in it and press E to drink. Clear water is safe, but murky water can make you sick. Hold Crouch and press E to wash dirty rags into clean ones (clear water only).",
+    "The health card shows how many injuries are still untreated, and the treatment bar shows % done and how many injuries are left. Starving or dehydrated hosts also slow down.",
+    "Co-op: dropped items land in a bag your partner can see and pick up. Physics props now sync between players, including when one of you drags them. Press E next to your partner to triage their body parts with your supplies, or revive them if they're unconscious. You both see the progress bar.",
+    "30 new traits: positive, negative and trade-offs such as Glass Cannon, Heavyset, Bruiser and Pack Mule.",
+    "New descent cutscene: the cage drops down a rock shaft, with sparks off the guide rails, a swinging lantern lighting the hosts inside, and a honey progress bar.",
+    "Base Camp is now a modern field station with a sofa, desk terminal, fridge, shelves, plants, a generator and a neon hive sign. Towns got tables and furniture too. Crates, lockers, strongboxes and bags have more detail.",
+    "The depth meter is back in the top-left as a progress bar toward the next town.",
+    "New settings: UI scale and Text size."
+   ]
+  },
+  {
    "version": "0.4.3",
    "date": "2026-11-18",
    "title": "Clean faces & full hair",

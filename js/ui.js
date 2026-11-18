@@ -29,7 +29,8 @@ UI.init = function () {
 
     <div id="lobbybar" class="hide"></div>
     <div id="rcol"><div id="portrait"><div class="p-frame"><canvas id="pcv"></canvas><div class="p-glow"></div></div><div class="p-name"></div><div class="p-occ"></div><div class="p-abil"></div><div class="p-cond"></div></div>
-    <div id="depth"><div class="d-num">0000<small>m</small></div><div class="d-bio"></div><div class="d-gauge"><div class="d-fill"></div></div><div class="d-ticks"></div><div class="d-threat"></div></div></div>
+    </div>
+    <div id="depth" class="tl"><div class="d-row"><div class="d-num">0000<small>m</small></div><div class="d-bio"></div></div><div class="d-gauge"><div class="d-fill"></div><i class="d-mark"></i></div><div class="d-row"><div class="d-ticks"></div><div class="d-threat"></div></div></div>
     <div id="vitals"></div>
     <div id="hotbar"></div>
     <div id="prompt" class="hide"></div>
@@ -65,10 +66,11 @@ UI.prologueText = function (t, i, n) { const el = $('.pro-t'); if (el.textConten
 // each host gets its own portrait backdrop, picked from their look seed
 NE.PORTRAIT_BGS = [['#4a3a5a', '#241a30', '#120c18'], ['#2e4a5e', '#16263a', '#0a121c'], ['#4a5a36', '#25301c', '#10160c'], ['#6a3a32', '#36181a', '#180a0c'], ['#5e4a26', '#30240f', '#160f06'], ['#2e5a52', '#16302c', '#081614'], ['#5a3a52', '#2e1a2c', '#140a14'], ['#3e4660', '#1e2234', '#0c0e18'], ['#6a5034', '#3a2814', '#1a1008'], ['#34506a', '#1a2a3e', '#0a1420'], ['#5a2e3e', '#2e141e', '#14080c'], ['#4a5258', '#24292c', '#101214']];
 NE.portraitBG = look => { const c = NE.PORTRAIT_BGS[(look.seed || 0) % NE.PORTRAIT_BGS.length]; return 'radial-gradient(ellipse at 50% 35%, ' + c[0] + ', ' + c[1] + ' 60%, ' + c[2] + ')'; };
-UI.applyTheme = function () { const th = G().store.settings.theme || 'honey'; document.documentElement.dataset.theme = th; };
+UI.applyTheme = function () { const S = G().store.settings; const th = S.theme || 'honey'; const de = document.documentElement; de.dataset.theme = th; de.style.setProperty('--us', S.uiScale || 1); de.style.setProperty('--ts', S.textSize || 1); };
 UI.showLobby = function () { UI.closeAll(); $('#title-ui').classList.add('hide'); $('#pro').classList.add('hide'); $('#hud').classList.remove('hide'); $('#hud').classList.add('lobby'); $('#lobbybar').classList.remove('hide'); UI.portrait = new NE.Portrait($('#pcv'), G().meta.survivor); UI.hudStatic(); };
 UI.showRun = function () { UI.closeAll(); $('#title-ui').classList.add('hide'); $('#pro').classList.add('hide'); $('#hud').classList.remove('hide', 'lobby'); $('#lobbybar').classList.add('hide'); UI.portrait = new NE.Portrait($('#pcv'), G().meta.survivor || G().player.surv); UI.hudStatic(); };
 UI.hideHUD = function () { $('#hud').classList.add('hide'); };
+UI.showHUD = function () { $('#hud').classList.remove('hide'); };
 UI.hudStatic = function () { const p = G().player; if (!p) return; const s = p.surv; $('.p-frame').style.background = NE.portraitBG(s.look); $('.p-name').textContent = s.name; $('.p-occ').textContent = NE.OCCUPATIONS.find(o => o.id === s.occ).name + ', ' + s.age; };
 
 // ---------------- toasts / say / banner ----------------
@@ -93,7 +95,8 @@ UI.tick = function (dt) {
   const pr = $('#prompt'); const tgt = !UI.panel && !UI.hexOpen && p.alive && !p.search && !p.treating ? g.interactTarget() : null;
   if (tgt) { const sp = UI.toScreen(tgt.x, (tgt.y || p.y) - (tgt.type === 'elevator' ? 40 : 20)); let lab = tgt.label || 'Interact'; if (tgt.type === 'container') lab = (tgt.searched ? 'Open ' : tgt.locked ? 'Breach ' : 'Search ') + lab + (tgt.locked ? ' 🔒' : ''); else if (tgt.isNPC) lab = (tgt.kind === 'trader' ? 'Trade with ' : 'Talk to ') + tgt.label; else if (tgt.type === 'elevator') lab = tgt.kind === 'descent' ? 'Ride the Descent Lift' : tgt.label; pr.innerHTML = '<b>[' + NE.keyLabel('interact') + ']</b> ' + esc(lab); pr.style.left = sp.x + 'px'; pr.style.top = sp.y + 'px'; pr.classList.remove('hide'); } else pr.classList.add('hide');
   // progress bar
-  const pg = $('#prog'); const act = p.treating || p.search; if (act) { const sp = UI.toScreen(p.x, p.y - p.h - 4); pg.style.left = sp.x + 'px'; pg.style.top = sp.y + 'px'; pg.firstChild.style.width = (act.t / act.dur * 100) + '%'; pg.dataset.l = p.treating ? (p.treating.op === 'removeTq' ? 'Loosening' : 'Treating ' + NE.PART_NAMES[p.treating.part]) : p.search.relic ? 'Harvesting nectar' : 'Searching'; pg.classList.remove('hide'); } else pg.classList.add('hide');
+  const pt = g.peerTreat && G().t - g.peerTreat.t < 0.6 ? g.peerTreat : null;
+  const pg = $('#prog'); const act = p.treating || p.search || (pt ? { t: pt.k, dur: 1, peerIn: pt } : null); if (act && act.peerIn) { const sp = UI.toScreen(p.x, p.y - p.h - 4); pg.style.left = sp.x + 'px'; pg.style.top = sp.y + 'px'; pg.firstChild.style.width = (act.t * 100) + '%'; pg.dataset.l = act.peerIn.by + ' is treating your ' + NE.PART_NAMES[act.peerIn.part].toLowerCase(); pg.classList.remove('hide'); } else if (act) { const sp = UI.toScreen(p.x, p.y - p.h - 4); pg.style.left = sp.x + 'px'; pg.style.top = sp.y + 'px'; pg.firstChild.style.width = (act.t / act.dur * 100) + '%'; pg.dataset.l = p.treating ? (p.treating.peer ? (p.treating.op === 'revive' ? 'Reviving partner' : 'Treating partner: ' + NE.PART_NAMES[p.treating.part]) + ' · ' + Math.round(act.t / act.dur * 100) + '%' : p.treating.op === 'removeTq' ? 'Loosening' : 'Treating ' + NE.PART_NAMES[p.treating.part] + ' · ' + Math.round(act.t / act.dur * 100) + '% · ' + NE.injuryCount(p.anat) + ' injuries left') : p.search.relic ? 'Harvesting nectar' : 'Searching'; pg.classList.remove('hide'); } else pg.classList.add('hide');
   $('#slowmo').classList.toggle('hide', !(UI.panel || UI.hexOpen) || g.state !== 'run');
   UI.portT -= dt; if (UI.portT <= 0 && UI.portrait) { UI.portT = 0.06; const A = p.anat; const life = g.state === 'lobby' ? 1 : p.alive ? Math.min(A.blood / 5000 * 1.15, (A.cons + 20) / 100, 1) : 0.3; UI.portrait.draw({ life, expr: !p.alive ? 'dead' : A.uncon ? 'uncon' : A.pain > A.threshold * 0.7 ? 'pain' : 'neutral', bleeding: A.bleeding || 0, headWounds: A.parts.head.wounds.filter(w => !w.closed || w.t === 'gsw').length, headBandage: !!A.parts.head.bandage, vespa: true, infest: p.infest || 0, muts: p.muts, shirt: p.shirt }); $('#portrait').classList.toggle('dead', !p.alive); }
   UI.tickT -= dt; if (UI.tickT <= 0) { UI.tickT = 0.1; UI.hudUpdate(); if (UI.panel && UI.live[UI.panel]) UI.live[UI.panel](); }
@@ -116,7 +119,7 @@ UI.hudUpdate = function () {
     vrow('p_drop', 'Blood', A.blood, 5000, bp > 80 ? 'blood' : bp > 60 ? 'blood warn' : 'blood bad', Math.round(A.blood) + ' mL' + (A.bleeding > 0.05 ? ' <em>▼' + A.bleeding.toFixed(1) + '</em>' : '')) +
     vrow('p_lungs', 'Stamina', A.stam, A.stamMax, 'stam', Math.round(A.stam)) +
     vrow('p_bolt', 'Pain', A.pain, A.threshold * 1.4, A.pain > A.threshold ? 'pain bad' : 'pain', Math.round(A.pain) + (A.pain > A.threshold ? ' !' : '')) +
-    '<div class="v-chips"><span>' + '<img class="pix" src="' + NE.iconURL('p_heart', null, 2) + '">' + Math.round(A.bpm) + '</span><span class="' + (A.temp < 35.6 || A.temp > 38.3 ? 'warn' : '') + '">' + A.temp.toFixed(1) + '°</span><span class="' + (A.hunger < 25 ? 'warn' : '') + '"><img class="pix" src="' + NE.iconURL('ration', null, 2) + '">' + Math.round(A.hunger) + '</span><span class="' + (A.thirst < 25 ? 'warn' : '') + '"><img class="pix" src="' + NE.iconURL('water', null, 2) + '">' + Math.round(A.thirst) + '</span>' + (A.rad > 5 ? '<span class="warn">☢ ' + Math.round(A.rad) + '</span>' : '') + (A.infection > 10 ? '<span class="warn">✚ ' + Math.round(A.infection) + '</span>' : '') + (p.abil && p.abil.includes('pulse') ? '<span class="' + (p.pulseCD > 0 ? '' : 'good') + '">[' + NE.keyLabel('pulse') + '] ' + (p.pulseCD > 0 ? Math.ceil(p.pulseCD) + 's' : 'Pulse') + '</span>' : '') + '</div>';
+    (NE.injuryCount(A) ? '<div class="v-inj">✚ ' + NE.injuryCount(A) + ' untreated injur' + (NE.injuryCount(A) > 1 ? 'ies' : 'y') + ' <small>[' + NE.keyLabel('health') + ']</small></div>' : '') + '<div class="v-chips"><span>' + '<img class="pix" src="' + NE.iconURL('p_heart', null, 2) + '">' + Math.round(A.bpm) + '</span><span class="' + (A.temp < 35.6 || A.temp > 38.3 ? 'warn' : '') + '">' + A.temp.toFixed(1) + '°</span><span class="' + (A.hunger < 25 ? 'warn' : '') + '"><img class="pix" src="' + NE.iconURL('ration', null, 2) + '">' + Math.round(A.hunger) + '</span><span class="' + (A.thirst < 25 ? 'warn' : '') + '"><img class="pix" src="' + NE.iconURL('water', null, 2) + '">' + Math.round(A.thirst) + '</span>' + (A.rad > 5 ? '<span class="warn">☢ ' + Math.round(A.rad) + '</span>' : '') + (A.infection > 10 ? '<span class="warn">✚ ' + Math.round(A.infection) + '</span>' : '') + (p.abil && p.abil.includes('pulse') ? '<span class="' + (p.pulseCD > 0 ? '' : 'good') + '">[' + NE.keyLabel('pulse') + '] ' + (p.pulseCD > 0 ? Math.ceil(p.pulseCD) + 's' : 'Pulse') + '</span>' : '') + '</div>';
   // hotbar
   const w = p.equip.weapon, wd = p.weaponDef(); let ammo = ''; if (wd.gun) ammo = (w.jammed ? '<b class="bad">JAM</b> ' : '') + w.mag + '/' + wd.gun.mag + ' <span class="dim">(' + p.inv.count(wd.gun.ammo) + ')</span>';
   const th = g.throwSel(); const band = p.inv.count('bandage') + p.inv.count('cleanrag') + p.inv.count('rag');
@@ -352,12 +355,12 @@ UI.render.skills = function (b) {
 // ----- SETTINGS -----
 NE.THEMES = [['honey', 'Honey (default)'], ['abyss', 'Abyss Blue'], ['moss', 'Moss'], ['ember', 'Ember'], ['amethyst', 'Amethyst'], ['hive', 'Hive Contrast'], ['bone', 'Bone & Ink']];
 UI.render.settings = function (b) {
-  const g = G(), M = g.meta, S = g.store.settings;
+  const g = G(), M = g.meta, S = g.store.settings; if (S.uiScale == null) S.uiScale = 1; if (S.textSize == null) S.textSize = 1;
   const pct = (v, min, max) => ((v - min) / (max - min) * 100).toFixed(1) + '%';
   const sl = (k, l, min, max, st, fmt) => '<label class="sl"><div class="sl-top"><span>' + l + '</span><b>' + fmt(S[k]) + '</b></div><input type="range" min="' + min + '" max="' + max + '" step="' + st + '" value="' + S[k] + '" data-k="' + k + '" style="--pct:' + pct(S[k], min, max) + '"></label>';
   const P = v => Math.round(v * 100) + '%';
   b.innerHTML = '<div class="settings"><div><h4>AUDIO</h4>' + sl('master', 'Master volume', 0, 1, 0.05, P) + sl('music', 'Music', 0, 1, 0.05, P) + sl('sfx', 'Sound effects', 0, 1, 0.05, P) +
-    '<h4>VISUALS</h4>' + sl('shake', 'Screen shake', 0, 1.5, 0.05, P) +
+    '<h4>VISUALS</h4>' + sl('uiScale', 'UI scale', 0.7, 1.4, 0.05, P) + sl('textSize', 'Text size', 0.8, 1.5, 0.05, P) + sl('shake', 'Screen shake', 0, 1.5, 0.05, P) +
     '<label class="set"><span>UI theme</span><select data-k="theme">' + NE.THEMES.map(t => '<option value="' + t[0] + '">' + t[1] + '</option>').join('') + '</select></label>' +
     '<label class="set"><span>Gore / trauma</span><select data-k="gore"><option value="0">Low</option><option value="1">Normal</option><option value="2">High</option></select></label>' +
     '<label class="set"><span>Tips</span><input type="checkbox" data-k="tips"' + (S.tips ? ' checked' : '') + '></label>' +
@@ -370,7 +373,7 @@ UI.render.settings = function (b) {
   b.querySelector('[data-k=gore]').value = S.gore; b.querySelector('[data-k=theme]').value = S.theme || 'honey';
   b.querySelectorAll('[data-k]').forEach(el => el.oninput = el.onchange = () => { const k = el.dataset.k; S[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' && k === 'theme' ? el.value : +el.value;
     if (el.type === 'range') { el.style.setProperty('--pct', pct(+el.value, +el.min, +el.max)); el.parentNode.querySelector('b').textContent = P(S[k]); }
-    if (k === 'theme') UI.applyTheme(); NE.Audio.applySettings(); G().save(); NE.Save.write(G()); });
+    if (k === 'theme' || k === 'uiScale' || k === 'textSize') UI.applyTheme(); NE.Audio.applySettings(); G().save(); NE.Save.write(G()); });
   $('#clog').onclick = () => UI.open('changelog'); $('#slotsb').onclick = () => UI.open('slots');
   $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([localStorage.getItem(NE.Save.KEY) || '{}'], { type: 'application/json' })); a.download = 'nectars-end-save.json'; a.click(); };
   $('#imp').onclick = () => $('#impf').click(); $('#impf').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const d = JSON.parse(t); if (d.slots) localStorage.setItem(NE.Save.KEY, JSON.stringify(d)); else { localStorage.removeItem(NE.Save.KEY); localStorage.setItem(NE.Save.OLD, JSON.stringify(d)); } location.reload(); } catch (er) { UI.toast('Bad save file.'); } }); };
@@ -552,6 +555,19 @@ UI.dialog = function (title, text, choices, opts) {
   const last = choices[choices.length - 1]; UI._modalCancel = () => { UI.closeModal(); if (last && !last.fn) return; };
   m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { const c = choices[+b.dataset.c]; UI.closeModal(); if (c.fn) c.fn(); });
 };
+UI.peerTriage = function () {
+  const g = G(), p = g.player, n = g.net; const q = n && n.peer; if (!q) return; const M = n.peerMed || { parts: {} }; const name = q.surv ? q.surv.first : 'your partner';
+  const meds = p.inv.items.filter(e => { const it = NE.ITEMS[e.id]; return it.cat === 'med' && it.med && it.med !== 'drug' && it.med !== 'clean'; });
+  const ch = [];
+  if (M.u) ch.push({ label: 'Revive ' + name, hint: 'Slap, shake and drag them back awake (4s).', fn: () => { p.treating = { t: 0, dur: 4 * p.stats.treat, peer: true, op: 'revive', part: 'head' }; n.send({ t: 'tprog', k: 0, part: 'head', by: p.surv.first }); } });
+  for (const k of NE.PARTS) { const r = M.parts && M.parts[k]; if (!r || r[7]) continue; const [open, bl, fr, spl, band, tq, frag] = r; if (!open && !(fr && !spl) && !frag) continue;
+    const need = open && !band ? ['bandage', 'cleanrag', 'rag'] : []; if (bl > 3 && !tq && k !== 'head' && k !== 'torso') need.unshift('tourniquet'); if (fr && !spl) need.push('splint'); if (frag) need.push('forceps'); if (open && !frag) need.push('suture');
+    const e = need.map(id => meds.find(x => x.id === id)).find(Boolean);
+    ch.push({ label: NE.PART_NAMES[k] + ' — ' + [open ? open + ' wound' + (open > 1 ? 's' : '') : '', bl > 0.05 ? 'bleeding ' + bl : '', fr ? (spl ? 'splinted' : 'broken') : '', frag ? 'fragment' : '', band ? 'bandaged' : ''].filter(Boolean).join(', '),
+      hint: e ? 'Use ' + NE.ITEMS[e.id].name : 'You have nothing for this', disabled: !e, fn: () => { const dur = NE.treatDuration(p, e) * 1.15; p.treating = { t: 0, dur, peer: true, entry: e, part: k }; n.send({ t: 'tprog', k: 0, part: k, by: p.surv.first }); } }); }
+  ch.push({ label: 'Done' });
+  UI.dialog('Triage: ' + esc(name), '<i>Blood ' + (M.b || '?') + ' mL · pain ' + (M.pain || 0) + (M.u ? ' · <b class="bad">UNCONSCIOUS</b>' : '') + '</i>', ch);
+};
 UI.confirm = (t, x, ok, fn) => UI.dialog(t, esc(x), [{ label: ok, fn }, { label: 'Not yet' }]);
 UI.survivor = function (npc) {
   const g = G(), p = g.player; const band = ['bandage', 'cleanrag', 'rag'].find(i => p.inv.has(i));
@@ -573,9 +589,13 @@ UI.standoff = function (o) {
 };
 UI.runEnd = function (d) {
   UI.closeAll(); $('#hud').classList.add('hide');
-  const m = $('#modal'); m.innerHTML = '<div class="dlg end dead"><h2>HOST LOST</h2><canvas id="endcv"></canvas><h3>' + esc(d.name) + '</h3><p class="' + (d.extracted ? 'good' : 'bad') + '">' + esc(d.extracted ? 'Made it out alive.' : d.cause) + '</p>' +
+  const GC = { S: '#ffd84a', A: '#7ad07a', B: '#5ab0ff', C: '#c8c0a8', D: '#e08a4a', F: '#ff5a4a' }; const P = d.parts || {}; const mx = Math.max(1, ...Object.values(P));
+  const gradeHTML = d.grade ? '<div class="end-grade"><div class="eg-letter" style="--gc:' + GC[d.grade] + '">' + d.grade + '</div><div class="eg-side"><b>' + d.score + ' pts</b>' + (d.nextAt ? '<small>' + (d.nextAt - d.score) + ' more for the next grade</small>' : '<small>Flawless descent.</small>') +
+    '<div class="eg-bars">' + [['depth', 'Depth'], ['kills', 'Kills'], ['vespa', 'Vespa kills'], ['helped', 'Survivors helped'], ['towns', 'Towns reached'], ['gifts', 'Nectar gifts'], ['survival', 'Time alive']].map(([k, l]) => '<div class="eg-r"><span>' + l + '</span><i><em style="width:' + Math.round((P[k] || 0) / mx * 100) + '%"></em></i><b>' + (P[k] || 0) + '</b></div>').join('') + '</div></div></div>' +
+    '<div class="eg-pts">★ Skill points earned: <b>' + ((d.levels || 0) + (d.bonus || 0)) + '</b> <small>(' + (d.levels || 0) + ' from level-ups + ' + (d.bonus || 0) + ' grade bonus)</small></div>' : '';
+  const m = $('#modal'); m.innerHTML = '<div class="dlg end dead"><h2>HOST LOST</h2>' + gradeHTML + '<canvas id="endcv"></canvas><h3>' + esc(d.name) + '</h3><p class="' + (d.extracted ? 'good' : 'bad') + '">' + esc(d.extracted ? 'Made it out alive.' : d.cause) + '</p>' +
     '<div class="end-g"><span>Max depth<b>' + d.depth + 'm</b></span><span>Time<b>' + fmtT(d.time) + '</b></span><span>Kills<b>' + d.kills + '</b></span><span>Survivors helped<b>' + d.treated + '</b></span><span>Hive memory<b>+' + d.xp + ' XP</b></span><span>Scrap<b>+' + d.scrap + '</b></span></div>' +
-    (d.levels ? '<p class="good">Level up! +' + d.levels + ' skill point' + (d.levels > 1 ? 's' : '') + '.</p>' : '') + (d.unlocks.length ? '<p class="good">Unlocked: ' + d.unlocks.map(esc).join(', ') + '</p>' : '') + '<p class="dim">Their body joins the cemetery. The Vespa sheds it like a husk — another human waits at Base Camp.</p>' +
+    (d.levels ? '<p class="good">Level up! Reached a new level.</p>' : '') + (d.unlocks.length ? '<p class="good">Unlocked: ' + d.unlocks.map(esc).join(', ') + '</p>' : '') + '<p class="dim">Their body joins the cemetery. The Vespa sheds it like a husk — another human waits at Base Camp.</p>' +
     '<div class="dlg-c"><button class="btn" id="e-lobby">Return to Lobby</button><button class="btn" id="e-title">Title Screen</button></div></div>';
   m.classList.remove('hide');
   const s = G().meta.cemetery[0]; if (s) { $('#endcv').style.background = NE.portraitBG(s.look); const pr = new NE.Portrait($('#endcv'), { look: s.look, age: s.age }); let life = 1; const anim = () => { if (!$('#endcv')) return; life = Math.max(0.35, life - 0.01); pr.draw({ life, expr: 'dead', bleeding: 2, headWounds: 0, vespa: life > 0.7, muts: NE.mutsOf(s.abil) }); if (life > 0.36) requestAnimationFrame(anim); }; anim(); }

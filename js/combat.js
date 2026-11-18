@@ -6,8 +6,8 @@
 'use strict';
 const { rf, pick, chance, clamp, lerp } = NE; const T = NE.T; const G = NE.G;
 const C = NE.Combat = {};
-const WLEN = { fists: 1.5, claws: 2.5, knife: 4.5, shiv: 4, pipe: 9, crowbar: 10, axe: 11, pickaxe: 10 };
-const STRIKE = { knife: 'thrust', shiv: 'thrust', fists: 'thrust', claws: 'thrust' };
+const WLEN = C.WLEN = { fists: 1.5, claws: 2.5, knife: 4.5, shiv: 4, pipe: 9, crowbar: 10, axe: 11, pickaxe: 10, machete: 8, fireaxe: 12, sledge: 12, spear: 17, leadpipe: 10, baton: 8, cleaver: 5 };
+const STRIKE = { knife: 'thrust', shiv: 'thrust', fists: 'thrust', claws: 'thrust', spear: 'thrust' };
 const gore = () => (G.meta && G.meta.settings ? G.meta.settings.gore : 1);
 const angDiff = (a, b) => { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; };
 
@@ -19,8 +19,8 @@ C.weaponOf = function (a) {
 };
 C.strike = function (a, w, heavy) {
   w = w || C.weaponOf(a); if (!w || a.strk) return false; const id = w.id || 'fists';
-  const kind = STRIKE[id] || (w.melee.kind === 'sharp' && (w.w || 1) < 0.6 ? 'thrust' : 'swing');
-  a.strk = { t: 0, dur: (kind === 'thrust' ? 0.16 : clamp(0.16 + (w.w || 1) * 0.06, 0.18, 0.34)) * (heavy ? 1.25 : 1), kind, heavy: heavy || 0 }; a.hitSet = new Set();
+  let kind = STRIKE[id] || (w.melee.kind === 'sharp' && (w.w || 1) < 0.6 ? 'thrust' : 'swing'); if (heavy && id !== 'spear') kind = 'overhead';
+  a.strk = { t: 0, dur: (kind === 'thrust' ? 0.16 : clamp(0.16 + (w.w || 1) * 0.06, 0.18, 0.4)) * (heavy ? 1.25 : 1), kind, heavy: heavy || 0 }; a.hitSet = new Set();
   NE.Audio.play('swing', heavy ? 1.1 : 0.7); return true;
 };
 C.tick = function (a, dt, tx, ty, active) {
@@ -30,9 +30,10 @@ C.tick = function (a, dt, tx, ty, active) {
   let ext = 0, off = 0, boost = 1; const S = a.strk;
   if (S) { S.t += dt; const k = clamp(S.t / S.dur, 0, 1);
     if (S.kind === 'thrust') { ext = Math.sin(k * Math.PI) * 6; boost = 2.2; }
+    else if (S.kind === 'overhead') { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(2.6, -1.1, Math.min(1, k * 1.15)); boost = 3.2; ext = Math.sin(k * Math.PI) * 2; }
     else { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(1.9, -0.8, Math.min(1, k * 1.25)); boost = 2.6; }
     if (S.t >= S.dur) a.strk = null; }
-  else if (a.charge) { const k = clamp(a.charge.t / 0.6, 0, 1); const up = Math.cos(target) >= 0 ? -1 : 1; const id2 = w.id || 'fists'; if (STRIKE[id2] || (w.melee.kind === 'sharp' && (w.w || 1) < 0.6)) ext = -2.5 * k; else off = up * 2.1 * k; if (k >= 1 && Math.random() < 0.3) G.addP(a.wtip ? a.wtip.x : a.x, a.wtip ? a.wtip.y : a.y, rf(-10, 10), rf(-20, 0), 0.25, '#ffe8a0', 'spark', 0); }
+  else if (a.charge) { const k = clamp(a.charge.t / 0.6, 0, 1); const up = Math.cos(target) >= 0 ? -1 : 1; const id2 = w.id || 'fists'; if (id2 === 'spear') ext = -3.5 * k; else { off = up * 2.6 * k; ext = -1.5 * k; } if (k >= 1 && Math.random() < 0.3) G.addP(a.wtip ? a.wtip.x : a.x, a.wtip ? a.wtip.y : a.y, rf(-10, 10), rf(-20, 0), 0.25, '#ffe8a0', 'spark', 0); }
   const maxRate = 30 / (1 + wt * 0.45) * boost * (a.isPlayer && a.stats.swing ? a.stats.swing : 1); const d = angDiff(a.wa, target + off); const step = clamp(d, -maxRate * dt, maxRate * dt);
   a.wav = step / Math.max(dt, 1e-4); a.wa += step; a.wext = lerp(a.wext || 0, ext, Math.min(1, dt * 30));
   const dx = Math.cos(a.wa), dy = Math.sin(a.wa); a.wdir = { x: dx, y: dy };
@@ -58,15 +59,18 @@ C.sweep = function (a, w, p0, p1, tv, dt, striking) {
       let hit = null; for (const s of samples) if (t.contains(s.x, s.y, 1.2)) { if (!hit || s.f > hit.f) hit = s; }
       if (!hit) continue; a.hitCD.set(t, now + 0.24);
       const spd = tv * (0.35 + 0.65 * hit.f); const cap = a.isPlayer ? 2.1 : 1.15;
-      let dmg = m.dmg * clamp((spd - 40) / 150, 0.25, cap) * (a.isPlayer ? a.stats.melee : 1) * a.anat.armFactor();
+      let dmg = m.dmg * clamp((spd - 40) / 150, 0.25, cap) * (a.isPlayer ? a.stats.melee * 1.2 : 1) * a.anat.armFactor();
       if (a.strk && a.strk.kind === 'thrust' && m.kind === 'sharp') dmg *= 1.25; const hv = a.strk && a.strk.heavy ? a.strk.heavy : 1; dmg *= hv; if (a.abil && a.abil.includes('sting')) dmg *= 1.4;
       const part = t.partNear(hit.x, hit.y); const kind = m.kind === 'sharp' && a.strk && a.strk.kind === 'thrust' ? 'sharp' : m.kind;
       t.hurt(part, dmg, kind, a.isPlayer ? a.surv.first : (a.D ? a.D.name : 'Someone'), vd); t.lastBy = a;
+      if (!t.isPlayer && dmg > 6) { t.stagger = Math.max(t.stagger || 0, clamp(dmg / 45, 0.12, 0.7) * (m.stun || 1) * (hv > 1 ? 1.4 : 1)); }
+      else if (t.isPlayer && dmg > 14) { t.stagger = 0; t.hurtT = 0.5; }
       if (a.abil && a.abil.includes('sting') && t.alive && t.anat) t.anat.tox = (t.anat.tox || 0) + 15;
       const push = Math.min(160 * hv, spd * 0.35 * hv) * (0.5 + (w.w || 0.5) * 0.4) * (a.isPlayer && a.stats.swing ? a.stats.swing : 1); t.vx += vd.x * push; t.vy += Math.min(0, vd.y * push * 0.4);
       const rp = t.rag.pts[NE.RAGIDX(part, t.facing)]; if (rp) { rp.ox -= vd.x * spd * 0.012; rp.oy -= vd.y * spd * 0.012; }
       NE.Audio.play(kind === 'sharp' || kind === 'bite' ? 'slash' : 'hit', clamp(spd / 200, 0.4, 1.2)); if (a.isPlayer || t.isPlayer) G.shake(clamp(dmg / 12, 0.8, hv > 1 ? 5 : 3)); if (hv > 1) { G.slowmo = 0.12; for (let i = 0; i < 6; i++) G.addP(hit.x, hit.y, rf(-60, 60), rf(-60, 10), 0.3, '#fff0c0', 'spark', 0.5); }
       if (kind === 'sharp' || dmg > 12) C.spray(hit.x, hit.y, vd.x, vd.y, Math.round(dmg * 0.8));
+      if (t.alive && hv > 1 && w.heavyw && kind === 'sharp' && part !== 'torso' && chance(0.35 * (gore() ? 1 : 0))) NE.Gore.sever(t, part, vd);
       if (t.onAggro && a.isPlayer) t.onAggro(a); else if (t.onAggro) t.onAggro(a);
       if (m.kind === 'blunt' && a.strk) { a.strk = null; a.wa -= Math.sign(a.wav || 1) * 0.5; } // heavy things bounce off
       if (a.isPlayer) a.anat.stam -= m.stam * 0.4 * a.stats.staminaCost;
@@ -89,9 +93,10 @@ C.spray = function (x, y, dx, dy, n) {
 
 // ---------------- bullets ----------------
 G.bullets = [];
+C.CAL = { gun: 1, smg: 1, shotgun: 1.5, magnum: 2, rifle: 3, big: 4 };
 C.fire = function (sh, ox, oy, dx, dy, range, dmg, snd, visual) {
-  const heavy = snd === 'rifle'; const V = heavy ? 1500 : 1100;
-  G.bullets.push({ x: ox, y: oy, vx: dx * V, vy: dy * V, life: range / V * 1.4, dmg, sh, heavy, visual, hit: new Set(), px: ox, py: oy, name: sh ? (sh.isPlayer ? sh.surv.first : sh.D ? sh.D.name : 'Gunfire') : 'Gunfire' });
+  const cal = C.CAL[snd] || 1; const heavy = cal >= 3; const V = 1000 + cal * 160;
+  G.bullets.push({ x: ox, y: oy, vx: dx * V, vy: dy * V, life: range / V * 1.4, dmg, sh, heavy, cal, pen: cal >= 4 ? 3 : cal >= 3 ? 2 : 1, visual, hit: new Set(), px: ox, py: oy, name: sh ? (sh.isPlayer ? sh.surv.first : sh.D ? sh.D.name : 'Gunfire') : 'Gunfire' });
 };
 C.updateBullets = function (dt) {
   const W = G.world; if (!W) return;
@@ -115,11 +120,11 @@ C.updateBullets = function (dt) {
         if (sh && ((sh.isPlayer && (a.isRemote || a.town)) || (sh.isRemote && a.isPlayer))) continue;
         if (!a.contains(b.x, b.y, 0.5)) continue; b.hit.add(a);
         const part = a.partNear(b.x, b.y); const dmg = b.dmg * (part === 'head' ? 1.5 : 1);
-        a.hurt(part, dmg, 'bullet', b.name, { x: ux, y: uy }); a.lastBy = sh; if (a.onAggro && sh) a.onAggro(sh);
-        const rp = a.rag.pts[NE.RAGIDX(part, a.facing)]; if (rp) { rp.ox -= ux * dmg * 0.09; rp.oy -= uy * dmg * 0.09; } a.vx += ux * dmg * 1.4;
+        a._cal = b.cal; a.hurt(part, dmg, 'bullet', b.name, { x: ux, y: uy }); a._cal = 0; a.lastBy = sh; if (a.onAggro && sh) a.onAggro(sh);
+        const rp = a.rag.pts[NE.RAGIDX(part, a.facing)]; if (rp) { rp.ox -= ux * dmg * 0.09 * b.cal; rp.oy -= uy * dmg * 0.09 * b.cal; } a.vx += ux * dmg * 1.1 * b.cal; if (!a.isPlayer && b.cal >= 2) a.stagger = Math.max(a.stagger || 0, 0.15 * b.cal);
         C.spray(b.x, b.y, ux, uy, Math.round(dmg * 0.7)); C.spray(b.x, b.y, -ux * 0.4, -uy * 0.4 - 0.3, Math.round(dmg * 0.15));
         if (a.isPlayer) G.shake(3);
-        b.dmg *= b.heavy ? 0.55 : 0.4; if (b.dmg < 9 || (part === 'torso' && a.gear && a.gear.body)) { b.life = 0; } break;
+        b.pen--; b.dmg *= b.cal >= 4 ? 0.75 : b.heavy ? 0.55 : 0.4; if (b.pen <= 0 || b.dmg < 9 || (part === 'torso' && a.gear && a.gear.body && b.cal < 3)) { b.life = 0; } break;
       }
       if (b.life <= 0) break;
       // corpses & physics props get shoved
@@ -194,10 +199,14 @@ Gore.guts = function (a, dir, remote) {
 Gore.cap = function () { const gb = G.phys.bodies.filter(b => b.kind === 'limb' || b.kind === 'gut' || b.kind === 'organ' || b.kind === 'head'); if (gb.length > 60) for (const b of gb.slice(0, gb.length - 60)) b.remove = true; };
 // called after damage is applied to a living actor
 Gore.afterHurt = function (a, part, dmg, kind, dir) {
-  const gl = gore(); if (gl === 0 || !a.anat || a.isRemote || a.isPuppet) return; const P = a.anat.parts[part]; if (!P || P.hp > 0) return; const m = gl === 2 ? 1 : 0.55;
+  const gl = gore(); if (gl === 0 || !a.anat || a.isRemote || a.isPuppet) return; const P = a.anat.parts[part]; if (!P || P.severed) return; const m = gl === 2 ? 1 : 0.55; const cal = kind === 'bullet' ? (a._cal || 1) : 0;
+  if (P.hp > 0) { // high calibre / blasts rip limbs off a still-healthy body
+    if (part !== 'torso' && ((cal >= 4 && dmg >= 70 && chance(0.6 * m + 0.2)) || (cal >= 3 && dmg >= 75 && chance(0.3 * m)) || (kind === 'frag' && dmg >= 30 && chance(0.4 * m)))) Gore.sever(a, part, dir);
+    else if (part === 'torso' && cal >= 4 && dmg >= 90 && chance(0.5 * m)) Gore.guts(a, dir);
+    return; }
   if (part === 'head') { if ((kind === 'sharp' && dmg >= 22) || (kind === 'frag' && dmg >= 14) || (kind === 'bullet' && dmg >= 60)) if (chance(0.5 * m + 0.15)) Gore.sever(a, 'head', dir); return; }
   if (part === 'torso') { if (dmg >= 18 && (kind === 'sharp' || kind === 'frag' || kind === 'bullet') && chance(0.45 * m)) Gore.guts(a, dir); return; }
-  let p = 0; if (kind === 'sharp' && dmg >= 15) p = 0.6; else if (kind === 'frag' && dmg >= 10) p = 0.55; else if (kind === 'bullet' && dmg >= 45) p = 0.35; else if (kind === 'blunt' && dmg >= 26) p = 0.15;
+  let p = 0; if (kind === 'sharp' && dmg >= 15) p = 0.6; else if (kind === 'frag' && dmg >= 10) p = 0.55; else if (kind === 'bullet' && dmg >= 45) p = 0.2 + cal * 0.15; else if (kind === 'blunt' && dmg >= 26) p = 0.15;
   if (p && chance(p * m)) Gore.sever(a, part, dir);
 };
 Gore.hitCorpse = function (a, part, dmg, kind, dir) {

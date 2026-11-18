@@ -11,7 +11,7 @@ NE.makeCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; 
 // ---------- the partner, as seen locally ----------
 class RemotePlayer extends NE.Actor {
   constructor(g, x, y, hello) { super(g, x, y, { faction: 'player', look: hello.surv.look }); this.isRemote = true; this.vespa = true; this.light = { on: true, bat: 100 }; this.setHello(hello); this.tgt = { x, y }; this.stats = { speed: 1, climb: 1 }; }
-  setHello(h) { this.surv = h.surv; this.look = h.surv.look; this.shirt = h.shirt; this.pants = h.pants; this.packCol = h.pack; this.name = h.surv.name; }
+  setHello(h) { if (h.surv && h.surv.variant) this.vglow = NE.variantOf(h.surv.variant).glow; this.surv = h.surv; this.look = h.surv.look; this.shirt = h.shirt; this.pants = h.pants; this.packCol = h.pack; this.name = h.surv.name; }
   apply(s) { this.tgt = { x: s.x, y: s.y }; this.vx = s.vx; this.vy = s.vy; this.facing = s.f; this.h = s.h; this.crouch = !!s.cr; this.crawl = !!s.cw; this.climbing = !!s.cl; this.onGround = !!s.og; this.aimDir = { x: s.ax, y: s.ay }; this.w2 = s.w; this.lightOn = !!s.lt; this.light.on = !!s.lt; this.infest = s.inf || 0; this.muts = s.mu ? NE.mutsOf(s.mu.split(',')) : {}; this.swingT = s.sw ? 0.2 : 0; this.swingDur = 0.4; this.goop = s.gp || null; this.wisp = s.ws || null;
     if (!s.al && this.alive) { this.die('Lost'); } else if (s.al && !this.alive) { this.alive = true; this.limpRag = false; this.anat.dead = false; this.rag.tiles = false; this.rag.collide = false; this.rag.noActor = true; for (const c of this.rag.cons) if (c.s < 1) c.s = 0.4; } }
   weaponId() { return this.w2 || null; }
@@ -81,8 +81,35 @@ class Net {
     if (this.acc > 0.05 && p && (G.state === 'run' || G.state === 'lobby' || G.state === 'burst' || G.state === 'dying')) { this.acc = 0; const gp = G.goop, ws = G.wisp;
       this.send({ t: 'p', x: gp ? gp.x : ws ? ws.x : p.x, y: gp ? gp.y : ws ? ws.y : p.y, vx: p.vx, vy: p.vy, f: p.facing, h: p.h, cr: p.crouch ? 1 : 0, cw: p.crawl ? 1 : 0, cl: p.climbing ? 1 : 0, og: p.onGround ? 1 : 0, ax: p.aimDir ? +p.aimDir.x.toFixed(2) : 1, ay: p.aimDir ? +p.aimDir.y.toFixed(2) : 0, w: p.weaponId ? p.weaponId() : null, lt: p.light && p.light.on ? 1 : 0, al: p.alive ? 1 : 0, inf: +(p.infest || 0).toFixed(2), mu: (p.abil || []).join(','), sw: p.swingT > 0 ? 1 : 0, gp: gp ? 1 : 0, ws: ws ? 1 : 0, lobby: G.state === 'lobby' ? 1 : 0 }); }
     if (this.role === 'host' && this.eacc > 0.1 && G.state !== 'lobby' && G.world && this.peer) { this.eacc = 0; this.sendEnemies(); }
+    this.pacc = (this.pacc || 0) + dt; if (this.pacc > 0.08 && G.phys && this.peer && G.state === 'run') { this.pacc = 0; this.sendProps(); }
+    this.macc = (this.macc || 0) + dt; if (this.macc > 0.5 && p && p.anat && this.peer) { this.macc = 0; this.sendMed(); }
     if (this.role === 'guest') for (const [id, pp] of this.puppets) if (pp.alive && G.t - pp.seen > 2) { G.actors = G.actors.filter(a => a !== pp); this.puppets.delete(id); }
   }
+  // ---- physics props: whoever is handling a prop streams it; the host streams everything nobody is touching
+  sendProps() {
+    const l = []; const p = G.player, q = this.peer;
+    for (const b of G.phys.bodies) { if (!b.nid || b.remove) continue;
+      const mine = (G.grab && G.grab.body === b) || (b.ownT || 0) > G.t; if (mine) b.ownT = Math.max(b.ownT || 0, G.t + (G.grab && G.grab.body === b ? 0.3 : 0));
+      const remote = (b.remoteT || 0) > G.t - 0.5; if (remote && !mine) continue; if (!mine && this.role !== 'host') continue;
+      const v = b.vel ? b.vel() : { x: 0, y: 0 }; const moving = Math.abs(v.x) + Math.abs(v.y) > 3 || mine; if (!moving && b._still) continue; b._still = !moving;
+      if (p && Math.abs(b.pts[0].y - p.y) > 260 && (!q || Math.abs(b.pts[0].y - q.y) > 260)) continue;
+      const pts = []; for (const pt of b.pts) pts.push(Math.round(pt.x * 10) / 10, Math.round(pt.y * 10) / 10);
+      l.push([b.nid, pts, G.grab && G.grab.body === b ? 1 : 0]); if (l.length > 40) break; }
+    if (l.length) this.send({ t: 'pp', l });
+  }
+  onProps(l) {
+    this.propMap = new Map(); for (const b of G.phys.bodies) if (b.nid && !b.remove) this.propMap.set(b.nid, b);
+    for (const [id, pts, drag] of l) { const b = this.propMap.get(id); if (!b || (G.grab && G.grab.body === b)) continue; b.remoteT = G.t; b.ownT = 0; b.dragBy = drag ? this.peer : null; if (drag) b.dragT = G.t;
+      for (let i = 0; i < b.pts.length && i * 2 + 1 < pts.length; i++) { const pt = b.pts[i]; const nx = pts[i * 2], ny = pts[i * 2 + 1]; const dx = nx - pt.x, dy = ny - pt.y; const far = Math.abs(dx) + Math.abs(dy) > 6; pt.ox = far ? nx : nx - dx * 0.5; pt.oy = far ? ny : ny - dy * 0.5; pt.x = nx; pt.y = ny; } }
+  }
+  // ---- partner medical summary (so you can triage them) + treatment over the wire
+  sendMed() { const A = G.player.anat; const parts = {}; for (const k of NE.PARTS) { const P = A.parts[k]; parts[k] = [P.wounds.filter(w => !w.closed).length, Math.round(A.partBleed(k) * 10) / 10, P.frac ? 1 : 0, P.splint ? 1 : 0, P.bandage ? 1 : 0, P.tq ? 1 : 0, P.wounds.filter(w => w.bullet).length, P.severed ? 1 : 0]; }
+    this.send({ t: 'med', u: A.uncon ? 1 : 0, b: Math.round(A.blood), pain: Math.round(A.pain), parts }); }
+  treatProg(tr) { tr._s = (tr._s || 0) + 1; if (tr._s % 6 === 0) this.send({ t: 'tprog', k: tr.t / tr.dur, part: tr.part, by: G.player.surv.first }); }
+  treatDone(tr) { const p = G.player;
+    if (tr.op === 'revive') { this.send({ t: 'revive', by: p.surv.first }); G.toast('You haul ' + (this.peerSurv ? this.peerSurv.first : 'them') + ' back to their senses.'); return; }
+    if (!p.inv.items.includes(tr.entry)) return G.toast('Item missing.'); tr.entry.n--; if (tr.entry.n <= 0) p.inv.remove(tr.entry);
+    this.send({ t: 'treat', id: tr.entry.id, part: tr.part, by: p.surv.first }); G.toast('Treated their ' + NE.PART_NAMES[tr.part].toLowerCase() + '.'); G.run && G.run.treated++; }
   sendEnemies() {
     const p = G.player, q = this.peer; const near = a => (p && Math.abs(a.y - p.y) < 300) || (q && Math.abs(a.y - q.y) < 300);
     const list = []; const inRange = new Set();
@@ -116,11 +143,17 @@ class Net {
       case 'hit': { if (this.role !== 'host') return; const e = G.actors.find(a => a.nid === m.id); if (e && e.alive) { e.hurt(m.part, m.dmg, m.kind, m.src, m.dir); if (e.onAggro && this.peer) e.onAggro(this.peer); if (e.anat.dead && e.alive) { e.anat.lastHit = m.src; } } return; }
       case 'push': { const e = G.actors.find(a => a.nid === m.id); if (e) { e.vx += m.vx; e.vy += m.vy; if (e.D) { e.state = 'flee'; } } return; }
       case 'hurt': { const p = G.player; if (p && p.alive) { p.hurt(m.part, m.dmg, m.kind, m.src, m.dir); if (m.kind === 'bullet') G.shake(3); } return; }
+      case 'pp': if (G.phys) this.onProps(m.l); return;
+      case 'bag': { if (!G.world || G.state !== 'run') return; let o = G.dyn.find(d => d.nkey === m.k); if (o) { o.items = m.it; return; } G.dyn.push({ type: 'container', ct: 'bag', x: m.x, y: m.y, label: 'Dropped Bag', act: 'search', items: m.it, searched: true, nkey: m.k }); return; }
+      case 'med': this.peerMed = m; return;
+      case 'tprog': G.peerTreat = { k: m.k, part: m.part, by: m.by, t: G.t }; return;
+      case 'treat': { const p = G.player; if (!p || !p.alive) return; const e = { id: m.id, n: 1 }; p.inv.items.push(e); const before = G.toast; let msg = ''; G.toast = s => { msg = s; }; try { NE.applyTreatment(p, e, m.part); } finally { G.toast = before; } p.inv.remove(e); G.peerTreat = null; G.toast(m.by + ' treated your ' + NE.PART_NAMES[m.part].toLowerCase() + (msg ? ': ' + msg : '.')); return; }
+      case 'revive': { const p = G.player; if (!p || !p.alive) return; const A = p.anat; A.cons = Math.max(A.cons, 55); A.uncon = false; A.painSpike = Math.max(0, A.painSpike - 20); A.stress = Math.max(0, A.stress - 20); G.peerTreat = null; G.toast(m.by + ' pulled you back up.'); return; }
       case 'tile': if (G.world && !G.world.lobby) { G.world.setMod(m.x, m.y, m.v, true); } return;
       case 'cont': { if (!G.world) return; const o = this.findKey(m.k); if (o) { o.searched = !!m.s; o.items = m.it; o.locked = m.l; if (NE.UI.panel === 'loot' && NE.UI.arg === o) NE.UI.refresh(); } return; }
       case 'objdead': { if (!G.world) return; for (const fl of G.world.floors) for (const o of fl.objs) if ((o.type === 'relic' || o.type === 'forage') && Math.abs(o.x - m.x) < 2 && Math.abs(o.y - m.y) < 2) { o.type = 'dead'; o.act = null; } return; }
       case 'shot': { G.tracers.push({ x1: m.x1, y1: m.y1, x2: m.x2, y2: m.y2, t: 0.05 }); G.muzzle = { x: m.x1, y: m.y1, t: 0.06 }; const p = G.player; const d = p ? NE.dist(m.x1, m.y1, p.x, p.y) : 0; NE.Audio.play(m.snd, clamp(1 - d / 400, 0.15, 1)); G.sparks(m.x2, m.y2, 3); return; }
-      case 'bul': { G.muzzle = { x: m.x, y: m.y, t: 0.06 }; const p = G.player; const d = p ? NE.dist(m.x, m.y, p.x, p.y) : 0; NE.Audio.play(m.snd, clamp(1 - d / 400, 0.15, 1)); NE.Combat.fire(null, m.x, m.y, m.dx, m.dy, m.range, 0, m.snd, true); return; }
+      case 'bul': { const p = G.player; const d = p ? NE.dist(m.x, m.y, p.x, p.y) : 0; if (!m.q) { G.muzzle = { x: m.x, y: m.y, t: 0.06 }; NE.Audio.play(m.snd, clamp(1 - d / 400, 0.15, 1)); } NE.Combat.fire(null, m.x, m.y, m.dx, m.dy, m.range, 0, m.snd, true); return; }
       case 'sev': case 'gut': { const t = m.id === 'peer' ? this.peer : (this.role === 'guest' ? this.puppets.get(m.id) : G.actors.find(a => a.nid === m.id)); if (!t) return; if (m.t === 'sev') NE.Gore.sever(t, m.part, { x: m.dx, y: m.dy }, true); else NE.Gore.guts(t, { x: m.dx, y: m.dy }, true); return; }
       case 'throw': { if (!G.phys) return; const P = G.phys; let b; if (m.id === 'brick') b = P.box('brick', m.x, m.y, 4, 3, 2, '#7a7068'); else { b = P.stick(NE.ITEMS[m.id].throwable, m.x, m.y, 4, Math.atan2(m.vy, m.vx), 1.2, m.id === 'dynamite' ? 0.8 : 0.6); if (m.id === 'dynamite') { b.fuse = 2.5; b.color = '#c02020'; } } b.item = m.id; b.remote = true; b.noActor = true; b.setVel(m.vx, m.vy); b.life = m.id === 'flare' ? 40 : m.id === 'glowstick' ? 150 : 0;
         if (m.id === 'bottle' || m.id === 'molotov') b.onImpact = (bb, pt, v) => { if (v > 110 && !bb.remove) { bb.remove = true; NE.Audio.play('glass'); if (m.id === 'molotov') G.addFire(pt.x, pt.y, 16, 9); } }; return; }
