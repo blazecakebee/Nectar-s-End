@@ -242,7 +242,7 @@ G.frame = function (dt) {
   }
   if (G.net) G.net.tick(dt);
   NE.UI.tick(dt);
-  const hideOS = (G.state === 'run' || G.state === 'lobby' || G.state === 'burst' || G.state === 'dying') && !NE.UI.panel && !NE.UI.hexOpen && !NE.UI.modalOpen(); if (hideOS !== G._hideOS) { G._hideOS = hideOS; G.cv.style.cursor = hideOS ? 'none' : ''; }
+  const hideOS = (G.state === 'run' || G.state === 'lobby' || G.state === 'burst' || G.state === 'dying') && !NE.UI.panel && !NE.UI.hexOpen && !NE.UI.modalOpen(); if (hideOS !== G._hideOS) { G._hideOS = hideOS; G.cv.style.cursor = hideOS ? 'none' : 'url(assets/cursor.png) 1 1, auto'; }
 };
 G.update = function (dt, rdt) {
   const p = G.player, W = G.world, run = G.state === 'run' || G.state === 'dying' || G.state === 'burst';

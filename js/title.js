@@ -9,21 +9,14 @@ function sil(ctx, col, base, amp, seedA, w, top) { ctx.fillStyle = col; for (let
 G.drawTitle = function (dt) {
   const ctx = G.ctx, VW = NE.VW, VH = NE.VH, t = G.t, F = G.titleFx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
   const gr = ctx.createLinearGradient(0, 0, 0, VH); gr.addColorStop(0, '#120c1e'); gr.addColorStop(0.45, '#1d1328'); gr.addColorStop(1, '#2c1810'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH);
-  // the deep glows gold — from the pit on the right
-  const px = Math.round(Math.max(VW * 0.8, VW / 2 + 120)); const glow = ctx.createRadialGradient(px, VH + 10, 10, px, VH, 170); glow.addColorStop(0, 'rgba(255,170,50,0.55)'); glow.addColorStop(0.5, 'rgba(200,90,40,0.18)'); glow.addColorStop(1, 'rgba(120,40,60,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, VW, VH);
+  // the deep glows gold from below
+  const px = Math.round(VW / 2); const glow = ctx.createRadialGradient(px, VH + 10, 10, px, VH, 170); glow.addColorStop(0, 'rgba(255,170,50,0.55)'); glow.addColorStop(0.5, 'rgba(200,90,40,0.18)'); glow.addColorStop(1, 'rgba(120,40,60,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, VW, VH);
   // far cave layers (coloured rims), stalactites
   sil(ctx, '#1f1733', 26, 30, 1.3, VW, true); sil(ctx, '#150f22', 14, 46, 2.1, VW, true);
   for (let i = 0; i < 18; i++) { const x = NE.hash(i, 31) * VW, y = 18 + NE.hash(i, 32) * 40; const c = ['#7affd8', '#b090ff', '#ff90c8'][i % 3]; ctx.globalAlpha = 0.35 + 0.3 * Math.sin(t * (0.6 + NE.hash(i, 33)) + i); ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 1, 2); ctx.globalAlpha = 1; }
   sil(ctx, '#1a1222', VH - 18, 34, 4.2, VW, false); sil(ctx, '#0e0a12', VH - 6, 22, 5.7, VW, false);
-  // the pit + winch lift on the right
-  ctx.fillStyle = '#07050a'; for (let k = 0; k < VH - 120; k++) { const w = 64 + Math.sin(k * 0.21) * 4 + k * 0.3; ctx.fillRect(Math.round(px - w / 2), 120 + k, Math.round(w), 1); }
-  for (let k = 0; k < VH - 120; k++) { const w = 64 + Math.sin(k * 0.21) * 4 + k * 0.3 - 6; ctx.fillStyle = 'rgba(255,160,60,' + (k / (VH - 120)) ** 1.6 * 0.32 + ')'; ctx.fillRect(Math.round(px - w / 2), 120 + k, Math.round(w), 1); }
-  ctx.fillStyle = '#5a3a22'; ctx.fillRect(px - 40, 116, 80, 4); ctx.fillRect(px - 34, 116, 3, 14); ctx.fillRect(px + 31, 116, 3, 14); ctx.fillStyle = '#8a6040'; ctx.fillRect(px - 4, 112, 8, 6);
-  const sw = Math.sin(t * 0.35) * 4; ctx.fillStyle = '#6a5038'; ctx.fillRect(px - 2, 118, 1, 60 + sw); ctx.fillRect(px + 2, 118, 1, 60 + sw);
-  const cy = 176 + sw; ctx.fillStyle = '#211b16'; ctx.fillRect(px - 16, cy, 33, 24); ctx.fillStyle = '#4a3e30'; ctx.fillRect(px - 16, cy, 33, 2); for (let i = 0; i < 5; i++) ctx.fillRect(px - 14 + i * 7, cy + 2, 1, 22);
-  const fl = Math.random() < 0.04 ? 0.3 : 1; ctx.fillStyle = 'rgba(255,190,90,' + fl + ')'; ctx.fillRect(px - 1, cy + 3, 3, 2);
   // bioluminescent mushrooms & vines
-  for (let i = 0; i < 9; i++) { const x = Math.round(NE.hash(i, 7) * VW), base = VH - 10 - Math.round(NE.hash(i, 8) * 14); if (Math.abs(x - px) < 40) continue; const c = ['#5affc8', '#ff7ad0', '#ffd060'][i % 3]; const h = 3 + (i % 3);
+  for (let i = 0; i < 9; i++) { const x = Math.round(NE.hash(i, 7) * VW), base = VH - 10 - Math.round(NE.hash(i, 8) * 14); const c = ['#5affc8', '#ff7ad0', '#ffd060'][i % 3]; const h = 3 + (i % 3);
     ctx.fillStyle = '#d8e8c8'; ctx.fillRect(x, base - h, 1, h); ctx.fillStyle = c; ctx.fillRect(x - 2, base - h - 2, 5, 2); ctx.fillRect(x - 1, base - h - 3, 3, 1);
     const g2 = ctx.createRadialGradient(x, base - h - 2, 0, x, base - h - 2, 16); g2.addColorStop(0, c + '55'); g2.addColorStop(1, c + '00'); ctx.fillStyle = g2; ctx.fillRect(x - 16, base - h - 18, 32, 32); }
   for (let i = 0; i < 7; i++) { const x = Math.round(NE.hash(i, 17) * VW); const L = 10 + Math.round(NE.hash(i, 18) * 26); for (let k = 0; k < L; k++) { ctx.fillStyle = '#2a4a2a'; ctx.fillRect(x + Math.round(Math.sin(k * 0.4 + t * 0.6 + i) * 1.5), 12 + k, 1, 1); } ctx.fillStyle = 'rgba(180,255,170,' + (0.5 + 0.4 * Math.sin(t * 2 + i)) + ')'; ctx.fillRect(x, 12 + L, 2, 2); }

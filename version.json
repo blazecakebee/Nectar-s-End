@@ -1,6 +1,15 @@
 {
  "log": [
   {
+   "version": "0.6.1",
+   "date": "2026-11-18",
+   "title": "Cleaner title screen",
+   "changes": [
+    "The honey cursor now always shows on the title screen and menus, not only when you hover a button.",
+    "Removed the big winch lift and the dark cliff on the right of the title screen. The cave scene is now centered, with the warm glow rising from below."
+   ]
+  },
+  {
    "version": "0.6.0",
    "date": "2026-11-18",
    "title": "Grid inventory",
