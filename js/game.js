@@ -683,7 +683,7 @@ G.drawLighting = function (cx, cy, fl) {
     else if (o.type === 'post') lights.push({ x: o.x, y: o.y - 22, r: 36, i: 0.6, col: '#ffcf70' });
   }
   for (const f of G.fires) lights.push({ x: f.x, y: f.y - 4, r: 50, i: 0.85, col: '#ff8030' });
-  { const tx0 = Math.floor(cx / T), ty0 = Math.floor(cy / T); for (let ty = ty0; ty < ty0 + Math.ceil(VH / T) + 1; ty++) for (let tx = tx0; tx < tx0 + Math.ceil(VW / T) + 1; tx += 2) if (W.get(tx, ty) === 9 && W.get(tx, ty - 1) !== 9) lights.push({ x: tx * T + 4, y: ty * T - 2, r: 40, i: 0.65, col: '#ff5a10' }); }
+  { const tx0 = Math.floor(cx / T), ty0 = Math.floor(cy / T); for (let ty = ty0; ty < ty0 + Math.ceil(VH / T) + 1; ty++) for (let tx = tx0; tx < tx0 + Math.ceil(VW / T) + 1; tx += 2) { const tt = W.get(tx, ty); if (tt === 9 && W.get(tx, ty - 1) !== 9) lights.push({ x: tx * T + 4, y: ty * T - 2, r: 40, i: 0.65, col: '#ff5a10' }); if (W.get(tx + 1, ty) === 4 || tt === 4) lights.push({ x: tx * T + 8, y: ty * T + 4, r: 18, i: 0.55, col: '#a8e0ff' }); } }
   for (const b of G.phys.bodies) { if (b.life > 0 && b.item === 'flare') lights.push({ x: b.pts[1].x, y: b.pts[1].y, r: 75, i: 0.9, col: '#ff3020' }); if (b.life > 0 && b.item === 'glowstick') lights.push({ x: b.pts[0].x, y: b.pts[0].y, r: 34, i: 0.7, col: '#60ff70' }); }
   if (G.muzzle && (G.muzzle.t -= 1 / 60) > 0) lights.push({ x: G.muzzle.x, y: G.muzzle.y, r: 70, i: 0.9, col: '#ffd080' });
   G.lights = lights;

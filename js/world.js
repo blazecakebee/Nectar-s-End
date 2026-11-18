@@ -114,7 +114,7 @@ class World {
     if (B === 'magma') for (let k = 0; k < ri(1, 2); k++) { const s = span(3, 7); if (!s) continue; for (let x = s[0]; x <= s[1]; x++) { const d = (x === s[0] || x === s[1]) ? 1 : 2; for (let r = g[x]; r < g[x] + d; r++) rows[r][x] = 9; } }
     if (B === 'ice') for (let k = 0; k < ri(2, 4); k++) { const x0 = ri(5, W - 14), w = ri(4, 10); for (let x = x0; x < x0 + w; x++) if (rows[g[x]][x] === 1) rows[g[x]][x] = 10; }
     if (B === 'desert' && f > 0) for (let k = 0; k < ri(1, 2); k++) { const s = span(3, 5); if (!s) continue; for (let x = s[0]; x <= s[1]; x++) { rows[g[x]][x] = 6; for (let r = g[x] + 1; r < Math.min(FH, g[x] + 3); r++) if (rows[r][x] === 1) rows[r][x] = 0; } }
-    if (B === 'crystal' || B === 'grotto') for (let k = 0; k < ri(1, 3); k++) { const x = ri(5, W - 8); if (!free(x, x + 2)) continue; for (let i = 0; i < ri(2, 3); i++) if (rows[g[x + i] - 1][x + i] === 0) rows[g[x + i] - 1][x + i] = 4; }
+    if (B === 'crystal' && chance(0.45)) { const x = ri(8, W - 10); if (free(x, x + 2)) for (let i = 0; i < 2; i++) if (rows[g[x + i] - 1][x + i] === 0) rows[g[x + i] - 1][x + i] = 4; }
     if ((B === 'magma') && f > 0) for (let k = 0; k < ri(1, 2); k++) { const x = tryX(0, 2); if (x > 0) { rows[g[x]][x] = 7; fl.objs.push({ type: 'vent', x: (x + 0.5) * T, t: rf(0, 6), period: rf(5, 9) }); } }
     if (B === 'grotto' && f > 1 && chance(0.25)) { const x = ri(8, W - 8); fl.objs.push({ type: 'gasleak', spore: true, x: x * T, y: 0, t: 0 }); }
     // relic flower: rare, glowing, guarded by nothing but the dark
@@ -251,7 +251,11 @@ World.prototype.draw = function (ctx, cx, cy, time) {
       else if (t === 8) ctx.drawImage(tex.metal[0], px, py);
       else if (t === 2) { ctx.fillStyle = pal.tile; ctx.fillRect(px, py, 8, 3); ctx.fillStyle = pal.top; ctx.fillRect(px, py, 8, 1); ctx.fillStyle = NE.shade(pal.tile, 0.6); ctx.fillRect(px, py + 3, 8, 1); if (NE.hash(tx, ty) < 0.3) ctx.fillRect(px + 3, py + 4, 2, 1); }
       else if (t === 3) { ctx.fillStyle = pal.ladder; const sw = Math.round(Math.sin(time * 1.5 + ty * 0.4) * 0.6); ctx.fillRect(px + 3 + sw, py, 2, 8); ctx.fillStyle = NE.shade(pal.ladder, 0.7); ctx.fillRect(px + 3 + sw, py + (ty % 2 ? 2 : 6), 2, 1); if (ty % 3 === 0) { ctx.fillStyle = NE.shade(pal.ladder, 1.2); ctx.fillRect(px + 2 + sw, py + 4, 4, 1); } }
-      else if (t === 4) { const cols = B === 'crystal' ? ['#a0e0ff', '#d0a0ff'] : B === 'grotto' ? ['#6a8a3a', '#8aaa4a'] : ['#c0d8e0', '#e0f0f8']; for (let i = 0; i < 3; i++) { ctx.fillStyle = cols[i % 2]; const sx = Math.floor(NE.hash(tx * 4 + i, ty) * 7); ctx.fillRect(px + sx, py + 5 - i, 1, 3 + i); } if ((time * 3 + tx) % 4 < 0.3) { ctx.fillStyle = '#fff'; ctx.fillRect(px + 3, py + 4, 1, 1); } }
+      else if (t === 4) { // glass / crystal shards: bright, outlined, glinting so you can't miss them
+        const cols = B === 'crystal' ? ['#b8ecff', '#e4b8ff', '#ffffff'] : ['#d8f0f8', '#a8d8e8', '#ffffff'];
+        ctx.fillStyle = 'rgba(160,220,255,0.18)'; ctx.fillRect(px - 1, py + 3, 10, 5);
+        const sp = [[1, 4, 4], [3, 2, 6], [5, 3, 5], [7, 5, 3]]; for (let i = 0; i < sp.length; i++) { const [sx, sy, h] = sp[i]; ctx.fillStyle = '#1a2a34'; ctx.fillRect(px + sx - 1, py + sy, 3, h); ctx.fillStyle = cols[i % 2]; ctx.fillRect(px + sx, py + sy, 1, h); ctx.fillStyle = cols[2]; ctx.fillRect(px + sx, py + sy, 1, 1); }
+        const gl = (time * 2 + tx * 0.7) % 3; if (gl < 0.25) { ctx.fillStyle = '#ffffff'; ctx.fillRect(px + 3, py, 1, 3); ctx.fillRect(px + 2, py + 1, 3, 1); } }
     }
   }
 };

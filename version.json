@@ -1,6 +1,17 @@
 {
  "log": [
   {
+   "version": "0.3.4",
+   "date": "2026-11-18",
+   "title": "Honeycomb skill web",
+   "changes": [
+    "Skill web redesigned as a honeycomb: wax cells fill with dripping honey as you unlock ranks, category cells fill up with honey too, the hub is now the striped Vespa, and the colors are warm cave tones. Labels no longer overlap and the big hexes no longer cover each other.",
+    "The depth meter now sits under your portrait, and its text no longer clips into the bar.",
+    "Every host's portrait gets its own background color.",
+    "Glass shards no longer appear all over the caves (none in the Mossy Grotto, rare patches in the Crystal Depths). The ones that remain are bright, outlined, glinting and lit, so you can see them coming."
+   ]
+  },
+  {
    "version": "0.3.3",
    "date": "2026-11-18",
    "title": "Taller, more detailed characters",

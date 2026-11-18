@@ -26,9 +26,10 @@ UI.init = function () {
   </div>
   <div id="pro" class="hide"><div class="pro-t"></div><div class="pro-b"><span class="pro-dots"></span><span>Click / Space: next  •  Esc: skip</span></div></div>
   <div id="hud" class="hide">
-    <div id="depth"><div class="d-num">0000<small>m</small></div><div class="d-bio"></div><div class="d-gauge"><div class="d-fill"></div><div class="d-ticks"></div></div><div class="d-threat"></div></div>
+
     <div id="lobbybar" class="hide"></div>
-    <div id="portrait"><div class="p-frame"><canvas id="pcv"></canvas><div class="p-glow"></div></div><div class="p-name"></div><div class="p-occ"></div><div class="p-abil"></div><div class="p-cond"></div></div>
+    <div id="rcol"><div id="portrait"><div class="p-frame"><canvas id="pcv"></canvas><div class="p-glow"></div></div><div class="p-name"></div><div class="p-occ"></div><div class="p-abil"></div><div class="p-cond"></div></div>
+    <div id="depth"><div class="d-num">0000<small>m</small></div><div class="d-bio"></div><div class="d-gauge"><div class="d-fill"></div></div><div class="d-ticks"></div><div class="d-threat"></div></div></div>
     <div id="vitals"></div>
     <div id="hotbar"></div>
     <div id="prompt" class="hide"></div>
@@ -60,11 +61,14 @@ UI.showTitle = function () {
 UI.playMain = function () { const g = G(); if (!g.meta.started && !g.store.seenPrologue) return UI.fade(() => NE.Prologue.start(() => UI.fade(() => g.toLobby()))); UI.fade(() => g.continueGame()); };
 UI.showPrologue = function (on) { $('#pro').classList.toggle('hide', !on); $('#title-ui').classList.add('hide'); $('#hud').classList.add('hide'); UI.closeAll(); };
 UI.prologueText = function (t, i, n) { const el = $('.pro-t'); if (el.textContent !== t) el.textContent = t; const d = $('.pro-dots'); const h = '●'.repeat(i + 1) + '○'.repeat(n - i - 1); if (d.textContent !== h) d.textContent = h; };
+// each host gets its own portrait backdrop, picked from their look seed
+NE.PORTRAIT_BGS = [['#4a3a5a', '#241a30', '#120c18'], ['#2e4a5e', '#16263a', '#0a121c'], ['#4a5a36', '#25301c', '#10160c'], ['#6a3a32', '#36181a', '#180a0c'], ['#5e4a26', '#30240f', '#160f06'], ['#2e5a52', '#16302c', '#081614'], ['#5a3a52', '#2e1a2c', '#140a14'], ['#3e4660', '#1e2234', '#0c0e18'], ['#6a5034', '#3a2814', '#1a1008'], ['#34506a', '#1a2a3e', '#0a1420'], ['#5a2e3e', '#2e141e', '#14080c'], ['#4a5258', '#24292c', '#101214']];
+NE.portraitBG = look => { const c = NE.PORTRAIT_BGS[(look.seed || 0) % NE.PORTRAIT_BGS.length]; return 'radial-gradient(ellipse at 50% 35%, ' + c[0] + ', ' + c[1] + ' 60%, ' + c[2] + ')'; };
 UI.applyTheme = function () { const th = G().store.settings.theme || 'honey'; document.documentElement.dataset.theme = th; };
 UI.showLobby = function () { UI.closeAll(); $('#title-ui').classList.add('hide'); $('#pro').classList.add('hide'); $('#hud').classList.remove('hide'); $('#hud').classList.add('lobby'); $('#lobbybar').classList.remove('hide'); UI.portrait = new NE.Portrait($('#pcv'), G().meta.survivor); UI.hudStatic(); };
 UI.showRun = function () { UI.closeAll(); $('#title-ui').classList.add('hide'); $('#pro').classList.add('hide'); $('#hud').classList.remove('hide', 'lobby'); $('#lobbybar').classList.add('hide'); UI.portrait = new NE.Portrait($('#pcv'), G().meta.survivor || G().player.surv); UI.hudStatic(); };
 UI.hideHUD = function () { $('#hud').classList.add('hide'); };
-UI.hudStatic = function () { const p = G().player; if (!p) return; const s = p.surv; $('.p-name').textContent = s.name; $('.p-occ').textContent = NE.OCCUPATIONS.find(o => o.id === s.occ).name + ', ' + s.age; };
+UI.hudStatic = function () { const p = G().player; if (!p) return; const s = p.surv; $('.p-frame').style.background = NE.portraitBG(s.look); $('.p-name').textContent = s.name; $('.p-occ').textContent = NE.OCCUPATIONS.find(o => o.id === s.occ).name + ', ' + s.age; };
 
 // ---------------- toasts / say / banner ----------------
 UI.toast = function (m, cls) {
@@ -98,7 +102,7 @@ UI.hudUpdate = function () {
   $('.d-bio').textContent = fl ? (fl.town ? '⌂ ' + fl.town.name : fl.biome.name) : 'Base Camp';
   const next = (Math.floor(d / 250) + 1) * 250; $('.d-fill').style.width = ((d % 250) / 250 * 100) + '%'; $('.d-ticks').textContent = fl ? '▸ next town ~' + next + 'm' : '';
   const ab = (p.abil || []); const pa = $('.p-abil'); const ak = ab.join(','); if (pa.dataset.k !== ak) { pa.dataset.k = ak; pa.innerHTML = ab.map(id => { const A = NE.ABILITIES.find(x => x.id === id); return '<img class="pix" title="' + esc(A.name) + '" src="' + NE.iconURL(A.icon, null, 2) + '">'; }).join(''); }
-  if (fl) { let thr = 1 + Math.floor(fl.depth / 300); if (g.env.threat) thr += 1; if (g.blackout > 0) thr += 1; thr = Math.min(5, thr); $('.d-threat').innerHTML = 'THREAT ' + '<i class="on">☠</i>'.repeat(thr) + '<i>☠</i>'.repeat(5 - thr); } else $('.d-threat').innerHTML = '';
+  if (fl) { let thr = 1 + Math.floor(fl.depth / 300); if (g.env.threat) thr += 1; if (g.blackout > 0) thr += 1; thr = Math.min(5, thr); $('.d-threat').innerHTML = '<span>THREAT</span>' + '<i class="on">☠</i>'.repeat(thr) + '<i>☠</i>'.repeat(5 - thr); } else $('.d-threat').innerHTML = '';
   // portrait conditions (top 3)
   const cond = g.state === 'lobby' ? [] : A.conditions().filter(c => c[1] !== 'good').slice(0, 3); $('.p-cond').innerHTML = cond.map(c => '<span class="' + c[1] + '">' + esc(c[0]) + '</span>').join('');
   // vitals
@@ -383,7 +387,7 @@ UI.render.slots = function (b) {
     const r = p.run; const where = r ? Math.round(NE.depthOfY(r.player.y)) + 'm' + (r.coop ? ' • co-op' : '') : 'Base Camp';
     return '<div class="slot-c' + (act ? ' act' : '') + '"><div class="sc-h">SLOT ' + (i + 1) + (act ? ' <em>ACTIVE</em>' : '') + '</div><canvas data-sp="' + i + '"></canvas><b>' + esc(p.survivor ? p.survivor.name : '—') + '</b><small>' + where + '</small><small class="dim">Lv ' + p.level + ' • deepest ' + Math.round(p.best.depth) + 'm • ' + p.cemetery.length + ' hosts lost</small><small class="dim">' + new Date(p.updated || Date.now()).toLocaleString() + '</small><div class="acts"><button class="btn" data-play="' + i + '"' + (inGame ? ' disabled' : '') + '>' + (act ? 'Continue' : 'Load') + '</button><button class="btn danger sm" data-del="' + i + '"' + (inGame && act ? ' disabled' : '') + '>Delete</button></div></div>';
   }).join('') + '</div>' + (inGame ? '<p class="dim center">Return to the title screen to switch slots. Your game saves automatically.</p>' : '<p class="dim center">Runs save automatically every few seconds, when you rest, and whenever you close or reload the page.</p>');
-  b.querySelectorAll('canvas[data-sp]').forEach(cv => { const p = st.slots[+cv.dataset.sp]; if (!p.survivor) return; const pr = new NE.Portrait(cv, p.survivor); pr.draw({ life: 1, expr: 'neutral', vespa: true, infest: 0.3 }); });
+  b.querySelectorAll('canvas[data-sp]').forEach(cv => { const p = st.slots[+cv.dataset.sp]; if (!p.survivor) return; cv.style.background = NE.portraitBG(p.survivor.look); const pr = new NE.Portrait(cv, p.survivor); pr.draw({ life: 1, expr: 'neutral', vespa: true, infest: 0.3 }); });
   const pick = i => { NE.Save.activate(g, i); NE.Save.write(g); UI.close(); UI.showTitle(); };
   b.querySelectorAll('[data-play]').forEach(el => el.onclick = () => { pick(+el.dataset.play); UI.playMain(); });
   b.querySelectorAll('[data-new]').forEach(el => el.onclick = () => { pick(+el.dataset.new); UI.playMain(); });
@@ -500,13 +504,13 @@ UI.render.dossier = function (b) {
   b.innerHTML = '<div class="dossier"><div class="dos-card"><canvas id="doscv"></canvas><div class="p-name">' + esc(s.name) + '</div><div class="dim">' + occ.name + ', age ' + s.age + '</div></div><div><h4>OCCUPATION</h4><p><b>' + occ.name + '</b> — ' + occ.desc + '<br><small class="dim">Starts with: ' + occ.kit.map(i => NE.ITEMS[i].name).join(', ') + '</small></p><h4>TRAITS</h4>' + s.traits.map(t => { const T = NE.TRAITS.find(x => x.id === t); return '<p><b class="' + (T.good ? 'good' : 'bad') + '">' + T.name + '</b> — ' + T.desc + '</p>'; }).join('') +
     '<h4>APPEARANCE</h4><p class="dim">' + (s.look.sex === 'f' ? 'Woman' : 'Man') + ' • Build: ' + s.look.build + ' • Hair: ' + s.look.hair + (s.look.facial !== 'none' ? ' • ' + s.look.facial : '') + (s.look.scar ? ' • scarred' : '') + (s.look.glasses ? ' • glasses' : '') + '</p>' +
     '<p class="dim">The Vespa takes a new human host for every descent — that\'s why no two are alike. Hosts are fragile. When this one dies, it goes to the cemetery and the Vespa finds another.</p><button class="btn" id="reroll">' + (M.rerolled ? 'Take a different host (10 scrap)' : 'Take a different host (free once)') + '</button></div></div>';
-  const pc = new NE.Portrait($('#doscv'), s); const dr = () => { if (!$('#doscv')) return; pc.draw({ life: 1, expr: 'neutral', bleeding: 0, headWounds: 0, vespa: true, infest: g.infestLevel() }); requestAnimationFrame(dr); }; dr();
+  $('.dos-card').style.background = NE.portraitBG(s.look); const pc = new NE.Portrait($('#doscv'), s); const dr = () => { if (!$('#doscv')) return; pc.draw({ life: 1, expr: 'neutral', bleeding: 0, headWounds: 0, vespa: true, infest: g.infestLevel() }); requestAnimationFrame(dr); }; dr();
   $('#reroll').onclick = () => { if (M.rerolled) { if (M.scrap < 10) return NE.Audio.play('deny'); M.scrap -= 10; } M.rerolled = true; M.survivor = NE.makeSurvivor(); g.save(); UI.closeAll(); g.toLobby(); UI.open('dossier'); };
 };
 UI.render.cemetery = function (b) {
   const M = G().meta; if (!M.cemetery.length) { b.innerHTML = '<div class="dim center">No graves yet. Go and make some.</div>'; return; }
   b.innerHTML = '<div class="cem"><div class="cem-best">Deepest: <b>' + Math.round(M.best.depth) + 'm</b> • Longest: <b>' + fmtT(M.best.time) + '</b> • Descents: <b>' + M.runs + '</b></div>' + M.cemetery.map((c, i) => '<div class="grave ' + (c.extracted ? 'ok' : '') + '"><canvas data-g="' + i + '"></canvas><div><b>' + esc(c.name) + '</b> <small>' + esc(c.occ) + ', ' + c.age + '</small><br><span class="' + (c.extracted ? 'good' : 'bad') + '">' + esc(c.cause) + '</span> at <b>' + c.depth + 'm</b> <small class="dim">• ' + fmtT(c.time) + ' • ' + c.kills + ' kills • ' + c.date + '</small></div></div>').join('') + '</div>';
-  b.querySelectorAll('canvas[data-g]').forEach(cv => { const c = M.cemetery[+cv.dataset.g]; if (!c.look) return; const pr = new NE.Portrait(cv, { look: c.look, age: c.age }); pr.draw({ life: 0.6, expr: 'dead', bleeding: 0, headWounds: 0, vespa: false, muts: NE.mutsOf(c.abil) }); });
+  b.querySelectorAll('canvas[data-g]').forEach(cv => { const c = M.cemetery[+cv.dataset.g]; if (!c.look) return; cv.style.background = NE.portraitBG(c.look); const pr = new NE.Portrait(cv, { look: c.look, age: c.age }); pr.draw({ life: 0.6, expr: 'dead', bleeding: 0, headWounds: 0, vespa: false, muts: NE.mutsOf(c.abil) }); });
 };
 
 
@@ -566,7 +570,7 @@ UI.runEnd = function (d) {
     (d.levels ? '<p class="good">Level up! +' + d.levels + ' skill point' + (d.levels > 1 ? 's' : '') + '.</p>' : '') + (d.unlocks.length ? '<p class="good">Unlocked: ' + d.unlocks.map(esc).join(', ') + '</p>' : '') + '<p class="dim">Their body joins the cemetery. The Vespa sheds it like a husk — another human waits at Base Camp.</p>' +
     '<div class="dlg-c"><button class="btn" id="e-lobby">Return to Lobby</button><button class="btn" id="e-title">Title Screen</button></div></div>';
   m.classList.remove('hide');
-  const s = G().meta.cemetery[0]; if (s) { const pr = new NE.Portrait($('#endcv'), { look: s.look, age: s.age }); let life = 1; const anim = () => { if (!$('#endcv')) return; life = Math.max(0.35, life - 0.01); pr.draw({ life, expr: 'dead', bleeding: 2, headWounds: 0, vespa: life > 0.7, muts: NE.mutsOf(s.abil) }); if (life > 0.36) requestAnimationFrame(anim); }; anim(); }
+  const s = G().meta.cemetery[0]; if (s) { $('#endcv').style.background = NE.portraitBG(s.look); const pr = new NE.Portrait($('#endcv'), { look: s.look, age: s.age }); let life = 1; const anim = () => { if (!$('#endcv')) return; life = Math.max(0.35, life - 0.01); pr.draw({ life, expr: 'dead', bleeding: 2, headWounds: 0, vespa: life > 0.7, muts: NE.mutsOf(s.abil) }); if (life > 0.36) requestAnimationFrame(anim); }; anim(); }
   UI._modalCancel = () => { };
   $('#e-lobby').onclick = () => { UI.closeModal(); UI.fade(() => G().toLobby()); };
   if (G().net) G().net.close();

@@ -316,3 +316,19 @@ button { font-family: inherit; }
 .hx.center:hover .x { color: #fff; }
 .hx-lab { display: none; }
 .hex-title { position: absolute; top: 7%; }
+
+/* right column: portrait card + depth panel underneath */
+#rcol { position: absolute; right: .8em; top: .7em; width: 7.6em; display: flex; flex-direction: column; gap: .35em; }
+#rcol #portrait { position: relative; right: auto; top: auto; width: auto; }
+#rcol #depth { position: relative; left: auto; top: auto; width: auto; padding: .3em .45em .35em; }
+#depth .d-num { font-size: 1.55em; line-height: 1; } #depth .d-bio { font-size: .66em; line-height: 1.15; margin-top: .1em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#depth .d-gauge { position: relative; height: .3em; margin: .3em 0 .18em; }
+#depth .d-ticks { font-size: .6em; line-height: 1.15; color: var(--dim); white-space: nowrap; }
+#depth .d-threat { display: flex; align-items: center; gap: .12em; font-size: .62em; line-height: 1.2; margin-top: .15em; } #depth .d-threat span { margin-right: .25em; letter-spacing: .08em; }
+#hud.lobby #depth { display: none; }
+.dos-card canvas, .slot-c canvas, .grave canvas, .dlg.end canvas { background-size: cover; }
+
+/* skill tree: honeycomb theme */
+.st-host { background: #0c0805; }
+.st-hint { color: #b8a07a; } .st-info { background: rgba(20,12,6,.92); border: 1px solid #6a4a1e; border-radius: .4em; color: #f6e6c0; box-shadow: 0 0 1em rgba(240,160,40,.15); }
+.st-foot { background: #140c06; border-top: 1px solid #3a2810; }
