@@ -152,6 +152,7 @@ class Net {
       case 'pp': if (G.phys) this.onProps(m.l); return;
       case 'bag': { if (!G.world || G.state !== 'run') return; let o = G.dyn.find(d => d.nkey === m.k); if (o) { o.items = m.it; return; } G.dyn.push({ type: 'container', ct: 'bag', x: m.x, y: m.y, label: 'Dropped Bag', act: 'search', items: m.it, searched: true, nkey: m.k }); return; }
       case 'med': this.peerMed = m; return;
+      case 'ev': if (G.world && G.state === 'run') G.applyEvent(m.d, m.d.tg === this.role ? G.player : null); return;
       case 'raise': if (G.wisp && !G.minion) { G.spawnMinion(m.x, m.y); G.toast(m.by + ' raised your old body as a brood minion. [A/D] move · [Space] hop · [LMB] bite.'); } return;
       case 'tprog': G.peerTreat = { k: m.k, part: m.part, by: m.by, t: G.t }; return;
       case 'treat': { const p = G.player; if (!p || !p.alive) return; const e = { id: m.id, n: 1 }; p.inv.items.push(e); const before = G.toast; let msg = ''; G.toast = s => { msg = s; }; try { NE.applyTreatment(p, e, m.part); } finally { G.toast = before; } p.inv.remove(e); G.peerTreat = null; G.toast(m.by + ' treated your ' + NE.PART_NAMES[m.part].toLowerCase() + (msg ? ': ' + msg : '.')); return; }

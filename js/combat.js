@@ -66,6 +66,8 @@ C.sweep = function (a, w, p0, p1, tv, dt, striking) {
       if (a.strk && a.strk.kind === 'thrust' && m.kind === 'sharp') dmg *= 1.25; const hv = a.strk && a.strk.heavy ? a.strk.heavy : 1; dmg *= hv; if (a.abil && a.abil.includes('sting')) dmg *= 1.4;
       const part = t.partNear(hit.x, hit.y); const kind = m.kind === 'sharp' && a.strk && a.strk.kind === 'thrust' ? 'sharp' : m.kind;
       t.hurt(part, dmg, kind, a.isPlayer ? a.surv.first : (a.D ? a.D.name : 'Someone'), vd); t.lastBy = a;
+      if (a.isPlayer && a.abil && a.abil.includes('rot') && t.alive && chance(0.3)) { t.stagger = Math.max(t.stagger || 0, 0.6); if (t.anat) t.anat.tox = (t.anat.tox || 0) + 10; G.addP(t.x, t.y - t.h + 3, 0, -10, 0.8, '#8ab040', 'glow', 0); }
+      if (t.isPlayer && t.abil && t.abil.includes('thorns') && a.alive && a.hurt) a.hurt(pick(['larm', 'rarm']), 5, 'sharp', 'Spined hide', { x: -vd.x, y: -vd.y });
       if (!t.isPlayer && dmg > 6) { t.stagger = Math.max(t.stagger || 0, clamp(dmg / 45, 0.12, 0.7) * (m.stun || 1) * (hv > 1 ? 1.4 : 1)); }
       else if (t.isPlayer && dmg > 14) { t.stagger = 0; t.hurtT = 0.5; }
       if (a.abil && a.abil.includes('sting') && t.alive && t.anat) t.anat.tox = (t.anat.tox || 0) + 15;

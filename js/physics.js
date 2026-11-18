@@ -63,6 +63,8 @@ class Phys {
         a.x -= dx * push * (b.m / tot) * 2; a.y -= dy * push * (b.m / tot) * 2; b.x += dx * push * (a.m / tot) * 2; b.y += dy * push * (a.m / tot) * 2;
       }
     }
+    for (const b of this.bodies) { if (b.kind === 'rag' || b.owner || !b.collide) continue; let sp = 0; for (const p of b.pts) sp += Math.abs(p.x - p.ox) + Math.abs(p.y - p.oy); sp = sp / b.pts.length * 60;
+      if (sp < 7) { b.still = (b.still || 0) + 1 / 60; if (b.still > 0.35) for (const p of b.pts) { p.ox = p.x; p.oy = p.y; } } else b.still = 0; }
     this.bodies = this.bodies.filter(b => !b.remove);
   }
   tileCollide(p, b) {
@@ -100,11 +102,12 @@ class Phys {
         if (p.x + p.r < l || p.x - p.r > r || p.y + p.r < t || p.y - p.r > bt) continue;
         const vy = (p.y - p.oy) * 60, vx = (p.x - p.ox) * 60;
         const rv = Math.hypot(vx - a.vx, vy - a.vy); const toward = (a.x - p.x) * vx + (a.cy - p.y) * vy > 0;
-        if (rv > 210 && toward && b.kind !== 'rag' && b.thrownBy !== a && b.dragBy !== a && b.age > 0.4) hits.push({ b, p, v: rv });
+        const bv = b.vel(); const real = (b.thrownBy && b.age < 4) || bv.y > 160 || b.kind === 'debris' || b.blastT > (NE.G ? NE.G.t : 0); const remote = NE.G && (b.remoteT || 0) > NE.G.t - 0.5;
+        if (rv > 210 && Math.hypot(bv.x, bv.y) > 180 && real && !remote && toward && b.kind !== 'rag' && b.thrownBy !== a && b.dragBy !== a && b.age > 0.4) hits.push({ b, p, v: rv });
         const dl = p.x + p.r - l, dr = r - (p.x - p.r);
         // resting on the actor's head: sit there, ride along, never get launched
         if (p.y < t + 4 && vy >= 0) { p.y = t - p.r; p.oy = p.y; p.ox = NE.lerp(p.ox, p.x - a.vx / 60, 0.5); continue; }
-        if (dl < dr) { p.x = l - p.r; p.ox = p.x - Math.min(0, a.vx) / 60 * 0.9 + 0.05; } else { p.x = r + p.r; p.ox = p.x - Math.max(0, a.vx) / 60 * 0.9 - 0.05; }
+        const push = Math.min(1.2, Math.min(dl, dr)) ; const sv = Math.max(-90, Math.min(90, a.vx)) / 60 * 0.7; if (dl < dr) { p.x -= push; p.ox = p.x - Math.min(0, sv); } else { p.x += push; p.ox = p.x - Math.max(0, sv); } b.still = 0;
       }
     }
     return hits;
@@ -117,7 +120,7 @@ class Phys {
   impulse(x, y, rad, force) {
     for (const b of this.bodies) for (const p of b.pts) {
       const dx = p.x - x, dy = p.y - y; const d = Math.hypot(dx, dy); if (d > rad || d < 0.01) continue;
-      const f = (1 - d / rad) * force / 60 / p.m; p.ox -= dx / d * f; p.oy -= dy / d * f;
+      const f = (1 - d / rad) * force / 60 / p.m; p.ox -= dx / d * f; p.oy -= dy / d * f; b.still = 0; if (force >= 600 && NE.G) b.blastT = NE.G.t + 1.2;
     }
   }
 }

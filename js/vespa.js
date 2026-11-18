@@ -16,6 +16,13 @@ G.vespaTick = function (p, dt) {
   G.trail(p, dt); if (G.net && G.net.peer) G.trail(G.net.peer, dt);
   p.pulseCD = Math.max(0, (p.pulseCD || 0) - dt);
   if (p.stats.heart) p.anat.bpm = Math.max(p.anat.bpm, 88);
+  if (p.abil && p.abil.includes('swarm') && p.alive) { p.swarmT = (p.swarmT == null ? 4 : p.swarmT) - dt; if (p.swarmT <= 0) { const e = G.actors.filter(a => a.alive && a.D && NE.dist(a.x, a.y, p.x, p.y) < 80).sort((a, b) => NE.dist(a.x, a.y, p.x, p.y) - NE.dist(b.x, b.y, p.x, p.y))[0];
+      if (e) { p.swarmT = 10; G.drones = G.drones || []; G.drones.push({ x: p.x, y: p.cy, tg: e, t: 0 }); NE.Audio.play('latch', 0.4); } else p.swarmT = 1; } }
+  if (G.drones) { for (const d of G.drones) { d.t += dt; const e = d.tg; if (!e || !e.alive) { d.dead = true; continue; } const dx = e.x - d.x, dy = e.cy - d.y, L = Math.hypot(dx, dy); d.x += dx / L * 160 * dt + Math.sin(d.t * 30) * 0.6; d.y += dy / L * 160 * dt + Math.cos(d.t * 25) * 0.6; G.addP(d.x, d.y, 0, 0, 0.25, p.vglow || '#ffd040', 'glow', 0);
+      if (L < 5) { d.dead = true; e.hurt(pick(['head', 'torso', 'larm', 'rarm']), 7, 'sharp', 'Drone swarm', { x: dx / L, y: dy / L }); e.stagger = Math.max(e.stagger || 0, 0.3); NE.Audio.play('slash', 0.4); if (e.onAggro) e.onAggro(p); } if (d.t > 3) d.dead = true; } G.drones = G.drones.filter(d => !d.dead); }
+  if (G.nectarFx) { const F = G.nectarFx; F.t += dt; if (F.t > 1.6) G.nectarFx = null; else if (p.alive) { const e = G.eyePos(p); for (let i = 0; i < 3; i++) { const a = rf(0, Math.PI * 2), r = 28 * (1 - F.t / 1.6) + rf(0, 6); G.addP(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, -Math.cos(a) * r * 2.2, -Math.sin(a) * r * 2.2, 0.35, pick([F.col, '#fff6c0', '#ffd040']), 'glow', 0); } p.crouch = F.t < 1.2; } }
+  // relic flowers hum louder as you get close
+  { G.relicHum = (G.relicHum || 0) - dt; if (G.relicHum <= 0 && G.world && !G.world.lobby && p.alive) { G.relicHum = 1.4; const fl = G.curFloor(); let best = 1e9; for (const f of [fl, G.world.floors[fl.f + 1], G.world.floors[fl.f - 1]]) if (f) for (const o of f.objs) if (o.type === 'relic') best = Math.min(best, NE.dist(o.x, o.y, p.x, p.y)); if (best < 160) { NE.Audio.play('relichum', clamp(1 - best / 160, 0.08, 1)); G.relicHum = 0.9 + best / 160 * 1.6; } } }
   G.flashT = Math.max(0, (G.flashT || 0) - dt); if (G.burstFx) { G.burstFx.t -= dt; if (G.burstFx.t <= 0) G.burstFx = null; }
 };
 G.drawGlow = function (ctx) {
@@ -65,13 +72,13 @@ G.finishRelic = function (o) {
 };
 G.drinkNectar = function (p) {
   const R = G.run; if (!R) return; R.abil = R.abil || []; G.meta.nectars = (G.meta.nectars || 0) + 1;
-  const left = NE.ABILITIES.filter(a => !R.abil.includes(a.id));
+  const pow = NE.variantOf(p.surv.variant).pow || []; const left = NE.ABILITIES.filter(a => (!a.strain || pow.includes(a.id)) && !R.abil.includes(a.id));
   p.anat.blood = Math.min(5000, p.anat.blood + 600); p.anat.pain *= 0.4; p.anat.stam = p.anat.stamMax; p.anat.infection *= 0.5; for (const k of NE.PARTS) p.anat.parts[k].hp = Math.min(p.anat.parts[k].max, p.anat.parts[k].hp + 25);
-  G.flashT = 1.2; NE.Audio.play('nectar'); G.shake(3); G.sayCD = 0; G.say(pick(NE.MONO.nectar));
+  G.flashT = 1.2; NE.Audio.play('nectar'); NE.Audio.play('respawn', 0.6); G.shake(3); G.sayCD = 0; G.say(pick(NE.MONO.nectar)); G.nectarFx = { t: 0, col: p.vglow || '#ffd040' }; G.slowmo = 0.9;
   for (let i = 0; i < 40; i++) G.addP(p.x, p.cy, rf(-60, 60), rf(-80, 20), rf(0.6, 1.6), pick(['#ffd040', '#fff0a0', '#ffb020']), 'glow', 0.1);
   if (!left.length) { G.meta.xp += 120; NE.UI.banner('THE VESPA IS SATED', 'Every gift already awakened. +120 XP.'); G.log('The nectar heals the host completely.', 'good'); return; }
   const A = pick(left); R.abil.push(A.id); p.setAbilities(R.abil); p.infest = G.infestLevel();
-  NE.UI.banner('THE VESPA STIRS', A.name + ' — ' + A.desc); G.log('Awakened: ' + A.name + '. ' + A.desc, 'good'); G.log('The host\'s body shifts. Something new grows.', 'sys');
+  NE.UI.banner(A.strain ? 'STRAIN GIFT AWAKENED' : 'THE VESPA STIRS', A.name + ' — ' + A.desc); G.log('Awakened: ' + A.name + '. ' + A.desc, 'good'); G.log('The host\'s body shifts. Something new grows.', 'sys');
   G.autosave();
 };
 G.hivePulse = function (p) {

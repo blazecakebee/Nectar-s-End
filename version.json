@@ -1,6 +1,30 @@
 {
  "log": [
   {
+   "version": "0.6.6",
+   "date": "2026-11-18",
+   "title": "Nectar & strain gifts",
+   "changes": [
+    "Relic flowers are easier to find. Each one has a pulsing golden ring and rising motes, and a soft chime that gets louder and faster as you get close, even from the level above or below.",
+    "Drinking nectar now plays an animation: golden light spirals into your eyes, you sink to a crouch for a moment, time slows and a flash goes off.",
+    "Infestation rises much more gently. One nectar adds about 4–5% instead of ~10%, and lifetime nectars barely count.",
+    "13 new strain gifts. Each Vespa strain has its own signature gifts that only it can awaken with nectar: 1 for Common, 2 for Uncommon and Rare, 3 for Epic and Legendary, 4 for Mythical and Secret. The gifts are Honeyed Flesh, Drone Swarm, Blood Frenzy, Limb Carapace, Locust Legs, Rot Breath, Hive Mind, Honey Blood, Ember Glands, Frost Coat, Phantom Step, Royal Command and Spined Hide.",
+    "The Status tab lists your strain's gifts, with ✦ for ones you've awakened and ◇ for ones you haven't yet.",
+    "Lodged fragments: no forceps? Dig them out with a knife, cleaver, shiv, machete, lockpick, crowbar, spear, pickaxe, axe or a piece of scrap. It hurts more and gets the wound dirtier. Each tool has a chance to slip; on success every fragment in that body part comes out."
+   ]
+  },
+  {
+   "version": "0.6.5",
+   "date": "2026-11-18",
+   "title": "Selling, calmer boxes, shared events",
+   "changes": [
+    "Traders now buy. The trade window has a Sell column listing your items, each with what the trader will pay (about 40% of shop price, less for used-up or worn gear). Selling gives you credit you can spend there or at any other trader this run.",
+    "Boxes behave. Crates and barrels settle and stay put instead of trembling or ping-ponging. Walking into them nudges them gently, and town folk no longer shove them around.",
+    "Props only hurt when they really hit you: something thrown, falling, blasted by an explosion, or falling rock. A box being pushed or jittering never deals damage, and neither do props being synced in co-op.",
+    "Co-op: world events are shared. The host rolls cave-ins, blackouts, gas, distress beacons and ambushes for both of you, aimed at either player. Blackouts darken both screens, and you get a log line when something hits your partner's level."
+   ]
+  },
+  {
    "version": "0.6.4",
    "date": "2026-11-18",
    "title": "Google cloud saves",

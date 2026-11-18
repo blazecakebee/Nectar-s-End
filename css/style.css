@@ -431,3 +431,9 @@ button, .btn, .t-btn, .hx, .slot, .li, .wr, .tr, .eq, .kb-k, [data-a], [data-c],
 .t-btn.cloud.on { border-style: solid; border-color: rgba(122,208,122,.45); } .t-btn.cloud.on .cl-ico { filter: hue-rotate(60deg) saturate(.8); }
 .t-btn.cloud.busy .cl-ico { animation: clp 1s ease-in-out infinite; } @keyframes clp { 50% { opacity: .3; } }
 .t-btn.cloud.err { border-color: rgba(255,90,74,.5); } .t-btn.cloud.err .cl-sub { color: #ff8a7a; }
+
+.trade-cols { display: grid; grid-template-columns: 1fr 1fr; gap: .8em; } .trade-cols h4 small { font-family: 'VT323', monospace; letter-spacing: .02em; font-weight: 400; margin-left: .4em; }
+.li.sell b { min-width: 2.5em; text-align: right; } .li.sell:hover { border-color: #7ad07a; }
+
+.sv-gifts { margin-top: .35em; display: flex; flex-direction: column; gap: .15em; } .sv-gifts > small { font-size: .6em; letter-spacing: .14em; color: var(--tc); }
+.sv-gifts span { font-size: .7em; color: var(--dim); } .sv-gifts span i { font-style: normal; margin-left: .5em; font-size: .9em; opacity: .75; } .sv-gifts span.got { color: var(--vc); }

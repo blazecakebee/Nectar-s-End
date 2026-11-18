@@ -197,7 +197,7 @@ class Anatomy {
       painW += (1 - P.hp / P.max) * 12;
       if (P.tq) painW += 10 + Math.min(20, P.tqT / 8);
       if (P.bandage && P.wounds.length === 0) P.bandage = null;
-      if (P.wounds.every(w => w.closed) && !this.npc && this.hunger > 20 && this.thirst > 20) P.hp = Math.min(P.max, P.hp + dt * 0.12);
+      if (P.wounds.every(w => w.closed) && !this.npc && this.hunger > 20 && this.thirst > 20) P.hp = Math.min(P.max, P.hp + dt * 0.12 * (s.regen ? 3 : 1));
     }
     bleed *= s.bleed * (env.bleedMul || 1); if (s.coldblood && this.stress > 40) bleed *= 0.8;
     this.bleeding = bleed; this.blood -= bleed * dt;

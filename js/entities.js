@@ -85,7 +85,7 @@ class Actor {
     this.knockT = Math.max(0, (this.knockT || 0) - dt); const tgt = this.knockT > 0 ? 0 : c.mx * spd * (this.onIce ? 1.1 : 1); const acc = this.knockT > 0 ? 160 : this.onIce ? 90 : this.onGround ? 950 : this.wallLock > 0 ? 50 : 300;
     if (this.vx < tgt) this.vx = Math.min(tgt, this.vx + acc * dt); else if (this.vx > tgt) this.vx = Math.max(tgt, this.vx - acc * dt);
     if (c.mx) this.facing = c.mx > 0 ? 1 : -1;
-    if (c.jump && this.onGround && !this.crawl && legs.broken < 2 && A.stam > 4) { this.vy = -192 * (legs.broken ? 0.7 : 1) * (inWater ? 0.8 : 1); this.onGround = false; A.stam -= 6; if (c.down) { this.vy = 0; this.dropT = 0.25; } }
+    if (c.jump && this.onGround && !this.crawl && legs.broken < 2 && A.stam > 4) { this.vy = -192 * (st.jump || 1) * (legs.broken ? 0.7 : 1) * (inWater ? 0.8 : 1); this.onGround = false; A.stam -= 6; if (c.down) { this.vy = 0; this.dropT = 0.25; } }
     if (c.drop && this.onGround) this.dropT = 0.25;
     this.dropT = Math.max(0, this.dropT - dt);
     this.vy += NE.GRAV * dt * (inWater ? 0.35 : 1); if (inWater) this.vy *= 0.94; if (this.vy > 430) this.vy = 430;
@@ -140,6 +140,7 @@ class Actor {
     const g = this.gear; let armorSlot = part === 'head' ? 'head' : part === 'torso' ? 'body' : null;
     if (armorSlot && g[armorSlot] && kind !== 'burn') { const e = g[armorSlot], it = NE.ITEMS[e.id]; const base = it.res && it.res[kind] != null ? it.res[kind] : (it.res ? it.armor * 0.4 : it.armor); const ab = base * (0.3 + 0.7 * (e.dur || 0) / it.dur); dmg *= 1 - ab; e.dur = Math.max(0, (e.dur || 0) - dmg * 1.5); if (kind === 'bullet' && chance(ab)) kind = 'blunt'; if (kind === 'sharp' && chance(ab)) kind = 'blunt'; }
     if (this.abil && this.abil.includes('chitin') && (part === 'torso' || part === 'head')) dmg *= 0.75;
+    if (this.abil && this.abil.includes('carapace') && part !== 'torso' && part !== 'head') dmg *= 0.75; if (this.abil && this.abil.includes('ember') && kind === 'burn') dmg *= 0.4;
     if (this.D && this.D.chitin && kind !== 'burn') dmg *= 1 - this.D.chitin * (kind === 'bullet' && (this._cal || 1) >= 3 ? 0.3 : 1);
     A.damage(part, dmg, kind, src); this.lastDir = dir; this.lastDmg = dmg;
     const ri2 = { head: 0, torso: 1 }[part]; const idx = ri2 != null ? ri2 : part.endsWith('arm') ? 6 : 10;
@@ -184,7 +185,7 @@ class Player extends Actor {
     const bp = NE.BACKPACKS.find(b => b.id === meta.equipped.backpack) || NE.BACKPACKS[0]; this.packCol = bp.col;
     this.anat.org.lungs = stats.lungs || 100; this.vespa = true; this.abil = []; this.muts = {}; this.infest = 0;
   }
-  setAbilities(list) { this.abil = list.slice(); this.muts = NE.mutsOf(list); const s = this.stats; s.heart = list.includes('heart'); s.amber = list.includes('amber'); s.mand = list.includes('mand'); this.glide = list.includes('wings'); }
+  setAbilities(list) { this.abil = list.slice(); this.muts = NE.mutsOf(list); const s = this.stats; if (!this._st0) this._st0 = { bleed: s.bleed, cold: s.cold, noise: s.noise, fall: s.fall }; Object.assign(s, this._st0); const has = id => list.includes(id); if (has('honeyblood')) s.bleed *= 0.65; if (has('frost')) s.cold *= 0.4; if (has('phantom')) s.noise *= 0.6; if (has('leap')) s.fall *= 0.7; s.jump = has('leap') ? 1.22 : 1; s.regen = has('regen'); s.heart = list.includes('heart'); s.amber = list.includes('amber'); s.mand = list.includes('mand'); this.glide = list.includes('wings'); }
   weaponId() { return this.equip.weapon ? this.equip.weapon.id : null; }
   weaponDef() { const e = this.equip.weapon; return e ? NE.ITEMS[e.id] : this.stats.mand ? JAWS : FISTS; }
   get gunOut() { const w = this.equip.weapon; return !!(w && NE.ITEMS[w.id].gun) && !this.climbing && !this.crawl; }
@@ -322,6 +323,7 @@ class Enemy extends Actor {
     if (this.thinkT <= 0) {
       this.thinkT = 0.25;
       let best = null, bd = 1e9; for (const a of g.actors) { if (!this.isHostileTo(a)) continue; const d = NE.dist(this.x, this.y, a.x, a.y); if (d < bd && this.canSee(a)) { bd = d; best = a; } }
+      if (best && (this.state === 'idle' || this.state === 'search') && best.abil && best.abil.includes('royal') && ['feral', 'trog', 'husk'].includes(this.type) && chance(0.4)) { this.state = 'flee'; this.target = best; NE.Audio.play('growl', 0.4); best = null; }
       if (best) { if (this.state === 'idle' || this.state === 'search') { if (best.isPlayer) { g.say(pick(NE.MONO.spotted), 0.4); } NE.Audio.play(this.type === 'feral' ? 'growl' : 'shout', 0.6); } this.target = best; this.state = this.state === 'aim' ? 'aim' : 'chase'; this.lastSeen = { x: best.x, y: best.y }; this.lostT = 0; }
       else if (this.target) { this.lostT += 0.25; if (this.lostT > 4) { this.target = null; this.state = 'search'; this.searchT = 5; } }
       const thr = A.threshold; if ((A.pain > thr * 1.1 || A.blood < 3100) && this.type !== 'feral' && this.state !== 'flee' && chance(0.5)) { this.state = 'flee'; NE.Audio.play('shout'); }
@@ -357,7 +359,7 @@ class Enemy extends Actor {
             if (this.windT <= 0) { const heavy = this.heavyNext ? 1.35 : 0; this.charge = null; NE.Combat.strike(this, mw, heavy); this.cd = (mw.melee.cd || 0.8) * 1.15 + rf(0.45, 0.9); this.backT = rf(0.45, 0.9); if (this.type === 'feral' || this.D.bare) NE.Audio.play('growl', 0.5); }
           } else if (this.backT > 0) { this.backT -= dt; c.mx = -Math.sign(dx) * 0.55; if (d > reach + 18) this.backT = 0; }
           else if (this.cd > 0 && d < reach + 6) { c.mx = d < reach ? -Math.sign(dx) * 0.4 : 0; } // circle at the edge of reach while recovering
-          else if (d < reach + 2 && Math.abs(dy) < 14 && this.cd <= 0 && mw && !(t.isPlayer && g.actors.some(o => o !== this && o.D && o.windT > 0 && o.target === t && Math.abs(o.x - t.x) < 30))) { this.exec = null; this.heavyNext = (mw.w || 0) > 2 || chance(0.2); this.windT = 0.28 + (mw.w || 0.3) * 0.07 + (this.heavyNext ? 0.25 : 0); this.charge = { t: 0 }; }
+          else if (d < reach + 2 && Math.abs(dy) < 14 && this.cd <= 0 && mw && !(t.isPlayer && g.actors.some(o => o !== this && o.D && o.windT > 0 && o.target === t && Math.abs(o.x - t.x) < 30))) { this.exec = null; this.heavyNext = (mw.w || 0) > 2 || chance(0.2); this.windT = (0.28 + (mw.w || 0.3) * 0.07 + (this.heavyNext ? 0.25 : 0)) * (t.abil && t.abil.includes('hive') ? 1.35 : 1); this.charge = { t: 0 }; }
           else if (d > reach - 3) { this.exec = null; c.mx = Math.sign(dx); c.sprint = d > 30 && this.type !== 'scav' && this.type !== 'husk'; }
           if (dy > 20 && d < 30 && this.onGround) c.drop = true;
         }
@@ -432,7 +434,7 @@ NE.canTreat = function (pl, id, part) {
   switch (it.med) {
     case 'bandage': return P.wounds.some(w => !w.closed) || P.wounds.some(w => w.t === 'burn') ? true : 'No open wounds here.';
     case 'tq': return !limb ? 'Tourniquets only go on limbs.' : P.tq ? 'Already has a tourniquet.' : true;
-    case 'suture': return P.wounds.some(w => !w.closed && !w.bullet) ? true : P.wounds.some(w => w.bullet) ? 'Remove the fragment first (forceps).' : 'Nothing to stitch.';
+    case 'suture': return P.wounds.some(w => !w.closed && !w.bullet) ? true : P.wounds.some(w => w.bullet) ? 'Remove the fragment first (forceps or a blade).' : 'Nothing to stitch.';
     case 'splint': return P.frac ? (P.splint ? 'Already splinted.' : true) : 'No fracture here.';
     case 'forceps': return P.wounds.some(w => w.bullet) ? true : 'Nothing lodged here.';
     case 'clean': return P.wounds.length ? true : 'No wounds to clean.';
@@ -443,6 +445,12 @@ NE.canTreat = function (pl, id, part) {
 NE.applyTreatment = function (pl, entry, part, op) {
   const g = pl.g, A = pl.anat, P = A.parts[part]; const table = g.nearTable; const st = pl.stats;
   const blackout = (spike) => { A.painSpike += spike * (table ? 0.35 : 1); if (!st.coldblood && !table && A.pain + spike > A.threshold + 30 && chance(0.55)) { A.cons -= 50; g.say('Everything goes white—', 1); } };
+  if (op === 'dig') { const w = P.wounds.find(x => x.bullet); if (!w || !pl.inv.items.includes(entry)) return; const ch = NE.DIG_TOOLS[entry.id] || 0.6;
+    blackout(46); A.painSpike += 10; w.dirty = Math.min(1, w.dirty + (entry.id === 'scrap' ? 0.5 : 0.3));
+    if (chance(ch)) { for (const w2 of P.wounds) if (w2.bullet) { w2.bullet = false; w2.bleed += 0.7; } g.toast('You dig the fragment out with the ' + NE.ITEMS[entry.id].name.toLowerCase() + '. It bleeds — dress it.'); NE.Audio.play('pain'); }
+    else { w.bleed += 0.6; g.toast('Your hand slips — the fragment is still in there.'); NE.Audio.play('pain'); }
+    if (entry.id === 'lockpick' && chance(0.3)) { entry.n--; if (entry.n <= 0) pl.inv.remove(entry); g.toast('The lockpick snapped.'); } if (entry.id === 'scrap') { entry.n--; if (entry.n <= 0) pl.inv.remove(entry); }
+    return; }
   if (op === 'removeTq') { P.tq = false; P.tqT = 0; pl.inv.add('tourniquet', 1); g.toast('Tourniquet removed.'); return; }
   if (!pl.inv.items.includes(entry)) { g.toast('Item missing.'); return; }
   const it = NE.ITEMS[entry.id]; const ok = NE.canTreat(pl, entry.id, part); if (ok !== true) { g.toast(ok); return; }
@@ -471,8 +479,11 @@ NE.applyTreatment = function (pl, entry, part, op) {
   if (chance(0.3)) g.say(pick(NE.MONO.treat), 0.3);
   NE.UI.refresh();
 };
+// improvised extraction: any blade or tool can dig a fragment out (slower, hurts more, dirtier, can slip)
+NE.DIG_TOOLS = { knife: 0.88, cleaver: 0.85, shiv: 0.8, machete: 0.75, lockpick: 0.8, crowbar: 0.6, spear: 0.7, pickaxe: 0.55, axe: 0.55, fireaxe: 0.5, scrap: 0.6 };
 NE.startTreat = function (pl, entry, part, op) {
   const g = pl.g; if (pl.anat.uncon) return;
+  if (op === 'dig') { if (!pl.anat.parts[part].wounds.some(w => w.bullet)) return g.toast('Nothing lodged here.'); pl.treating = { entry, part, op, t: 0, dur: 6 * pl.stats.treat * (g.nearTable ? 0.6 : 1) / Math.sqrt(Math.max(0.3, pl.anat.armFactor())) }; NE.Audio.play('open_cloth'); return; }
   if (op !== 'removeTq') { const ok = NE.canTreat(pl, entry.id, part); if (ok !== true) { g.toast(ok); NE.Audio.play('deny'); return; } }
   pl.treating = { entry, part, op, t: 0, dur: NE.treatDuration(pl, entry, op) }; NE.Audio.play('open_cloth');
 };

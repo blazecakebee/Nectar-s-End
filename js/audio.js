@@ -74,6 +74,7 @@ A.play = function (name, vol) {
     case 'squelch': A.noise(0.18, 300 + Math.random() * 200, 3, 0.35 * vol, 'lowpass'); A.tone(140, 0.15, 0.08 * vol, 'sine', 70); break;
     // respawn: a wet gasp of new breath, a rising hive-shimmer and the first heartbeats of the new host
     case 'respawn': A.noise(0.5, 700, 1.2, 0.35, 'bandpass'); A.tone(220, 0.9, 0.12, 'sine', 880); A.tone(330, 1.1, 0.08, 'triangle', 1320); A.tone(660, 1.3, 0.05, 'sine', 1760); setTimeout(() => { A.tone(60, 0.18, 0.5, 'sine', 40); }, 650); setTimeout(() => { A.tone(55, 0.18, 0.45, 'sine', 38); }, 900); setTimeout(() => { A.tone(60, 0.18, 0.4, 'sine', 40); }, 1500); break;
+    case 'relichum': A.tone(523, 0.9, 0.05 * vol, 'sine', 528); A.tone(784, 0.9, 0.035 * vol, 'sine', 790); A.tone(1046, 0.6, 0.02 * vol, 'triangle', 1050); break;
     case 'screech': A.tone(1400, 0.7, 0.12, 'sawtooth', 2600); A.tone(900, 0.5, 0.1, 'square', 300); A.noise(0.25, 4000, 0.4, 0.4, 'highpass'); A.noise(0.6, 220, 1.5, 0.6, 'lowpass'); A.tone(55, 0.8, 0.35, 'sawtooth', 25); break;
     case 'retract': A.noise(0.7, 500, 2, 0.35, 'lowpass'); A.tone(300, 0.8, 0.12, 'sine', 60); A.tone(160, 0.5, 0.1, 'triangle', 40); break;
     case 'latch': A.noise(0.12, 900, 2, 0.4, 'bandpass'); A.tone(220, 0.1, 0.12, 'square', 120); break;

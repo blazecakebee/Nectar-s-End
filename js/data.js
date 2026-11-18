@@ -406,3 +406,24 @@ NE.ISIZE = {
 };
 NE.packGrid = slots => '10×' + Math.max(4, 4 + Math.floor((slots + 8 - 20) / 2)) + ' grid';
 NE.isize = id => NE.ISIZE[id] || [1, 1];
+
+// ---------- strain gifts: each Vespa strain can awaken its own extra powers from Relic Nectar ----------
+NE.STRAIN_GIFTS = [
+  { id: 'regen', name: 'Honeyed Flesh', icon: 'ab_heart', desc: 'Damaged body parts knit back together three times faster.', mut: 'veins', strain: 1 },
+  { id: 'swarm', name: 'Drone Swarm', icon: 'ab_pulse', desc: 'Every 10s a tiny drone bursts from your skin and stings the nearest enemy.', mut: 'wings', strain: 1 },
+  { id: 'frenzy', name: 'Blood Frenzy', icon: 'ab_sting', desc: 'Every kill refills your stamina and restores 250mL of blood.', mut: 'stinger', strain: 1 },
+  { id: 'carapace', name: 'Limb Carapace', icon: 'ab_chitin', desc: 'Chitin on the arms and legs: -25% damage to limbs, harder to break.', mut: 'plates', strain: 1 },
+  { id: 'leap', name: 'Locust Legs', icon: 'ab_wings', desc: 'Jump 22% higher and take 30% less fall damage.', mut: 'wings', strain: 1 },
+  { id: 'rot', name: 'Rot Breath', icon: 'ab_mand', desc: 'Your melee hits make victims choke: 30% chance to stagger and poison them.', mut: 'mandibles', strain: 1 },
+  { id: 'hive', name: 'Hive Mind', icon: 'ab_eye', desc: 'You feel their intent: enemy wind-ups take 35% longer against you.', mut: 'antennae', strain: 1 },
+  { id: 'honeyblood', name: 'Honey Blood', icon: 'ab_amber', desc: 'Thick golden blood: -35% bleeding from every wound.', mut: 'amber', strain: 1 },
+  { id: 'ember', name: 'Ember Glands', icon: 'ab_pulse', desc: 'Fire and burns do 60% less damage. The Magma Abyss feels like home.', mut: 'veins', strain: 1 },
+  { id: 'frost', name: 'Frost Coat', icon: 'ab_chitin', desc: 'A waxy coat: 60% less cold. Ice caves stop hurting.', mut: 'plates', strain: 1 },
+  { id: 'phantom', name: 'Phantom Step', icon: 'ab_eye', desc: 'You move like a whisper: -40% noise.', mut: 'antennae', strain: 1 },
+  { id: 'royal', name: 'Royal Command', icon: 'ab_heart', desc: 'Lesser creatures (addicts, troglodytes, husks) sometimes flee the moment they see you.', mut: 'antennae', strain: 1 },
+  { id: 'thorns', name: 'Spined Hide', icon: 'ab_sting', desc: 'Anyone who hits you in melee is cut for 5 damage.', mut: 'stinger', strain: 1 },
+];
+for (const g of NE.STRAIN_GIFTS) NE.ABILITIES.push(g);
+// hand each strain its own signature gifts (higher tiers get more)
+NE.VARIANTS.forEach((v, i) => { const P = NE.STRAIN_GIFTS, n = { common: 1, uncommon: 2, rare: 2, epic: 3, legendary: 3, mythical: 4, secret: 4 }[v.tier] || 1; v.pow = []; for (let k = 0; v.pow.length < n && k < 20; k++) { const g = P[(i * 7 + k * 5) % P.length].id; if (!v.pow.includes(g)) v.pow.push(g); } });
+NE.abilOf = id => NE.ABILITIES.find(a => a.id === id);

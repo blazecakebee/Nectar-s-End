@@ -220,7 +220,7 @@ G.spawnFloor = function (fl, restoring) {
 G.tagProps = function (fl, nb0) { let k = 0; for (const b of G.phys.bodies.slice(nb0)) if (!b.owner && !b.nid && !b.noActor) b.nid = 'p' + fl.f + ':' + (k++); };
 G.inTown = () => { const fl = G.world && !G.world.lobby && G.player ? G.curFloor() : null; return fl && fl.town ? fl : null; };
 G.musicFor = function () { if (G.state === 'burst') return NE.Audio.music('burst'); if (G.state !== 'run') return; const fl = G.curFloor(); NE.Audio.music(fl.town ? 'town' : fl.biome.id); };
-G.infestLevel = function () { const M = G.meta; const ab = G.run ? (G.run.abil || []).length : 0; const d = G.run ? G.run.maxDepth : 0; return clamp(0.12 + (M.level - 1) * 0.025 + (M.nectars || 0) * 0.04 + ab * 0.1 + d / 3500, 0, 1); };
+G.infestLevel = function () { const M = G.meta; const ab = G.run ? (G.run.abil || []).length : 0; const d = G.run ? G.run.maxDepth : 0; return clamp(0.1 + (M.level - 1) * 0.012 + Math.min(0.1, (M.nectars || 0) * 0.01) + ab * 0.045 + d / 4000, 0, 1); };
 
 // ---------------- frame ----------------
 G.frame = function (dt) {
@@ -270,7 +270,7 @@ G.update = function (dt, rdt) {
     G.physAcc -= 1 / 60; n++;
     if (G.grab && p.alive) { const gp = G.grab; const m = G.mouse; let tx = m.wx, ty = m.wy; const dx = tx - p.x, dy = ty - p.cy, d = Math.hypot(dx, dy); if (d > 36) { tx = p.x + dx / d * 36; ty = p.cy + dy / d * 36; } const mm = gp.body.mass || 1; const k = clamp(0.45 / Math.max(0.6, mm), 0.14, 0.45) * (p.stats.melee || 1); if (mm > 1.9 && ty < p.y - 14) ty = lerp(ty, p.y - 6, 0.5); gp.x = lerp(gp.x, tx, k); gp.y = lerp(gp.y, ty, k); if (NE.dist(gp.x, gp.y, p.x, p.cy) > 60) G.releaseGrab(); }
     G.phys.step(1 / 60);
-    for (const a of G.actors) { if (!a.alive || !near(a)) continue; const hits = G.phys.pushActor(a); for (const h of hits) G.propHit(a, h); }
+    for (const a of G.actors) { if (!a.alive || a.town || a.isPuppet || !near(a)) continue; const hits = G.phys.pushActor(a); for (const h of hits) G.propHit(a, h); }
   }
   if (G.physAcc > 0.1) G.physAcc = 0;
   // thrown light bodies + lifetimes + dynamite fuses
@@ -521,6 +521,7 @@ G.dropEntry = function (e) { const p = G.player; p.inv.remove(e); if (p.equip.we
 G.onEnemyDeath = function (e, cause) {
   if (!e.alive) return; e.die(cause);
   const byPlayer = G.player && e.anat.lastHit === G.player.surv.first;
+  if (byPlayer && G.player && G.player.abil && G.player.abil.includes('frenzy')) { const A = G.player.anat; A.stam = A.stamMax; A.blood = Math.min(5000, A.blood + 250); G.addP && G.addP(G.player.x, G.player.cy, 0, -20, 0.6, '#ff4040', 'glow', 0); }
   if (byPlayer && G.run) { G.run.kills++; if (e.type === 'specops') G.run.specops = true; G.say(pick(NE.MONO.kill), 0.6); }
   const items = e.dropLoot ? e.dropLoot() : (e.kind === 'trader' ? (e.stock || []).map(s => ({ id: s.id, n: s.n })) : [{ id: 'rag', n: 1 }, { id: 'trinket', n: 1 }]);
   e.gear = {};
@@ -537,31 +538,44 @@ G.traderStock = function (depth, med) {
   const out = []; const used = new Set(); for (let i = 0; i < 6; i++) { const id = pick(pool); if (used.has(id)) continue; used.add(id); const it = NE.ITEMS[id]; out.push({ id, n: it.stack ? (it.cat === 'ammo' ? 10 : 1) : (it.uses || 1), price: Math.ceil(NE.PRICE[id] * (it.cat === 'ammo' ? 10 : 1)) }); }
   return out;
 };
-G.tradeValue = function (inv) { let v = 0; for (const e of inv.items) { const it = NE.ITEMS[e.id]; if (it.value && e.id !== 'datashard') v += it.value * e.n; } return v; };
+// what a trader pays for one of your items (about 40% of its shop price, scaled by uses left and durability)
+NE.basePrice = function (id) { const it = NE.ITEMS[id]; if (NE.PRICE[id]) return NE.PRICE[id]; if (it.value) return it.value * 2.5; if (it.gun) return 30 + it.gun.dmg * 0.9; if (it.melee) return 8 + it.melee.dmg * 1.1; if (it.slot) return 15 + (it.armor || 0.2) * 90; return { med: 8, food: 6, throw: 6, tool: 6, ammo: 1.2, mat: 2, relic: 90, value: 10 }[it.cat] || 4; };
+NE.sellPrice = function (e) { const it = NE.ITEMS[e.id]; let v = NE.basePrice(e.id) * 0.4; if (it.stack) v *= e.n; else if (it.uses) v *= e.n / it.uses; if (it.dur && e.dur != null) v *= 0.3 + 0.7 * e.dur / it.dur; if (it.value && !it.stack) v = Math.max(v, it.value); return Math.max(1, Math.round(v)); };
+G.tradeValue = function (inv) { let v = (G.run && G.run.credit) || 0; for (const e of inv.items) { const it = NE.ITEMS[e.id]; if (it.value && e.id !== 'datashard') v += it.value * e.n; } return v; };
 G.payValue = function (inv, price) {
+  if (G.run && G.run.credit) { const k = Math.min(G.run.credit, price); G.run.credit -= k; price -= k; }
   for (const id of ['trinket', 'scrap', 'tape', 'ammo762', 'ammo9']) { while (price > 0 && inv.count(id) > 0) { inv.consume(id, 1); price -= NE.ITEMS[id].value; } }
   return price <= 0;
 };
 
 // ---------------- events ----------------
+// world events (cave-ins, blackouts, gas, beacons, ambushes). In co-op the host rolls them and they hit BOTH players.
 G.events = function (dt) {
-  if (G.state !== 'run') return; G.eventT -= dt; if (G.eventT > 0) return; G.eventT = rf(65, 125);
-  const p = G.player, fl = G.curFloor(); const b = fl.biome; if (fl.f === 0 || fl.town || !p.alive) { G.eventT = 20; return; }
-  const guest = G.net && G.net.on && G.net.role === 'guest';
-  const ev = NE.wpick([['cavein', b.id === 'desert' ? 4.5 : 3], ['blackout', 2], ['gas', b.id === 'grotto' ? 0.8 : 0.6], ['beacon', guest ? 0 : 2.2], ['ambush', guest ? 0 : 1.8 + fl.depth / 500]]);
+  if (G.state !== 'run') return; const net = G.net && G.net.on ? G.net : null; if (net && net.role === 'guest') return; // the host decides for everyone
+  G.eventT -= dt; if (G.eventT > 0) return; G.eventT = rf(65, 125);
+  const p = G.player; const q = net && net.peer && net.peer.alive && !net.peer.hidden ? net.peer : null;
+  const tgt = q && (!p.alive || chance(0.5)) ? q : p; if (!tgt.alive) { G.eventT = 20; return; }
+  const fl = G.world.floors[G.floorIdx(tgt.y - 2)] || G.curFloor(); const b = fl.biome; if (fl.f === 0 || fl.town) { G.eventT = 20; return; }
+  const ev = NE.wpick([['cavein', b.id === 'desert' ? 4.5 : 3], ['blackout', 2], ['gas', b.id === 'grotto' ? 0.8 : 0.6], ['beacon', 2.2], ['ambush', 1.8 + fl.depth / 500]]);
+  const d = { ev, f: fl.f, dur: rf(28, 45), side: chance(0.5) ? 4 : G.world.W - 4, bf: fl.f + ri(1, 2), bx: ri(6, G.world.W - 6) * T, trap: chance(0.35), ax: tgt.x > G.world.W * T / 2 ? 5 * T : (G.world.W - 5) * T, k: ri(1, 2) + (fl.depth > 500 ? 1 : 0), tg: tgt === p ? 'host' : 'guest' };
+  G.applyEvent(d, tgt === q ? q : p);
+  if (net) net.send({ t: 'ev', d });
+};
+G.applyEvent = function (d, focus) {
+  const p = G.player, fl = G.world.floors[d.f]; if (!fl) return; const b = fl.biome; const ev = d.ev; const remote = !focus; const tag = remote && G.net && G.net.peerSurv ? ' (' + G.net.peerSurv.first + '\'s level)' : '';
+  const here = p && p.alive && G.floorIdx(p.y - 2) === d.f;
   if (ev === 'cavein') {
-    G.log('The ceiling groans... CAVE-IN!', 'bad'); NE.Audio.play('rumble'); G.shake(5); G.shakeT = 1.6;
-    const n = ri(6, 10); for (let i = 0; i < n; i++) { const x = clamp(p.x + rf(-60, 60), 3 * T, (G.world.W - 3) * T); setTimeout(() => { if (G.state !== 'run') return; const d = G.phys.box('debris', x, G.world.ceilY(fl, x) + 5, rf(3, 7), rf(3, 6), 2.5, b.pal.tile); d.setVel(rf(-20, 20), rf(30, 80)); G.dust(x, G.world.ceilY(fl, x) + 6, 5); }, i * 110 + rf(0, 300)); }
-  } else if (ev === 'blackout') { G.blackout = rf(28, 45); G.log('A cold draft snuffs every lantern. Total darkness.', 'bad'); NE.Audio.play('hiss', 0.6); }
-  else if (ev === 'gas') { G.log(b.id === 'grotto' ? 'A fungal bloom bursts — SPORES!' : 'A pocket of cave gas vents — GAS!', 'bad'); NE.Audio.play('hiss', 1); const side = chance(0.5) ? 4 : G.world.W - 4; for (let i = 0; i < 6; i++) G.gas.push({ spore: b.id === 'grotto', x: side * T + (side < 10 ? i : -i) * 9, y: G.world.groundY(fl, side * T) - 10, r: 12, d: 0.8, vx: side < 10 ? 9 : -9, life: rf(35, 50), max: 40 }); }
+    G.log('The ceiling groans... CAVE-IN!' + (here ? '' : tag), 'bad'); NE.Audio.play('rumble', here ? 1 : 0.5); G.shake(here ? 5 : 2); G.shakeT = 1.6;
+    if (here) { const n = ri(6, 10); for (let i = 0; i < n; i++) { const x = clamp(p.x + rf(-60, 60), 3 * T, (G.world.W - 3) * T); setTimeout(() => { if (G.state !== 'run') return; const dd = G.phys.box('debris', x, G.world.ceilY(fl, x) + 5, rf(3, 7), rf(3, 6), 2.5, b.pal.tile); dd.setVel(rf(-20, 20), rf(30, 80)); G.dust(x, G.world.ceilY(fl, x) + 6, 5); }, i * 110 + rf(0, 300)); } }
+  } else if (ev === 'blackout') { G.blackout = d.dur; G.log('A cold draft snuffs every lantern. Total darkness.', 'bad'); NE.Audio.play('hiss', 0.6); }
+  else if (ev === 'gas') { G.log((b.id === 'grotto' ? 'A fungal bloom bursts — SPORES!' : 'A pocket of cave gas vents — GAS!') + (here ? '' : tag), 'bad'); NE.Audio.play('hiss', here ? 1 : 0.4); const side = d.side; for (let i = 0; i < 6; i++) G.gas.push({ spore: b.id === 'grotto', x: side * T + (side < 10 ? i : -i) * 9, y: G.world.groundY(fl, side * T) - 10, r: 12, d: 0.8, vx: side < 10 ? 9 : -9, life: rf(35, 50), max: 40 }); }
   else if (ev === 'beacon') {
-    const tf = G.world.floors[fl.f + ri(1, 2)]; if (!tf) return; const x = ri(6, G.world.W - 6) * T;
-    tf.objs.push({ type: 'beacon', x, y: G.world.groundY(tf, x), trap: chance(0.35), t: 0, label: 'Distress Beacon' }); NE.Audio.play('chime');
+    G.world.ensure(d.bf + 1, fl2 => G.spawnFloor(fl2)); const tf = G.world.floors[d.bf]; if (!tf) return;
+    tf.objs.push({ type: 'beacon', x: d.bx, y: G.world.groundY(tf, d.bx), trap: d.trap, t: 0, label: 'Distress Beacon' }); NE.Audio.play('chime');
     G.log('A flare-beacon\'s chirp echoes from below (~' + Math.round(tf.depth) + 'm).', 'sys');
   } else if (ev === 'ambush') {
-    const x = p.x > G.world.W * T / 2 ? 5 * T : (G.world.W - 5) * T; const k = ri(1, 2) + (fl.depth > 500 ? 1 : 0);
-    for (let i = 0; i < k; i++) { const e = new NE.Enemy(G, x + i * 10, G.world.groundY(fl, x + i * 10), NE.wpick(b.enemies), fl.depth); e.target = p; e.state = 'chase'; e.lastSeen = { x: p.x, y: p.y }; G.actors.push(e); }
-    G.log('Footsteps. Lots of them. Coming this way.', 'bad');
+    if (!G.net || !G.net.on || G.net.role === 'host') { const who = focus || p; for (let i = 0; i < d.k; i++) { const e = new NE.Enemy(G, d.ax + i * 10, G.world.groundY(fl, d.ax + i * 10), NE.wpick(b.enemies), fl.depth); e.target = who; e.state = 'chase'; e.lastSeen = { x: who.x, y: who.y }; G.actors.push(e); } }
+    G.log(here ? 'Footsteps. Lots of them. Coming this way.' : 'Distant shouting — an ambush on ' + (focus === p ? 'your' : 'your partner\'s') + ' level!', 'bad'); NE.Audio.play('shout', here ? 0.7 : 0.3);
   }
 };
 G.triggerBeacon = function (o) {
@@ -709,7 +723,7 @@ G.drawObj = function (ctx, o) {
     case 'gasleak': ctx.fillStyle = '#4a5a3a'; ctx.fillRect(x - 3, y - 4, 6, 3); break;
     case 'beacon': { ctx.fillStyle = '#3a3a3a'; ctx.fillRect(x - 2, y - 6, 4, 6); ctx.fillStyle = (t * 2 | 0) % 2 ? '#ff3020' : '#501010'; ctx.fillRect(x - 1, y - 8, 2, 2); ctx.fillStyle = '#888'; ctx.fillRect(x, y - 12, 1, 4); break; }
     case 'elevator': G.drawElevator(ctx, o, x, y); break;
-    case 'relic': { const pul = 0.6 + 0.4 * Math.sin(t * 2.4 + x); ctx.fillStyle = '#3a6a2a'; ctx.fillRect(x, y - 9, 1, 9); ctx.fillRect(x - 2, y - 5, 2, 1); ctx.fillRect(x + 1, y - 4, 2, 1);
+    case 'relic': { const pul = 0.6 + 0.4 * Math.sin(t * 2.4 + x); if (Math.random() < 0.25) G.addP(x + rf(-10, 10), y - rf(0, 6), rf(-4, 4), rf(-22, -10), rf(0.8, 1.6), pick(['#ffd040', '#fff0a0', '#ffb020']), 'glow', -0.05); { const rr = 10 + ((t * 8) % 14); ctx.globalAlpha = 0.35 * (1 - (rr - 10) / 14); ctx.strokeStyle = '#ffd860'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x + 0.5, y - 5, rr, rr * 0.45, 0, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1; } ctx.fillStyle = '#3a6a2a'; ctx.fillRect(x, y - 9, 1, 9); ctx.fillRect(x - 2, y - 5, 2, 1); ctx.fillRect(x + 1, y - 4, 2, 1);
       const pc = ['#ffcf40', '#ffa830', '#ffe070'][o.hue || 0]; ctx.fillStyle = pc; ctx.fillRect(x - 2, y - 13, 5, 3); ctx.fillRect(x - 1, y - 14, 3, 5); ctx.fillStyle = '#fff6c0'; ctx.fillRect(x, y - 12, 1, 1);
       ctx.fillStyle = 'rgba(255,200,60,' + pul * 0.9 + ')'; if ((t * 3 + x) % 2 < 1) ctx.fillRect(x + Math.round(Math.sin(t * 3) * 3), y - 16 - Math.round((t * 6) % 6), 1, 1); break; }
     case 'post': { ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x - 1, y - 30, 3, 30); ctx.fillRect(x - 8, y - 30, 17, 2); ctx.fillStyle = '#6a5038'; ctx.fillRect(x - 6, y - 12, 13, 12); ctx.fillStyle = '#8a6a48'; ctx.fillRect(x - 6, y - 12, 13, 1); ctx.fillStyle = '#c0a060'; ctx.fillRect(x - 7, y - 28, 1, 16 - Math.round(Math.sin(t) * 2)); ctx.fillStyle = '#ffcf70'; ctx.fillRect(x - 2, y - 9, 5, 3); ctx.fillStyle = '#5a4030'; ctx.fillRect(x + 6, y - 28, 1, 10 + Math.round(Math.sin(t * 0.8) * 3)); break; }
