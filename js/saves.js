@@ -45,7 +45,7 @@ const S = NE.Save = {
       if (a.look) { e.look = a.look; } Object.assign(e.anat, a.anat); G.actors.push(e);
     }
     for (const o of d.dyn) G.dyn.push({ type: 'container', ct: o.ct, x: o.x, y: o.y, label: o.label, act: 'search', items: o.items, searched: o.searched });
-    const P = d.player; p.x = P.x; p.y = P.y; p.facing = P.facing; Object.assign(p.anat, P.anat); p.inv.items = P.inv || []; p.equip.weapon = P.eqW >= 0 ? p.inv.items[P.eqW] : null; p.gear = P.gear || {}; p.light = P.light || p.light; p.filterT = P.filterT || 0;
+    const P = d.player; p.x = P.x; p.y = P.y; p.facing = P.facing; Object.assign(p.anat, P.anat); const eqE = P.eqW >= 0 ? (P.inv || [])[P.eqW] : null; const spill = p.inv.restore(P.inv || []); p.equip.weapon = eqE && p.inv.items.includes(eqE) ? eqE : null; if (spill.length) G.dyn.push({ type: 'container', ct: 'bag', x: P.x, y: P.y, label: 'Overflow Bag', act: 'search', items: spill, searched: true }); p.gear = P.gear || {}; p.light = P.light || p.light; p.filterT = P.filterT || 0;
     for (const q of p.rag.pts) { q.x += p.x - 12 * NE.T; q.y += p.y - W.floors[0].feetY; q.ox = q.x; q.oy = q.y; }
   },
 };

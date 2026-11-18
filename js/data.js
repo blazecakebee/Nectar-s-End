@@ -396,3 +396,12 @@ NE.VARIANTS = [
 NE.rollVariant = function () { const t = NE.wpick(NE.VTIERS.filter(t => t.w > 0).map(t => [t.id, t.w])); return NE.pick(NE.VARIANTS.filter(v => v.tier === t)).id; };
 NE.variantOf = id => NE.VARIANTS.find(v => v.id === id) || NE.VARIANTS[0];
 NE.applyVariant = function (s, id) { const v = NE.variantOf(id); for (const k in (v.mul || {})) s[k] = (s[k] == null ? 1 : s[k]) * v.mul[k]; for (const k in (v.add || {})) s[k] = (s[k] || 0) + v.add[k]; return s; };
+
+// ---------- grid inventory: item footprints in cells [w, h] (Tarkov-style). Anything not listed is 1x1. ----------
+NE.ISIZE = {
+  knife: [2, 1], shiv: [2, 1], cleaver: [2, 1], machete: [3, 1], pipe: [3, 1], leadpipe: [3, 1], crowbar: [3, 1], baton: [3, 1], pickaxe: [3, 2], axe: [3, 2], fireaxe: [3, 2], sledge: [4, 2], spear: [5, 1],
+  pistol: [2, 1], revolver: [2, 1], smg: [3, 2], rifle: [5, 2], shotgun: [5, 2], hunting: [5, 2],
+  vest: [3, 3], kevlar: [3, 3], platevest: [3, 3], scrapplate: [3, 3], riot: [3, 3], hazmat: [3, 3], helmet: [2, 2], milhelmet: [2, 2], leathercap: [2, 2], scraphelm: [2, 2], riothelm: [2, 2], hazhood: [2, 2], respirator: [2, 1],
+  splint: [1, 2], bloodbag: [1, 2], alcohol: [1, 2], water: [1, 2], dirtywater: [1, 2], bottle: [1, 2], molotov: [1, 2], antiseptic: [1, 2], ration: [1, 1], brick: [1, 1], tourniquet: [1, 1],
+};
+NE.isize = id => NE.ISIZE[id] || [1, 1];

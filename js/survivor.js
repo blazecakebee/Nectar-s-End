@@ -54,14 +54,30 @@ NE.computeStats = function (meta, surv) {
   if (meta) {
     const of = NE.OUTFITS.find(o => o.id === meta.equipped.outfit); if (of) applyMods(s, of.mods);
     const bp = NE.BACKPACKS.find(o => o.id === meta.equipped.backpack) || NE.BACKPACKS[0];
-    s.slots += bp.slots; s.carry += bp.carry; s.medHalf = bp.id === 'paramedic';
+    s.slots += bp.slots + 8; s.carry += bp.carry + 6; // +8 base slots, +6kg on every pack s.medHalf = bp.id === 'paramedic';
   }
   return s;
 };
 
 // ---------------- Inventory ----------------
 class Inv {
+  // Tarkov-style grid: COLS wide, rows from the pack's slot count (2 cells per slot). Every entry has gx, gy and rot.
   constructor(slots, carry) { this.items = []; this.slots = slots; this.carry = carry; this.medHalf = false; }
+  get cols() { return 10; }
+  get rows() { return Math.max(4, Math.ceil(this.slots * 3 / 10)); } // starting rucksack: 10x6 = 60 cells
+  dims(e, rot) { const s = NE.isize(e.id); return (rot != null ? rot : e.rot) ? [s[1], s[0]] : [s[0], s[1]]; }
+  occupied(skip) { const C = this.cols, g = new Uint8Array(C * this.rows); for (const e of this.items) { if (e === skip || e.gx == null) continue; const [w, h] = this.dims(e); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = (e.gy + y) * C + e.gx + x; if (k < g.length) g[k] = 1; } } return g; }
+  fits(x, y, w, h, skip, occ) { if (x < 0 || y < 0 || x + w > this.cols || y + h > this.rows) return false; occ = occ || this.occupied(skip); for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) if (occ[(y + yy) * this.cols + x + xx]) return false; return true; }
+  findSpot(e, skip) { const occ = this.occupied(skip); for (const rot of [0, 1]) { const [w, h] = this.dims(e, rot); if (rot && w === h) continue; for (let y = 0; y <= this.rows - h; y++) for (let x = 0; x <= this.cols - w; x++) if (this.fits(x, y, w, h, skip, occ)) return { x, y, rot }; } return null; }
+  place(e) { const s = this.findSpot(e); if (!s) return false; e.gx = s.x; e.gy = s.y; e.rot = s.rot; this.items.push(e); return true; }
+  canFit(id) { return !!this.findSpot({ id }); }
+  // re-pack everything (after loading an old save, or when the pack size changes); returns what no longer fits
+  relayout() { const all = this.items.slice().sort((a, b) => { const A = NE.isize(a.id), B = NE.isize(b.id); return B[0] * B[1] - A[0] * A[1]; }); this.items = []; const out = []; for (const e of all) { e.gx = e.gy = null; e.rot = 0; if (!this.place(e)) out.push(e); } return out; }
+  // keep saved positions when they're still valid, otherwise re-pack
+  restore(list) { this.items = list || []; const C = this.cols; let ok = this.items.every(e => e.gx != null); if (ok) { const g = new Uint8Array(C * this.rows); for (const e of this.items) { const [w, h] = this.dims(e); if (e.gx + w > C || e.gy + h > this.rows) { ok = false; break; } for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = (e.gy + y) * C + e.gx + x; if (g[k]) ok = false; g[k] = 1; } } } return ok ? [] : this.relayout(); }
+  occupiedOf(list) { const C = this.cols, g = new Uint8Array(C * this.rows); for (const e of list) { const [w, h] = this.dims(e); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) g[(e.gy + y) * C + e.gx + x] = 1; } return g; }
+  move(e, x, y, rot) { const [w, h] = this.dims(e, rot); if (!this.fits(x, y, w, h, e)) return false; e.gx = x; e.gy = y; e.rot = rot; return true; }
+  get usedCells() { let n = 0; for (const e of this.items) { const s = NE.isize(e.id); n += s[0] * s[1]; } return n; }
   weight() { let w = 0; for (const e of this.items) { const it = NE.ITEMS[e.id]; let x = it.stack ? it.w * e.n : it.w; if (this.medHalf && it.cat === 'med') x *= 0.5; w += x; } return w; }
   count(id) { let n = 0; for (const e of this.items) if (e.id === id) n += e.n; return n; }
   has(id) { return this.count(id) > 0; }
@@ -70,13 +86,13 @@ class Inv {
     n = n == null ? 1 : n; const it = NE.ITEMS[id]; if (!it) return n;
     if (it.stack) { const cap = Math.round(it.stack * (this.stackMul || 1));
       for (const e of this.items) if (e.id === id && e.n < cap) { const k = Math.min(n, cap - e.n); e.n += k; n -= k; if (!n) return 0; }
-      while (n > 0 && this.items.length < this.slots) { const k = Math.min(n, cap); this.items.push({ id, n: k }); n -= k; }
+      while (n > 0) { const k = Math.min(n, cap); if (!this.place({ id, n: k })) break; n -= k; }
       return n;
     }
-    while (n > 0 && this.items.length < this.slots) { const e = { id, n: it.uses || 1 }; if (it.dur) e.dur = it.dur; if (it.gun) e.mag = 0; Object.assign(e, extra || {}); this.items.push(e); n--; }
+    while (n > 0) { const e = { id, n: it.uses || 1 }; if (it.dur) e.dur = it.dur; if (it.gun) e.mag = 0; Object.assign(e, extra || {}); if (!this.place(e)) break; n--; }
     return n;
   }
-  addEntry(e) { const it = NE.ITEMS[e.id]; if (it.stack) return this.add(e.id, e.n) === 0; if (this.items.length >= this.slots) return false; this.items.push(e); return true; }
+  addEntry(e) { const it = NE.ITEMS[e.id]; if (it.stack) { const left = this.add(e.id, e.n); if (left) { e.n = left; return false; } return true; } e.gx = e.gy = null; return this.place(e); }
   consume(id, n) {
     n = n == null ? 1 : n; if (this.count(id) < n) return false;
     for (let i = this.items.length - 1; i >= 0 && n > 0; i--) { const e = this.items[i]; if (e.id !== id) continue; const k = Math.min(n, e.n); e.n -= k; n -= k; if (e.n <= 0) this.items.splice(i, 1); }

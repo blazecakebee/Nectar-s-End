@@ -211,12 +211,46 @@ UI.render.inventory = function (b) {
   let h = '<div class="inv"><div class="inv-eq"><h4>EQUIPPED</h4>' + eqSlot('WEAPON', p.equip.weapon, 'weapon') + eqSlot('HEAD', p.gear.head, 'head') + eqSlot('BODY', p.gear.body, 'body') + eqSlot('FACE', p.gear.face, 'face') +
     '<div class="eq">' + icn('ui_town') + '<div><small>WAIST LANTERN</small><b>' + Math.round(p.light.bat) + '% oil</b></div></div>' +
     '<h4>BACKPACK</h4><div class="dim">' + esc((NE.BACKPACKS.find(x => x.id === g.meta.equipped.backpack) || NE.BACKPACKS[0]).name) + '</div>' + bar(wt, inv.carry, wt > inv.carry ? '#e04040' : '#c0a040', wt.toFixed(1) + ' / ' + inv.carry.toFixed(1) + ' kg') + (wt > inv.carry ? '<div class="bad">Overencumbered — slow, no sprint.</div>' : '') + '</div>';
-  h += '<div class="inv-grid">'; for (let i = 0; i < inv.slots; i++) { const e = inv.items[i]; h += '<div class="slot' + (e && UI.sel === e ? ' sel' : '') + (e && p.equip.weapon === e ? ' eqd' : '') + '" data-i="' + i + '">' + (e ? ic(e.id) + (e.n > 1 || NE.ITEMS[e.id].uses ? '<span class="cnt">' + (NE.ITEMS[e.id].uses ? e.n + 'u' : e.n) + '</span>' : '') : '') + '</div>'; } h += '</div>';
+  h += '<div class="inv-gwrap"><div class="g-head"><span>BACKPACK GRID</span><small>' + inv.usedCells + '/' + inv.cols * inv.rows + ' cells • drag to move • [R] rotate while dragging • double-click to use/equip</small></div>' + UI.gridHTML(inv, p) + '</div>';
   h += '<div class="inv-det">' + UI.itemDetail(UI.sel) + '</div></div>';
   b.innerHTML = h;
-  b.querySelectorAll('.slot').forEach(s => s.onclick = () => { const e = inv.items[+s.dataset.i]; UI.sel = e || null; NE.Audio.play('click'); UI.render.inventory(b); });
+  UI.bindGrid(b, inv, p, () => UI.render.inventory(b));
   b.querySelectorAll('.eq[data-slot]').forEach(s => s.onclick = () => { const sl = s.dataset.slot; if (sl === 'weapon') { p.equip.weapon = null; } else if (p.gear[sl]) { if (inv.addEntry(p.gear[sl])) { p.gear[sl] = null; } else g.toast('Backpack full.'); } UI.render.inventory(b); });
   b.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () => UI.itemAct(btn.dataset.act, UI.sel));
+};
+// ---------- Tarkov-style grid ----------
+UI.gridHTML = function (inv, p, opts) {
+  opts = opts || {}; const C = inv.cols, Rw = inv.rows;
+  let h = '<div class="igrid' + (opts.mini ? ' mini' : '') + '" style="--gc:' + C + ';--gr:' + Rw + '">';
+  inv.items.forEach((e, i) => { if (e.gx == null) return; const it = NE.ITEMS[e.id]; const [w, hh] = inv.dims(e); const cat = it.cat;
+    h += '<div class="gi c-' + cat + (UI.sel === e ? ' sel' : '') + (p && p.equip.weapon === e ? ' eqd' : '') + (e.rot ? ' rot' : '') + (cat === 'weapon' && NE.isize(e.id)[0] >= NE.isize(e.id)[1] * 2 ? ' long' : '') + '" data-i="' + i + '" style="left:calc(var(--cell) * ' + e.gx + ');top:calc(var(--cell) * ' + e.gy + ');width:calc(var(--cell) * ' + w + ');height:calc(var(--cell) * ' + hh + ')">' +
+      '<div class="gi-img">' + ic(e.id, 6) + '</div><span class="gi-n">' + esc(it.name.length > 14 && w < 3 ? it.name.split(' ').pop() : it.name) + '</span>' +
+      (e.n > 1 || it.uses ? '<span class="gi-c">' + (it.uses ? e.n + 'u' : '×' + e.n) + '</span>' : '') + (e.mag != null && it.gun ? '<span class="gi-c">' + e.mag + '/' + it.gun.mag + '</span>' : '') + (e.dur != null ? '<span class="gi-d">' + Math.round(e.dur / (it.dur || 100) * 100) + '%</span>' : '') + (p && p.equip.weapon === e ? '<span class="gi-e">IN HAND</span>' : '') + '</div>'; });
+  return h + '</div>';
+};
+UI.bindGrid = function (b, inv, p, rerender, onClickItem) {
+  const grid = b.querySelector('.igrid'); if (!grid) return;
+  grid.querySelectorAll('.gi').forEach(el => {
+    const e = inv.items[+el.dataset.i];
+    el.ondblclick = ev => { ev.preventDefault(); const it = NE.ITEMS[e.id]; UI.sel = e; if (it.cat === 'weapon') UI.itemAct(p.equip.weapon === e ? 'unequip' : 'equip', e); else if (it.slot) UI.itemAct('wear', e); else if (it.cat === 'food' || it.med === 'drug' || e.id === 'nectar' || e.id === 'battery' || e.id === 'royaljelly') UI.itemAct('use', e); rerender(); };
+    el.onpointerdown = ev => {
+      if (ev.button !== 0) return; ev.preventDefault(); const r0 = grid.getBoundingClientRect(); const cell = r0.width / inv.cols; const er = el.getBoundingClientRect();
+      const offX = (ev.clientX - er.left) / cell, offY = (ev.clientY - er.top) / cell; let rot = e.rot || 0, moved = false, tx = e.gx, ty = e.gy;
+      const ghost = el.cloneNode(true); ghost.classList.add('ghost'); ghost.style.position = 'fixed'; ghost.style.pointerEvents = 'none'; ghost.style.zIndex = 99; document.body.appendChild(ghost);
+      const prev = document.createElement('div'); prev.className = 'gprev'; grid.appendChild(prev); el.classList.add('dragging');
+      const upd = (cx, cy) => { const [w, h] = inv.dims(e, rot); ghost.style.width = w * cell + 'px'; ghost.style.height = h * cell + 'px'; ghost.style.setProperty('--cell', cell + 'px');
+        const ox = rot !== (e.rot || 0) ? offY : offX, oy = rot !== (e.rot || 0) ? offX : offY; ghost.style.left = (cx - ox * cell) + 'px'; ghost.style.top = (cy - oy * cell) + 'px'; ghost.classList.toggle('rot', !!rot);
+        const r = grid.getBoundingClientRect(); tx = Math.round((cx - r.left) / cell - ox); ty = Math.round((cy - r.top) / cell - oy);
+        const ok = inv.fits(tx, ty, w, h, e); prev.style.left = tx * cell + 'px'; prev.style.top = ty * cell + 'px'; prev.style.width = w * cell + 'px'; prev.style.height = h * cell + 'px'; prev.classList.toggle('bad', !ok); prev.dataset.ok = ok ? 1 : 0; };
+      upd(ev.clientX, ev.clientY); let lx = ev.clientX, ly = ev.clientY;
+      const mv = m => { if (Math.hypot(m.clientX - ev.clientX, m.clientY - ev.clientY) > 4) moved = true; lx = m.clientX; ly = m.clientY; upd(lx, ly); };
+      const key = k => { if (k.code === 'KeyR') { k.preventDefault(); k.stopPropagation(); rot = rot ? 0 : 1; moved = true; upd(lx, ly); NE.Audio.play('click'); } };
+      const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('keydown', key, true); ghost.remove(); prev.remove(); el.classList.remove('dragging');
+        if (!moved) { UI.sel = e; NE.Audio.play('click'); if (onClickItem) onClickItem(e); rerender(); return; }
+        if (prev.dataset.ok === '1' && inv.move(e, tx, ty, rot)) NE.Audio.play('rummage'); else NE.Audio.play('deny'); UI.sel = e; rerender(); };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('keydown', key, true);
+    };
+  });
 };
 UI.itemDetail = function (e) {
   if (!e) return '<div class="dim">Select an item.<br><br>Tip: weight slows you down. Medical items go on specific body parts — use the Health tab.</div>';
@@ -462,18 +496,15 @@ UI.doctor = function (npc) {
 UI.render.loot = function (b, o) {
   const g = G(), p = g.player; const items = o.items || [];
   // your pack on the left, the container on the right
-  let h = '<div class="loot"><div><h4>YOUR PACK ' + p.inv.items.length + '/' + p.inv.slots + ' • ' + p.inv.weight().toFixed(1) + '/' + p.inv.carry.toFixed(0) + 'kg</h4><div class="lst">';
-  if (!p.inv.items.length) h += '<div class="dim">Empty.</div>';
-  p.inv.items.forEach((e, i) => { const it = NE.ITEMS[e.id]; h += '<div class="li mine" data-s="' + i + '">' + ic(e.id) + '<span>' + esc(it.name) + (e.n > 1 ? ' <small>×' + e.n + '</small>' : '') + '</span><b>STASH ▸</b></div>'; });
-  h += '</div></div><div><h4>' + esc(o.label || 'Container') + '</h4><div class="lst">';
+  let h = '<div class="loot"><div><h4>YOUR PACK ' + p.inv.usedCells + '/' + p.inv.cols * p.inv.rows + ' cells • ' + p.inv.weight().toFixed(1) + '/' + p.inv.carry.toFixed(0) + 'kg</h4><small class="dim">Click an item to stash it ▸ • drag to rearrange • [R] rotates</small>' + UI.gridHTML(p.inv, p) + '</div><div><h4>' + esc(o.label || 'Container') + '</h4><div class="lst">';
   if (!items.length) h += '<div class="dim">Empty.</div>';
   items.forEach((e, i) => { const it = NE.ITEMS[e.id]; h += '<div class="li" data-t="' + i + '">' + ic(e.id) + '<span>' + esc(it.name) + (e.n > 1 || it.uses ? ' <small>' + (it.uses ? e.n + ' uses' : '×' + e.n) + '</small>' : '') + (e.dur != null ? ' <small>' + Math.round(e.dur) + '%</small>' : '') + '</span><b>◂ TAKE</b></div>'; });
   h += '</div>' + (items.length ? '<button class="btn" id="takeall">Take all</button>' : '');
   b.innerHTML = h + '</div></div>';
-  const take = i => { const e = items[i]; if (!p.inv.addEntry(e)) { const it = NE.ITEMS[e.id]; if (it.stack) { const left = p.inv.add(e.id, e.n); if (left === e.n) { g.toast('Backpack full.'); NE.Audio.play('deny'); return false; } e.n = left; if (left) return false; } else { g.toast('Backpack full.'); NE.Audio.play('deny'); return false; } } items.splice(i, 1); return true; };
+  const take = i => { const e = items[i]; if (!p.inv.addEntry(e)) { const it = NE.ITEMS[e.id]; if (it.stack) { const left = p.inv.add(e.id, e.n); if (left === e.n) { g.toast('No room in your pack.'); NE.Audio.play('deny'); return false; } e.n = left; if (left) return false; } else { g.toast('No room in your pack — make space or rotate things.'); NE.Audio.play('deny'); return false; } } items.splice(i, 1); return true; };
   const sync = () => { if (g.net && g.net.on) g.net.syncContainer(o); };
   b.querySelectorAll('[data-t]').forEach(el => el.onclick = () => { if (take(+el.dataset.t)) NE.Audio.play('rummage'); sync(); UI.render.loot(b, o); });
-  b.querySelectorAll('[data-s]').forEach(el => el.onclick = () => { const e = p.inv.items[+el.dataset.s]; if (p.equip.weapon === e) p.equip.weapon = null; p.inv.remove(e); items.push(e); sync(); UI.render.loot(b, o); });
+  UI.bindGrid(b, p.inv, p, () => UI.render.loot(b, o), e => { if (p.equip.weapon === e) p.equip.weapon = null; p.inv.remove(e); delete e.gx; delete e.gy; items.push(e); UI.sel = null; sync(); });
   const ta = $('#takeall'); if (ta) ta.onclick = () => { for (let i = items.length - 1; i >= 0; i--) take(i); NE.Audio.play('rummage'); sync(); UI.render.loot(b, o); };
 };
 

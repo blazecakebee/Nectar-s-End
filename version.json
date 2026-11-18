@@ -1,6 +1,28 @@
 {
  "log": [
   {
+   "version": "0.6.0",
+   "date": "2026-11-18",
+   "title": "Grid inventory",
+   "changes": [
+    "Tarkov-style grid inventory. Items now take up space by size: knives 2×1, splints and canteens 1×2, pistols 2×1, SMGs 3×2, rifles and shotguns 5×2, sledgehammers 4×2, spears 5×1, helmets 2×2 and body armor 3×3. Small stuff is 1×1.",
+    "Drag items to rearrange your pack. Press R while dragging to rotate. A green outline shows where it fits and red shows where it doesn't. Double-click to equip, wear, eat, drink or use.",
+    "New items are packed in automatically, rotating them if that's the only way they fit. If there's no room, you'll be told to make space.",
+    "Long weapons are drawn lengthwise in their cells, and each item category has its own background tint.",
+    "The loot screen shows your pack as a grid. Click an item to stash it in the container, or drag to rearrange.",
+    "Bigger packs to make up for it: the starting rucksack is a 10×6 grid (60 cells), and bigger backpacks and skill bonuses add more rows. Every pack also carries 6kg more.",
+    "Old saves are re-packed into the grid automatically, and anything that doesn't fit is dropped in a bag at your feet."
+   ]
+  },
+  {
+   "version": "0.5.4",
+   "date": "2026-11-18",
+   "title": "Bigger packs",
+   "changes": [
+    "Every backpack holds 8 more items. The starting rucksack now has 20 slots instead of 12, and skill and pack bonuses stack on top."
+   ]
+  },
+  {
    "version": "0.5.3",
    "date": "2026-11-18",
    "title": "Fight back",
