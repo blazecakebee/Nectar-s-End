@@ -1,43 +1,70 @@
 {
-  "log": [
-    {
-      "version": "0.2.0",
-      "date": "2026-11-18",
-      "title": "Into the Caves",
-      "changes": [
-        "Nectar's End is now a cave-diving game: organic caves with uneven floors, stalactites, rock ledges, ropes down, risky open pits and crawlspaces.",
-        "Five cave biomes, each with a perk and a challenge: Mossy Grotto (forage mushrooms & herbs / spores, damp wounds), Sunscorched Sandstone (dry air, ruins & prickly pears / heat & sinking sand), Frozen Hollows (cold slows bleeding, fresh water / hypothermia, slippery ice, falling icicles), Crystal Depths (glowing crystals, Crystal Shards / crystal radiation, shard floors) and Magma Abyss (no cold, richest caches / heat, lava, steam vents).",
-        "Walk up small cave steps automatically.",
-        "New items: Cave Mushroom, Healing Herb, Prickly Pear, Glowcap (throwable light), Rock; cave-themed weapons and gear.",
-        "All item, menu and skill icons replaced with CC0 Pixel Atlas sprites.",
-        "Base Camp lobby, winch lifts, expedition camps, triage tents, mine storerooms and research outposts.",
-        "New cave title screen."
-      ]
-    },
-    {
-      "version": "0.1.1",
-      "date": "2026-11-18",
-      "title": "Update notifications & update log",
-      "changes": [
-        "New versions now announce themselves with a popup: Update now, or it auto-updates after a countdown.",
-        "Added this Update Log (title screen, Settings, and the update popup).",
-        "\"What's new\" opens automatically the first time you load a new version.",
-        "Pain rebalanced: wounds hurt less constantly, threshold raised to 60."
-      ]
-    },
-    {
-      "version": "0.1.0",
-      "date": "2026-11-18",
-      "title": "First playable build",
-      "changes": [
-        "Title screen, Staging Lobby with Skill Terminal, Gear Locker, Quartermaster and Survivor Dossier.",
-        "Random human survivor every run: name, age, occupation, traits and looks.",
-        "Endless descent through four biomes with a depth meter and extraction elevators every 250m.",
-        "Limb-by-limb anatomy, organs, bleeding, fractures, infection, pain and blackouts; triage by body part.",
-        "Loose verlet physics: ragdolls, props, debris, throwables, right-click dragging.",
-        "Hex menu (M), fading-ink portrait, hex skill web, crafting, map, journal, cemetery.",
-        "Ultrawide support up to 32:9."
-      ]
-    }
-  ]
+ "log": [
+  {
+   "version": "0.3.0",
+   "date": "2026-11-18",
+   "title": "The Vespa",
+   "changes": [
+    "New lore: you are a Vespa, a parasite from an interstellar hive mind, riding human hosts deeper and deeper into the caves. That's why every host is a random new person.",
+    "Full prologue cutscene on your first game (replay it from the title screen). Click or Space to advance, Esc to skip.",
+    "Your host's eyes glow gold and leave a fading trail. The glow cuts through total darkness so you always know which one is you.",
+    "Relic flowers grow deeper down. Their nectar awakens one of 8 Vespa gifts: Overclocked Heart, Chitin Plating, Compound Sight, Stinger Lash, Wing Buds (glide), Hive Pulse [X], Amber Blood and Mandibles.",
+    "When your host dies, the Vespa bursts out as a tendril-lashing goo for 10 seconds. Take them with you.",
+    "No more extraction. A town waits every 250m with an inn bed (rest & save), a doctor, a trader, a well, a workbench and a Deep Post that sends your loot up to Base Camp.",
+    "Online co-op: pick 'Descend with a partner' at the lift, share a 5-letter room code and go down together. Shared cave and enemies. Each player keeps their own save, and reloading reconnects automatically. In co-op a dead player's Vespa drifts to their partner and takes a new host.",
+    "Save slots (3) and autosave: every few seconds, when you rest, and whenever you close or reload the page. Reloading drops you right back where you were.",
+    "Destructible terrain: dig through rock with a Pickaxe, Ice Axe or Rock Hammer (aim at the rock and click). Dynamite blows holes in walls. Both can be found, bought and crafted.",
+    "Ropes: jump off them any time, climb about 60% faster, and Shift+S slides down fast. Press W mid-air to grab one.",
+    "Walking into a low gap now drops you into a crawl automatically, so crawlspaces stop snagging you.",
+    "Objects have real weight: heavy crates fall hard, drag slowly and can't be lifted high. Crates no longer launch themselves at you or do big damage. Dragged objects barely hurt.",
+    "Guns hit harder (pistol 46, rifle 84) and headshots deal 1.5x.",
+    "Generative background music for the title, prologue, Base Camp, each biome, towns and the death burst. The ambient drone is gone.",
+    "New colored anime-style pixel portraits that blink, plus 30+ hairstyles across men and women.",
+    "Redesigned title screen with a clear menu: Continue/New Game, Save Slots, Settings, then Prologue, Run Archive and Update Log.",
+    "Modern glassy HUD: new bottom-left vitals card, hotbar, depth gauge and portrait card.",
+    "7 UI themes in Settings (Honey, Abyss Blue, Moss, Ember, Amethyst, Hive Contrast, Bone & Ink) and new rounded volume sliders.",
+    "Livelier caves: fireflies, sand motes, snow, crystal glints and embers drift around. Biomes are a bit less dark, and the grotto has far fewer spores.",
+    "Backpacks, outfits and all new items now use Pixel Atlas icons."
+   ]
+  },
+  {
+   "version": "0.2.0",
+   "date": "2026-11-18",
+   "title": "Into the Caves",
+   "changes": [
+    "Nectar's End is now a cave-diving game: organic caves with uneven floors, stalactites, rock ledges, ropes down, risky open pits and crawlspaces.",
+    "Five cave biomes, each with a perk and a challenge: Mossy Grotto (forage mushrooms & herbs / spores, damp wounds), Sunscorched Sandstone (dry air, ruins & prickly pears / heat & sinking sand), Frozen Hollows (cold slows bleeding, fresh water / hypothermia, slippery ice, falling icicles), Crystal Depths (glowing crystals, Crystal Shards / crystal radiation, shard floors) and Magma Abyss (no cold, richest caches / heat, lava, steam vents).",
+    "Walk up small cave steps automatically.",
+    "New items: Cave Mushroom, Healing Herb, Prickly Pear, Glowcap (throwable light), Rock; cave-themed weapons and gear.",
+    "All item, menu and skill icons replaced with CC0 Pixel Atlas sprites.",
+    "Base Camp lobby, winch lifts, expedition camps, triage tents, mine storerooms and research outposts.",
+    "New cave title screen."
+   ]
+  },
+  {
+   "version": "0.1.1",
+   "date": "2026-11-18",
+   "title": "Update notifications & update log",
+   "changes": [
+    "New versions now announce themselves with a popup: Update now, or it auto-updates after a countdown.",
+    "Added this Update Log (title screen, Settings, and the update popup).",
+    "\"What's new\" opens automatically the first time you load a new version.",
+    "Pain rebalanced: wounds hurt less constantly, threshold raised to 60."
+   ]
+  },
+  {
+   "version": "0.1.0",
+   "date": "2026-11-18",
+   "title": "First playable build",
+   "changes": [
+    "Title screen, Staging Lobby with Skill Terminal, Gear Locker, Quartermaster and Survivor Dossier.",
+    "Random human survivor every run: name, age, occupation, traits and looks.",
+    "Endless descent through four biomes with a depth meter and extraction elevators every 250m.",
+    "Limb-by-limb anatomy, organs, bleeding, fractures, infection, pain and blackouts; triage by body part.",
+    "Loose verlet physics: ragdolls, props, debris, throwables, right-click dragging.",
+    "Hex menu (M), fading-ink portrait, hex skill web, crafting, map, journal, cemetery.",
+    "Ultrawide support up to 32:9."
+   ]
+  }
+ ]
 }

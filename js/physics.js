@@ -19,13 +19,13 @@ class Phys {
   add(b) { this.bodies.push(b); return b; }
   box(kind, x, y, w, h, m, color) {
     const b = new Body(kind); b.w = w; b.h = h; b.color = color;
-    const r = Math.min(w, h) * 0.3;
+    const r = Math.min(w, h) * 0.3; NE.Phys.weigh(b, m);
     b.point(x - w / 2, y - h / 2, r, m); b.point(x + w / 2, y - h / 2, r, m); b.point(x + w / 2, y + h / 2, r, m); b.point(x - w / 2, y + h / 2, r, m);
     b.link(0, 1); b.link(1, 2); b.link(2, 3); b.link(3, 0); b.link(0, 2); b.link(1, 3);
     return this.add(b);
   }
   stick(kind, x, y, len, ang, r, m) {
-    const b = new Body(kind); const dx = Math.cos(ang) * len / 2, dy = Math.sin(ang) * len / 2;
+    const b = new Body(kind); const dx = Math.cos(ang) * len / 2, dy = Math.sin(ang) * len / 2; NE.Phys.weigh(b, m);
     b.point(x - dx, y - dy, r, m); b.point(x + dx, y + dy, r, m); b.link(0, 1); return this.add(b);
   }
   step(dt) {
@@ -99,9 +99,11 @@ class Phys {
       for (const p of b.pts) {
         if (p.x + p.r < l || p.x - p.r > r || p.y + p.r < t || p.y - p.r > bt) continue;
         const vy = (p.y - p.oy) * 60, vx = (p.x - p.ox) * 60;
-        if (Math.hypot(vx, vy) > 170 && b.kind !== 'rag' && (b.thrownBy !== a)) hits.push({ b, p, v: Math.hypot(vx, vy) });
+        const rv = Math.hypot(vx - a.vx, vy - a.vy); const toward = (a.x - p.x) * vx + (a.cy - p.y) * vy > 0;
+        if (rv > 210 && toward && b.kind !== 'rag' && b.thrownBy !== a && b.dragBy !== a && b.age > 0.4) hits.push({ b, p, v: rv });
         const dl = p.x + p.r - l, dr = r - (p.x - p.r);
-        if (p.y < t + 4 && vy >= 0) { p.y = t - p.r; continue; }
+        // resting on the actor's head: sit there, ride along, never get launched
+        if (p.y < t + 4 && vy >= 0) { p.y = t - p.r; p.oy = p.y; p.ox = NE.lerp(p.ox, p.x - a.vx / 60, 0.5); continue; }
         if (dl < dr) { p.x = l - p.r; p.ox = p.x - Math.min(0, a.vx) / 60 * 0.9 + 0.05; } else { p.x = r + p.r; p.ox = p.x - Math.max(0, a.vx) / 60 * 0.9 - 0.05; }
       }
     }
@@ -119,5 +121,7 @@ class Phys {
     }
   }
 }
+// Heavier things fall faster, bounce less and slide less. m = mass per point.
+Phys.weigh = function (b, m) { m = m || 1; b.mass = m; b.grav = 1.3 + Math.min(0.7, m * 0.14); b.damp = 0.993; b.bounce = m > 2 ? 0.08 : m > 1 ? 0.15 : 0.25; b.fric = m > 2 ? 0.62 : 0.78; };
 NE.Phys = Phys;
 })(window.NE);

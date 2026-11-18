@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Nectar's End</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Nectar's End — a brutal 2D anatomical survival & extraction roguelike. Descend. Bleed. Extract.">
+<meta name="description" content="Nectar's End — a 2D anatomical survival roguelike. You are the Vespa, a parasite from the stars, riding human hosts ever deeper into endless caves.">
 <link rel="icon" type="image/png" href="assets/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,12 +17,12 @@
 // Boot loader: reads version.json (never cached) and loads every file with ?v=<version>,
 // so a new release always pulls fresh code instead of stale cached copies.
 (function () {
-  var files = ['data', 'atlas', 'sprites', 'audio', 'physics', 'survivor', 'world', 'entities', 'skilltree', 'ui', 'game', 'update'];
+  var files = ['lib/peerjs.min', 'data', 'atlas', 'sprites', 'audio', 'physics', 'survivor', 'world', 'entities', 'skilltree', 'ui', 'game', 'saves', 'vespa', 'title', 'net', 'update'];
   function boot(v) {
     var top = v.log && v.log[0]; v.version = v.version || (top && top.version); window.NE_BOOT_VERSION = v.version || null; window.NE_VERSION_INFO = v;
     var q = '?v=' + encodeURIComponent(v.version || Date.now());
     var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'css/style.css' + q; document.head.appendChild(l);
-    (function next(i) { if (i >= files.length) return; var s = document.createElement('script'); s.src = 'js/' + files[i] + '.js' + q; s.onload = function () { next(i + 1); }; document.body.appendChild(s); })(0);
+    (function next(i) { if (i >= files.length) { if (window.NE && NE.bootGame) NE.bootGame(); return; } var s = document.createElement('script'); s.src = 'js/' + files[i] + '.js' + q; s.onload = function () { next(i + 1); }; document.body.appendChild(s); })(0);
   }
   fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : {}; }).catch(function () { return {}; }).then(boot);
 })();

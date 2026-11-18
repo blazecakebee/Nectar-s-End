@@ -20,7 +20,7 @@ U.show = function (v) {
   if (!U.el) { U.el = document.createElement('div'); U.el.id = 'update'; document.getElementById('game').appendChild(U.el); }
   U.el.innerHTML = '<div class="up-h">' + '<img class="pix" src="assets/logo.png"> NEW VERSION <b>v' + esc(v.version) + '</b></div>' +
     (v.notes ? '<div class="up-n">' + esc(v.notes) + '</div>' : '') +
-    (inRun ? '<div class="up-w">Updating restarts the page — your current run will be lost.</div>' : '') +
+    (inRun ? '<div class="up-w">Your run is saved automatically — you\'ll pick up right where you are.</div>' : '') +
     '<div class="up-c"><button class="btn" id="up-now">Update now</button><button class="btn" id="up-later">Later</button><button class="btn" id="up-log">What\'s new</button><span class="up-t"></span></div>';
   U.el.classList.remove('hide', 'mini');
   document.getElementById('up-now').onclick = U.apply;
@@ -36,7 +36,8 @@ U.tick = function () {
   if (U.left <= 0 && !busy) U.apply();
 };
 U.apply = function () {
-  clearInterval(U.timer); try { if (NE.G && NE.G.meta) NE.Save.save(NE.G.meta); } catch (e) { }
+  clearInterval(U.timer); try { if (NE.G && NE.G.autosave) NE.G.autosave(true); } catch (e) { }
+  try { if (NE.G && NE.G.meta && NE.G.meta.run) sessionStorage.setItem('ne_resume', '1'); } catch (e) { }
   const url = location.pathname + '?v=' + encodeURIComponent(U.pending ? U.pending.version : Date.now()) + location.hash;
   location.replace(url);
 };

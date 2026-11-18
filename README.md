@@ -1,33 +1,38 @@
 # Nectar's End
 
-A harsh but fair 2D cave-diving survival & extraction roguelike that runs in the browser. Plain HTML5 Canvas and JavaScript, no build step. Inspired by *Casualties: Unknown*.
+A harsh but fair 2D cave-diving survival roguelike that runs in the browser. Plain HTML5 Canvas and JavaScript, no build step. Inspired by *Casualties: Unknown*.
+
+You are a **Vespa**, a striped golden parasite sent by an interstellar hive mind. You ride human hosts down into caves so deep nobody has found the bottom, hunting the nectar of relic flowers.
 
 **Play:** https://blazecakebee.github.io/Nectar-s-End/
 
 ## The loop
-Title → **Staging Lobby** (skill terminal, gear locker, quartermaster, survivor dossier) → **Descent Elevator** → endless descent through four biomes → **extract** at elevators every 250m, or die → back to the lobby with Survival Data (XP), scrap and unlocks.
+Title → **Base Camp** (skill table, gear rack, quartermaster, host dossier) → **winch lift** (solo or co-op) → endless descent through five biomes, with a **town every 250m** (inn, doctor, trader, well, workbench, Deep Post) → your host dies → the Vespa bursts out for 10 seconds → back to Base Camp with a new host, XP and anything you sent up the Deep Post.
 
-Every run you play a **new random human**: random first and last name, age, occupation, two or three traits, and random looks (skin tone, hair style and color, facial hair, build, scars, glasses, clothing colors).
+Every host is a **new random human** with a random name (by sex), age, occupation, traits and looks (skin tone, 30+ hairstyles, hair and eye color, facial hair, build, scars, glasses, clothes). The one constant is the Vespa's **glowing gold eyes**.
 
 ## Features
+- **The Vespa:** gold eyes with a fading trail; 8 gifts awakened by Relic Nectar (Overclocked Heart, Chitin Plating, Compound Sight, Stinger Lash, Wing Buds, Hive Pulse, Amber Blood, Mandibles); a 10-second goo burst on death; a prologue cutscene.
 - **Anatomy sim:** 6 body parts plus organs (brain, eyes, lungs, heart, stomach, liver). Wound types include cuts, lacerations, arterial bleeds, gunshots with lodged fragments, bites, burns and fractures. Also tracked: blood volume, pain and blackouts, infection and sepsis, toxins, radiation, temperature, hunger, thirst and stress.
-- **Triage:** put the right item on the right body part. Bandages, tourniquets (don't leave them on), sutures, splints, forceps, antiseptic and drugs. Surgical tables make treatment faster and less painful.
-- **Loose verlet physics:** active-ragdoll characters, limp bodies, crates, barrels, debris and cave-ins. You can throw bricks, bottles, flares, glowsticks and molotovs, and hold the right mouse button to grab and drag almost anything.
-- **Cave biomes, each with a perk and a challenge:** Mossy Grotto (0m: forage, glowshrooms / spores, damp wounds), Sunscorched Sandstone (250m: dry air, ruins / heat, sinking sand), Frozen Hollows (500m: slower bleeding, fresh water / cold, ice, icicles), Crystal Depths (750m: crystal light, Crystal Shards / radiation, shard floors), Magma Abyss (1000m+: warmth, rich caches / heat, lava, vents).
-- **Points of interest:** medic cabins, triage tents, scavenger camps, armories, labs, crawlspace stashes, supply pods.
-- **Encounters and events:** wounded survivors (treat, rob or leave), standoffs, masked traders, cave-ins, blackouts, gas breaches, distress beacons (supply pod or trap), ambushes.
-- **UI:** fading-ink portrait, depth meter and threat gauge, an **M** hex menu leading to Status, Inventory, Health, Crafting, Map, Journal, Skills, Settings and Quit. Hex skill web with pan and zoom. Cemetery of past survivors.
-- **Ultrawide:** the view widens to the screen's aspect ratio, from 16:10 up to 32:9.
-- Saves to `localStorage`, with export and import in Settings.
+- **Triage:** put the right item on the right body part. Bandages, tourniquets (don't leave them on), sutures, splints, forceps, antiseptic and drugs.
+- **Physics:** active ragdolls and weighted props (heavy crates fall hard and drag slowly). Throw rocks, bottles, flares, glowcaps, molotovs and dynamite. Hold the right mouse button to drag things.
+- **Destructible terrain:** dig with a pickaxe, ice axe or rock hammer; blast with dynamite.
+- **Cave biomes, each with a perk and a challenge:** Mossy Grotto, Sunscorched Sandstone (250m), Frozen Hollows (500m), Crystal Depths (750m), Magma Abyss (1000m+).
+- **Online co-op** over WebRTC ([PeerJS](https://peerjs.com), MIT, bundled in `js/lib/`) with 5-letter room codes. Each player keeps their own save, and both reconnect after a reload.
+- **Saves:** 3 save slots, plus autosave on a timer, at inns, and when the page closes or reloads.
+- **Music:** generative WebAudio soundtrack per area.
+- **UI:** colored blinking portraits, glass HUD, **M** hex menu, hex skill web, cemetery, 7 UI themes. Supports ultrawide screens (16:10 up to 32:9).
 
 ## Controls
-A/D move · W/S ladders · Space jump · Shift sprint · Ctrl/C/S crouch & crawl · LMB attack/shoot (aim at limbs) · RMB drag objects · E interact · F flashlight · R reload/unjam · G throw / Q cycle · B quick-bandage · 1 swap weapon · **M** menu · Tab inventory · H health · V status · K craft · N map · J journal
+A/D move · W/S ropes (W grabs mid-air) · Space jump (also off ropes) · Shift+S slide down a rope · Shift sprint · Ctrl/C crouch (walk into low gaps to crawl) · LMB attack/shoot/dig · RMB drag objects · X Hive Pulse · E interact · F flashlight · R reload/unjam · G throw / Q cycle · B quick-bandage · 1 swap weapon · **M** menu · Tab inventory · H health · V status · K craft · N map · J journal
 
 ## Credits
-Item, menu and skill icons: [Pixel Atlas](https://pixelatlas.org) sprites from `Angais/pixel-art-atlas-1.4m`, CC0 1.0 (see `assets/ICONS_LICENSE.txt`).
+Co-op networking: PeerJS (MIT, see `js/lib/PEERJS_LICENSE`). Item, menu and skill icons: [Pixel Atlas](https://pixelatlas.org) sprites from `Angais/pixel-art-atlas-1.4m`, CC0 1.0 (see `assets/ICONS_LICENSE.txt`).
 
 ## Files
-`index.html`, `css/style.css`, `js/` (data, sprites, audio, physics, survivor, world, entities, skilltree, ui, game), `assets/logo.png`.
+`index.html`, `css/style.css`, `js/` (data, atlas, sprites, audio, physics, survivor, world, entities, skilltree, ui, game, saves, vespa, title, net, update, `lib/peerjs.min.js`), `assets/`.
+
+Co-op uses the free public PeerJS signalling server. For local testing, add `?peer=127.0.0.1:9000` to the URL to use your own PeerServer.
 
 ## Shipping an update (and the update log)
 `version.json` is both the version number and the in-game **Update Log**. To release, add a new entry at the **top** of `"log"`, then push:
@@ -37,4 +42,4 @@ Item, menu and skill icons: [Pixel Atlas](https://pixelatlas.org) sprites from `
   "changes": ["What changed", "Another change"] },
 ```
 
-The top entry's `version` is the live version. Players get a popup within about 1–10 minutes; GitHub Pages caches files for up to 10 minutes. The popup offers **Update now**, **Later** or **What's new**. If they do nothing, the page auto-refreshes: after 30s on the title screen or lobby, or after 90s during a run (with a warning). Progress is saved first. After updating, a "What's new" window opens once, and the title screen's **UPDATE LOG** button glows until it has been read. The log is also under Settings → Updates.
+The top entry's `version` is the live version. Players get a popup within about 1–10 minutes; GitHub Pages caches files for up to 10 minutes. The popup offers **Update now**, **Later** or **What's new**. If they do nothing, the page auto-refreshes: after 30s on the title screen or lobby, or after 90s during a run Your run is saved first and resumes automatically after the refresh. After updating, a "What's new" window opens once, and the title screen's **UPDATE LOG** button glows until it has been read. The log is also under Settings → Updates.

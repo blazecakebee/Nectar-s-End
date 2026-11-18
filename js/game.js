@@ -3,26 +3,22 @@
 'use strict';
 const { ri, rf, pick, chance, clamp, lerp } = NE; const T = NE.T, VH = NE.VH, LS = 3; let VW = NE.VW;
 
-// ---------------- save ----------------
-NE.Save = {
-  KEY: 'nectars_end_save_v1',
-  def() { return { v: 1, xp: 0, level: 1, points: 2, perks: {}, scrap: 25, unlocked: { backpacks: ['canvas'], outfits: ['rags'] }, equipped: { backpack: 'canvas', outfit: 'rags' }, starter: [], settings: { master: 0.8, sfx: 0.8, amb: 0.6, shake: 1, gore: 1, tips: true }, cemetery: [], best: { depth: 0, time: 0, kills: 0 }, runs: 0, survivor: null, rerolled: false, seenVersion: null }; },
-  load() { const d = this.def(); try { const s = JSON.parse(localStorage.getItem(this.KEY)); if (!s) return d; const m = Object.assign(d, s); m.settings = Object.assign(this.def().settings, s.settings || {}); m.unlocked = Object.assign(this.def().unlocked, s.unlocked || {}); m.equipped = Object.assign(this.def().equipped, s.equipped || {}); m.best = Object.assign(this.def().best, s.best || {}); return m; } catch (e) { return d; } },
-  save(m) { try { localStorage.setItem(this.KEY, JSON.stringify(m)); } catch (e) { } },
-};
 NE.xpForLevel = l => 80 + l * 45;
 
 const G = NE.G = {
   state: 'title', keys: {}, mouse: { x: 0, y: 0, wx: 0, wy: 0, l: false, r: false }, t: 0, timeScale: 1, cam: { x: 0, y: 0, shake: 0 },
-  actors: [], parts: [], tracers: [], noises: [], gas: [], fires: [], dyn: [], lights: [], env: {}, blackout: 0, sayCD: 0, monoT: {},
+  actors: [], amb: [], parts: [], tracers: [], noises: [], gas: [], fires: [], dyn: [], lights: [], env: {}, blackout: 0, sayCD: 0, monoT: {},
 };
 
 G.init = function () {
   G.cv = document.getElementById('cv'); G.ctx = G.cv.getContext('2d'); G.ctx.imageSmoothingEnabled = false;
   G.lc = document.createElement('canvas'); G.lc.width = Math.ceil(VW / LS) + 1; G.lc.height = Math.ceil(VH / LS) + 1; G.lx = G.lc.getContext('2d');
-  G.meta = NE.Save.load();
+  NE.Save.boot(G);
+  let live = false; try { live = sessionStorage.getItem('ne_live') === '1' || sessionStorage.getItem('ne_resume') === '1'; sessionStorage.removeItem('ne_resume'); } catch (e) { }
   window.addEventListener('resize', G.resize); G.resize();
-  G.bindInput(); NE.UI.init(); G.toTitle();
+  G.bindInput(); NE.UI.init(); NE.UI.applyTheme(); G.toTitle();
+  window.addEventListener('beforeunload', () => G.autosave(true));
+  if (live && G.meta.started) setTimeout(() => G.continueGame(), 50); document.addEventListener('visibilitychange', () => { if (document.hidden) G.autosave(true); });
   let last = performance.now();
   const loop = ts => { const dt = Math.min(0.05, (ts - last) / 1000); last = ts; try { G.frame(dt); } catch (e) { console.error(e); } requestAnimationFrame(loop); };
   requestAnimationFrame(loop);
@@ -37,7 +33,8 @@ G.resize = function () {
   const el = document.getElementById('game'); el.style.width = Math.floor(VW * s) + 'px'; el.style.height = Math.floor(VH * s) + 'px';
   document.documentElement.style.setProperty('--s', s);
 };
-G.save = () => NE.Save.save(G.meta);
+G.save = () => NE.Save.write(G);
+G.autosave = f => NE.autosave(f);
 
 // ---------------- input ----------------
 G.bindInput = function () {
@@ -52,14 +49,15 @@ G.bindInput = function () {
   const cv = G.cv;
   const pos = e => { const r = cv.getBoundingClientRect(); G.mouse.x = (e.clientX - r.left) / r.width * VW; G.mouse.y = (e.clientY - r.top) / r.height * VH; };
   window.addEventListener('mousemove', pos);
-  cv.addEventListener('mousedown', e => { pos(e); NE.Audio.init(); if (e.button === 0) { G.mouse.l = true; G.onClick(); } if (e.button === 2) { G.mouse.r = true; G.startGrab(); } });
-  window.addEventListener('mouseup', e => { if (e.button === 0) G.mouse.l = false; if (e.button === 2) { G.mouse.r = false; G.grab = null; } });
+  cv.addEventListener('mousedown', e => { pos(e); NE.Audio.init(); if (G.state === 'prologue') return NE.Prologue.next(); if (e.button === 0) { G.mouse.l = true; G.onClick(); } if (e.button === 2) { G.mouse.r = true; G.startGrab(); } });
+  window.addEventListener('mouseup', e => { if (e.button === 0) G.mouse.l = false; if (e.button === 2) { G.mouse.r = false; G.releaseGrab(); } });
   cv.addEventListener('contextmenu', e => e.preventDefault());
-  document.addEventListener('contextmenu', e => { if (G.state === 'run' || G.state === 'lobby') e.preventDefault(); });
+  document.addEventListener('contextmenu', e => { if (G.state === 'run' || G.state === 'lobby' || G.state === 'burst') e.preventDefault(); });
 };
-G.playing = () => (G.state === 'run' || G.state === 'lobby') && G.player;
+G.playing = () => (G.state === 'run' || G.state === 'lobby' || G.state === 'burst') && G.player;
 G.onKey = function (code) {
   NE.Audio.init();
+  if (G.state === 'prologue') { if (code === 'Escape') NE.Prologue.finish(); else if (code === 'Space' || code === 'Enter') NE.Prologue.next(); return; }
   const UI = NE.UI; const p = G.player; const run = G.state === 'run';
   if (code === 'Escape') { if (UI.closeTop()) return; if (G.playing()) UI.openHex(); return; }
   if (!G.playing()) return;
@@ -72,6 +70,7 @@ G.onKey = function (code) {
   if (code === 'KeyN') return UI.toggle('map');
   if (code === 'KeyV') return UI.toggle('status');
   if (UI.panel) return;
+  if (G.goop) return;
   if (p.anat.uncon || !p.alive) return;
   if (code === 'KeyE') G.interact();
   if (code === 'KeyF') { if (p.light.bat > 0) { p.light.on = !p.light.on; NE.Audio.play('click'); } else G.toast('Battery dead. Use a battery.'); }
@@ -80,16 +79,18 @@ G.onKey = function (code) {
   if (code === 'KeyG' && run) { const id = G.throwSel(); if (id) NE.throwItem(G, p, id); else G.toast('Nothing to throw.'); }
   if (code === 'KeyQ') G.cycleThrow();
   if (code === 'Digit1') G.cycleWeapon();
+  if (code === 'KeyX' && run) G.hivePulse(p);
 };
 G.throwSel = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick']; if (G.throwPref && p.inv.has(G.throwPref)) return G.throwPref; return ids.find(i => p.inv.has(i)); };
 G.cycleThrow = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick'].filter(i => p.inv.has(i)); if (!ids.length) return G.toast('No throwables.'); const i = (ids.indexOf(G.throwSel()) + 1) % ids.length; G.throwPref = ids[i]; G.toast('Throw: ' + NE.ITEMS[ids[i]].name + ' [G]'); };
 G.cycleWeapon = function () { const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const cur = p.equip.weapon; const all = [null, ...ws]; const i = (all.indexOf(cur) + 1) % all.length; p.equip.weapon = all[i]; G.toast('Holding: ' + (all[i] ? NE.ITEMS[all[i].id].name : 'fists')); NE.Audio.play('ui'); };
-G.onClick = function () { if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.player.alive) G.player.attack(); };
+G.onClick = function () { if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
 G.startGrab = function () {
   if (!G.playing() || NE.UI.panel) return; const p = G.player; const m = G.mouse;
   if (NE.dist(m.wx, m.wy, p.x, p.cy) > 40) return;
-  G.grab = G.phys.nearestPoint(m.wx, m.wy, 9, b => b.owner !== p && !(b.owner && b.owner.alive));
+  G.grab = G.phys.nearestPoint(m.wx, m.wy, 9, b => b.owner !== p && !(b.owner && b.owner.alive)); if (G.grab) G.grab.body.dragBy = p;
 };
+G.releaseGrab = function () { const gp = G.grab; if (!gp) return; const b = gp.body; G.grab = null; const v = b.vel(); const sp = Math.hypot(v.x, v.y); const cap = 230 / Math.sqrt(Math.max(0.5, b.mass || 1)); if (sp > cap) { const k = cap / sp; for (const q of b.pts) { q.ox = q.x - (q.x - q.ox) * k; q.oy = q.y - (q.y - q.oy) * k; } } b.dragT = G.t + 0.6; setTimeout(() => { if (b.dragT <= G.t) b.dragBy = null; }, 700); };
 G.ctl = function () {
   const K = G.keys; const p = G.player; const block = NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen();
   if (block) return { mx: 0 };
@@ -118,97 +119,135 @@ G.decal = function (x, y, col) {
 };
 
 // ---------------- states ----------------
-G.clearWorld = function () { G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.blackout = 0; G.grab = null; G.player = null; };
-G.toTitle = function () { G.clearWorld(); G.state = 'title'; G.world = null; NE.UI.showTitle(); };
+G.clearWorld = function () { G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
+G.toTitle = function () { G.autosave(); try { sessionStorage.removeItem('ne_live'); } catch (e) { } G.clearWorld(); G.state = 'title'; G.world = null; if (G.net) G.net.close(); NE.UI.showTitle(); NE.Audio.music('title'); };
 G.toLobby = function () {
-  G.clearWorld(); G.state = 'lobby'; G.run = null;
-  if (!G.meta.survivor) { G.meta.survivor = NE.makeSurvivor(); G.meta.rerolled = false; G.save(); }
+  G.clearWorld(); G.state = 'lobby'; G.run = null; G.meta.started = true; G.meta.run = null; try { sessionStorage.setItem('ne_live', '1'); } catch (e) { }
+  if (!G.meta.survivor) { G.meta.survivor = NE.makeSurvivor(); G.meta.rerolled = false; }
+  G.save();
   G.world = NE.World.lobbyWorld(); G.phys = new NE.Phys(G.world);
-  const fl = G.world.floors[0]; G.player = new NE.Player(G, 6 * T, fl.feetY, G.meta.survivor, G.meta); G.actors.push(G.player);
-  for (let i = 0; i < 3; i++) G.phys.box('crate', (24 + i * 1.2) * T, fl.feetY - 6 - i * 9, 7, 7, 2, '#6a5034');
-  const b = G.phys.stick('bottle', 33 * T, fl.feetY - 4, 4, 0, 1.2, 0.6);
-  G.cam.x = 0; G.cam.y = fl.feetY - VH * 0.6; NE.UI.showLobby(); NE.Audio.setDrone(52, 380);
+  const fl = G.world.floors[0]; G.player = new NE.Player(G, 6 * T, fl.feetY, G.meta.survivor, G.meta); G.actors.push(G.player); G.player.infest = G.infestLevel();
+  for (let i = 0; i < 3; i++) G.phys.box('crate', (24 + i * 1.2) * T, fl.feetY - 6 - i * 9, 7, 7, 3, '#6a5034');
+  G.phys.stick('bottle', 33 * T, fl.feetY - 4, 4, 0, 1.2, 0.5);
+  G.cam.x = 0; G.cam.y = fl.feetY - VH * 0.6; NE.UI.showLobby(); NE.Audio.music('camp');
+  if (G.net && G.net.on) G.net.enterLobby();
   if (G.meta.settings.tips && G.meta.runs === 0) setTimeout(() => G.toast('Walk to the stations and press [E]. The winch lift on the right lowers you into the caves.'), 800);
 };
-G.descend = function () {
-  NE.UI.closeAll(); G.state = 'descent'; G.descT = 0; NE.Audio.play('elevator'); NE.UI.hideHUD();
+G.descend = function (seed) {
+  NE.UI.closeAll(); G.state = 'descent'; G.descT = 0; G.descSeed = seed; NE.Audio.play('elevator'); NE.UI.hideHUD(); NE.Audio.music(null);
+  if (G.net && G.net.on && G.net.role === 'host') G.net.send({ t: 'descend', seed: G.descSeed });
 };
-G.startRun = function () {
-  G.clearWorld(); G.state = 'run'; G.meta.runs++;
+G.continueGame = function () {
+  const M = G.meta; try { sessionStorage.setItem('ne_live', '1'); } catch (e) { }
+  const r = M.run; if (r && r.coop && !G.net) NE.startNet(r.coop.role, r.coop.code);
+  if (r && G.net && G.net.role === 'guest') { G.clearWorld(); G.state = 'wait'; NE.UI.waitDialog(); return; }
+  if (r) { try { G.descSeed = null; return G.startRun(r); } catch (e) { console.error('restore failed', e); M.run = null; G.toast('Your saved run could not be restored. Back at Base Camp.'); } }
+  G.toLobby();
+};
+G.newRunState = () => ({ t: 0, kills: 0, maxDepth: 0, milestone: 0, specops: false, triage: false, treated: 0, log: [], biome: null, floors: 1, abil: [], towns: [], sent: 0 });
+G.startRun = function (restore) {
+  G.clearWorld(); G.state = 'run';
   const surv = G.meta.survivor;
-  G.world = new NE.World(); G.phys = new NE.Phys(G.world);
-  G.run = { t: 0, kills: 0, maxDepth: 0, milestone: 0, specops: false, triage: false, treated: 0, log: [], biome: null, floors: 1 };
-  G.world.ensure(3, fl => G.spawnFloor(fl));
+  const seed = restore ? restore.seed : G.descSeed != null ? G.descSeed : (Math.random() * 1e9) | 0; G.descSeed = null;
+  G.world = new NE.World({ seed }); G.phys = new NE.Phys(G.world); G.world.onMod = (x, y, v) => { if (G.net && G.net.on) G.net.send({ t: 'tile', x, y, v }); };
+  if (restore) { for (const [k, v] of restore.mods || []) G.world.mods.set(k, v); }
+  G.run = restore ? restore.run : G.newRunState(); if (!restore) G.meta.runs++;
+  G.world.ensure(restore ? Math.max(3, restore.floors) : 3, fl => G.spawnFloor(fl, !!restore));
   const f0 = G.world.floors[0]; G.player = new NE.Player(G, 12 * T, f0.feetY, surv, G.meta); G.actors.unshift(G.player);
   const p = G.player; const inv = p.inv;
-  inv.add('rag', 2); inv.add('water', 1);
-  const occ = NE.OCCUPATIONS.find(o => o.id === surv.occ); for (const id of occ.kit) { if (id === 'ammo9') inv.add('ammo9', ri(6, 12)); else if (id === 'pistol') inv.add('pistol', 1, { mag: ri(3, 6) }); else inv.add(id, 1); }
-  for (const id of G.meta.starter) inv.add(id, 1); G.meta.starter = [];
-  const w = inv.items.find(e => NE.ITEMS[e.id].cat === 'weapon'); if (w) p.equip.weapon = w;
-  const resp = inv.find('respirator'); if (resp) { p.gear.face = resp; inv.remove(resp); p.filterT = 30; }
+  if (restore) NE.Save.restoreRun(G, restore);
+  else {
+    inv.add('rag', 2); inv.add('water', 1);
+    const occ = NE.OCCUPATIONS.find(o => o.id === surv.occ); for (const id of occ.kit) { if (id === 'ammo9') inv.add('ammo9', ri(6, 12)); else if (id === 'pistol') inv.add('pistol', 1, { mag: ri(3, 6) }); else inv.add(id, 1); }
+    for (const id of G.meta.starter) inv.add(id, 1); G.meta.starter = [];
+    const w = inv.items.find(e => NE.ITEMS[e.id].cat === 'weapon'); if (w) p.equip.weapon = w;
+    const resp = inv.find('respirator'); if (resp) { p.gear.face = resp; inv.remove(resp); p.filterT = 30; }
+    if (G.net && G.net.on && G.net.role === 'guest') p.x += 14;
+  }
+  p.setAbilities(G.run.abil || []); p.infest = G.infestLevel();
   G.eventT = rf(45, 70); G.sayCD = 0;
-  G.cam.x = p.x - VW / 2; G.cam.y = p.y - VH * 0.55; G.save();
-  NE.UI.showRun(); NE.Audio.setDrone(48, 300); NE.Audio.play('ding');
-  setTimeout(() => G.say(pick(NE.MONO.start)), 600);
-  G.log('Arrived at 0m — ' + f0.biome.name + '.', 'sys'); G.log('Perk: ' + f0.biome.perk, 'good'); G.log('Danger: ' + f0.biome.challenge, 'bad');
+  G.cam.x = p.x - VW / 2; G.cam.y = p.y - VH * 0.55;
+  NE.UI.showRun(); NE.Audio.play('ding'); G.musicFor();
+  if (!restore) { setTimeout(() => G.say(pick(NE.MONO.start)), 600); G.log('Lowered to 0m — ' + f0.biome.name + '.', 'sys'); G.log('Perk: ' + f0.biome.perk, 'good'); G.log('Danger: ' + f0.biome.challenge, 'bad'); G.log('A town waits every 250m. There is no way back up.', 'sys'); }
+  else G.toast('Welcome back, ' + surv.first + '. ' + Math.round(NE.depthOfY(p.y)) + 'm.');
+  if (G.net && G.net.on) G.net.enterRun(); G.autosave();
 };
-G.spawnFloor = function (fl) {
+G.spawnFloor = function (fl, restoring) {
+  const guest = G.net && G.net.on && G.net.role === 'guest';
   for (const s of fl.spawns) {
+    if (s.kind === 'town') { const n = new NE.NPC(G, s.x, s.y, 'town'); n.setRole(s.role, s.name, s.look); if (s.role === 'trader') n.stock = NE.withSeed(G.world.seed + fl.f, () => G.traderStock(fl.depth + 200)); if (s.role === 'doctor') n.stock = NE.withSeed(G.world.seed + fl.f * 3, () => G.traderStock(fl.depth, true)); G.actors.push(n); continue; }
+    if (s.kind === 'prop') { const pal = fl.biome.pal; if (s.p === 'crate') G.phys.box('crate', s.x, s.y, 7, 7, 3, '#6a5034'); else if (s.p === 'barrel') G.phys.box('barrel', s.x, s.y - 2, 6, 9, 4.5, pick(['#5a6a4a', '#7a3a2a', '#3a4a6a'])); else if (s.p === 'debris') G.phys.box('debris', s.x, s.y, rf(4, 7), rf(3, 5), 3, pal.tile); else { const b = G.phys.stick(s.p, s.x, s.y, 4, 0, 1.2, s.p === 'brick' ? 2 : 0.5); b.item = s.p; } continue; }
+    if (restoring || guest) continue; // enemies come from the save file / the co-op host
     if (s.kind === 'enemy') { const e = new NE.Enemy(G, s.x, s.y, s.type, fl.depth); e.guard = !!s.guard; G.actors.push(e); }
     else if (s.kind === 'survivor' || s.kind === 'trader') { const n = new NE.NPC(G, s.x, s.y, s.kind); if (s.kind === 'trader') n.stock = G.traderStock(fl.depth); G.actors.push(n); }
     else if (s.kind === 'standoff') { const grp = []; for (let i = 0; i < 2; i++) { const e = new NE.Enemy(G, s.x + i * 12, s.y, fl.depth > 400 ? pick(['scav', 'gunner']) : 'scav', fl.depth); e.hostile = false; e.guard = true; e.facing = -1; grp.push(e); G.actors.push(e); } fl.objs.push({ type: 'standoff', x: s.x, y: s.y, grp, done: false }); }
-    else if (s.kind === 'prop') { const pal = fl.biome.pal; if (s.p === 'crate') G.phys.box('crate', s.x, s.y, 7, 7, 2, '#6a5034'); else if (s.p === 'barrel') G.phys.box('barrel', s.x, s.y - 2, 6, 9, 3, pick(['#5a6a4a', '#7a3a2a', '#3a4a6a'])); else if (s.p === 'debris') G.phys.box('debris', s.x, s.y, rf(4, 7), rf(3, 5), 2, pal.tile); else { const b = G.phys.stick(s.p, s.x, s.y, 4, 0, 1.2, 0.6); b.item = s.p; } }
   }
 };
+G.inTown = () => { const fl = G.world && !G.world.lobby && G.player ? G.curFloor() : null; return fl && fl.town ? fl : null; };
+G.musicFor = function () { if (G.state === 'burst') return NE.Audio.music('burst'); if (G.state !== 'run') return; const fl = G.curFloor(); NE.Audio.music(fl.town ? 'town' : fl.biome.id); };
+G.infestLevel = function () { const M = G.meta; const ab = G.run ? (G.run.abil || []).length : 0; const d = G.run ? G.run.maxDepth : 0; return clamp(0.12 + (M.level - 1) * 0.025 + (M.nectars || 0) * 0.04 + ab * 0.1 + d / 3500, 0, 1); };
 
 // ---------------- frame ----------------
 G.frame = function (dt) {
   G.t += dt; G.sayCD = Math.max(0, G.sayCD - dt);
   if (G.state === 'title') { G.drawTitle(dt); }
+  else if (G.state === 'prologue') { NE.Prologue.frame(dt); }
   else if (G.state === 'descent') { G.drawDescent(dt); }
-  else if (G.state === 'lobby' || G.state === 'run' || G.state === 'dying') {
+  else if (G.state === 'wait') { G.drawWait(dt); }
+  else if (G.state === 'lobby' || G.state === 'run' || G.state === 'dying' || G.state === 'burst') {
     const UI = NE.UI; let ts = 1; if (UI.panel || UI.hexOpen) ts = UI.panel === 'settings' ? 0 : 0.2; if (UI.modalOpen()) ts = 0;
-    if (G.player && G.player.anat.uncon && G.state === 'run') ts = 2.5;
+    if (G.net && G.net.on && G.state !== 'lobby') ts = Math.max(ts, UI.modalOpen() || UI.panel ? 1 : ts); // co-op never pauses
+    if (G.player && G.player.anat.uncon && G.state === 'run' && !(G.net && G.net.on)) ts = 2.5;
     if (G.state === 'dying') ts = 0.35;
     G.timeScale = ts; const sdt = dt * ts;
     if (sdt > 0) G.update(sdt, dt);
     G.render(dt);
-    if (G.state === 'dying') { G.dieT -= dt; if (G.dieT <= 0) G.endRun(false, G.player.anat.cause); }
+    if (G.state === 'dying') { G.dieT -= dt; if (G.dieT <= 0) G.afterDeath(); }
+    G.saveT = (G.saveT || 0) - dt; if (G.saveT <= 0) { G.saveT = 12; G.autosave(); }
   }
+  if (G.net) G.net.tick(dt);
   NE.UI.tick(dt);
 };
 G.update = function (dt, rdt) {
-  const p = G.player, W = G.world, run = G.state === 'run' || G.state === 'dying';
+  const p = G.player, W = G.world, run = G.state === 'run' || G.state === 'dying' || G.state === 'burst';
   G.mouse.wx = G.mouse.x + G.cam.x; G.mouse.wy = G.mouse.y + G.cam.y;
-  if (run) { const fi = G.floorIdx(p.y); W.ensure(fi + 3, fl => G.spawnFloor(fl)); G.run.t += dt; }
+  const focus = G.focus();
+  if (run) { const fi = G.floorIdx(focus.y); W.ensure(fi + 3, fl => G.spawnFloor(fl)); if (G.net && G.net.peer && G.net.role === 'host') W.ensure(G.floorIdx(G.net.peer.y) + 3, fl => G.spawnFloor(fl)); G.run.t += dt; }
   // player
   const env = G.env = G.computeEnv(p);
   if (p.alive) {
     p.update(dt, G.state === 'dying' ? { mx: 0 } : G.ctl());
-    if (run) { p.anat.update(dt, env); G.handleAnatEvents(p); if (G.state === 'run' && p.anat.dead) G.playerDeath(); }
+    if (run) { p.anat.update(dt, env); G.handleAnatEvents(p); G.vespaTick(p, dt); if (G.state === 'run' && p.anat.dead) G.playerDeath(); }
     p.rag.tiles = p.anat.uncon; if (p.anat.uncon) p.rag.collide = false;
-    if (run) G.hazards(p, dt);
+    if (run && p.alive) G.hazards(p, dt);
   }
-  // others (only near)
-  const fy = p.y;
-  for (const a of G.actors) { if (!a.alive || Math.abs(a.y - fy) > 260) continue; if (W.isLava && W.isLava(a.x, a.y - 2)) { a.inFire = 0.3; a.vy = Math.min(a.vy, -40); } if (a === p) continue; a.update(dt); if (a.burnAcc != null) G.burnTick(a, dt); }
+  if (G.goop) G.goopUpdate(dt);
+  if (G.wisp) G.wispUpdate(dt);
+  // others (only near a player)
+  const near = a => Math.abs(a.y - focus.y) < 260 || (G.net && G.net.peer && Math.abs(a.y - G.net.peer.y) < 260);
+  for (const a of G.actors) { if (!a.alive || !near(a)) continue; if (W.isLava && W.isLava(a.x, a.y - 2) && !a.isPuppet) { a.inFire = 0.3; a.vy = Math.min(a.vy, -40); } if (a === p) continue; a.update(dt); if (a.burnAcc != null && !a.isPuppet) G.burnTick(a, dt); }
   G.actors = G.actors.filter(a => !a.gone || (a.rag.remove = true, false));
   // physics
   G.physAcc = (G.physAcc || 0) + dt; let n = 0;
   while (G.physAcc >= 1 / 60 && n < 4) {
     G.physAcc -= 1 / 60; n++;
-    if (G.grab) { const gp = G.grab; const m = G.mouse; let tx = m.wx, ty = m.wy; const dx = tx - p.x, dy = ty - p.cy, d = Math.hypot(dx, dy); if (d > 36) { tx = p.x + dx / d * 36; ty = p.cy + dy / d * 36; } gp.x = lerp(gp.x, tx, 0.35); gp.y = lerp(gp.y, ty, 0.35); if (NE.dist(gp.x, gp.y, p.x, p.cy) > 60) G.grab = null; }
+    if (G.grab && p.alive) { const gp = G.grab; const m = G.mouse; let tx = m.wx, ty = m.wy; const dx = tx - p.x, dy = ty - p.cy, d = Math.hypot(dx, dy); if (d > 36) { tx = p.x + dx / d * 36; ty = p.cy + dy / d * 36; } const mm = gp.body.mass || 1; const k = clamp(0.4 / mm, 0.06, 0.4); if (mm > 2.5 && ty < p.y - 10) ty = lerp(ty, p.y - 4, 0.6); gp.x = lerp(gp.x, tx, k); gp.y = lerp(gp.y, ty, k); if (NE.dist(gp.x, gp.y, p.x, p.cy) > 60) G.releaseGrab(); }
     G.phys.step(1 / 60);
-    for (const a of G.actors) { if (!a.alive || Math.abs(a.y - fy) > 260) continue; const hits = G.phys.pushActor(a); for (const h of hits) G.propHit(a, h); }
+    for (const a of G.actors) { if (!a.alive || !near(a)) continue; const hits = G.phys.pushActor(a); for (const h of hits) G.propHit(a, h); }
   }
   if (G.physAcc > 0.1) G.physAcc = 0;
-  // thrown light bodies + lifetimes
-  for (const b of G.phys.bodies) { if (b.life > 0) { b.life -= dt; if (b.item === 'flare' && Math.random() < dt * 30) G.addP(b.pts[1].x, b.pts[1].y, rf(-10, 10), rf(-30, -5), 0.3, pick(['#ff4030', '#ffa040']), 'spark', -0.2); } if (b.kind === 'debris' && b.age > 40) b.remove = true; }
+  // thrown light bodies + lifetimes + dynamite fuses
+  for (const b of G.phys.bodies) {
+    if (b.life > 0) { b.life -= dt; if (b.item === 'flare' && Math.random() < dt * 30) G.addP(b.pts[1].x, b.pts[1].y, rf(-10, 10), rf(-30, -5), 0.3, pick(['#ff4030', '#ffa040']), 'spark', -0.2); }
+    if (b.fuse > 0) { b.fuse -= dt; if (Math.random() < dt * 40) G.addP(b.pts[1].x, b.pts[1].y, rf(-15, 15), rf(-40, -5), 0.25, pick(['#ffe080', '#ff8020']), 'spark', -0.2); if (b.fuse <= 0) { b.remove = true; const c = b.center(); G.explode(c.x, c.y, 1.4, b.remote); } }
+    if (b.kind === 'debris' && b.age > 40) b.remove = true;
+  }
   // particles
   for (const q of G.parts) {
     q.life -= dt; q.vy += 300 * dt * q.grav; q.x += q.vx * dt; q.y += q.vy * dt;
     if (q.kind === 'blood' && W.solidAt(q.x, q.y)) { G.decal(q.x, q.y - 1, q.col); q.life = 0; }
     if (q.kind === 'spark' && W.solidAt(q.x, q.y)) { q.vy *= -0.3; q.vx *= 0.5; }
+    if (q.kind === 'goo' && W.solidAt(q.x, q.y)) { G.decal(q.x, q.y - 1, '#d8a020'); q.life = 0; }
   }
   G.parts = G.parts.filter(q => q.life > 0);
   G.tracers = G.tracers.filter(t => (t.t -= rdt) > 0);
@@ -217,22 +256,25 @@ G.update = function (dt, rdt) {
   for (const c of G.gas) { c.x += c.vx * dt; c.r = Math.min(c.max || 38, c.r + dt * 3); c.life -= dt; c.d = Math.min(c.d, c.life / 8); const fl = W.floors[G.floorIdx(c.y)]; if (fl) c.y = clamp(c.y + dt * 3, fl.y0 * T + 10, fl.feetY - 8); }
   G.gas = G.gas.filter(c => c.life > 0);
   // fires
-  for (const f of G.fires) { f.t -= dt; if (Math.random() < dt * 25) G.addP(f.x + rf(-f.r, f.r) * 0.7, f.y - 1, rf(-8, 8), rf(-50, -20), rf(0.3, 0.7), pick(['#ff6020', '#ffb040', '#ffe080']), 'spark', -0.3); for (const a of G.actors) if (a.alive && Math.abs(a.x - f.x) < f.r && Math.abs(a.y - f.y) < 10) { a.burnAcc = (a.burnAcc || 0); a.inFire = 0.2; } }
+  for (const f of G.fires) { f.t -= dt; if (Math.random() < dt * 25) G.addP(f.x + rf(-f.r, f.r) * 0.7, f.y - 1, rf(-8, 8), rf(-50, -20), rf(0.3, 0.7), pick(['#ff6020', '#ffb040', '#ffe080']), 'spark', -0.3); for (const a of G.actors) if (a.alive && !a.isPuppet && Math.abs(a.x - f.x) < f.r && Math.abs(a.y - f.y) < 10) { a.burnAcc = (a.burnAcc || 0); a.inFire = 0.2; } }
   G.fires = G.fires.filter(f => f.t > 0);
-  for (const a of G.actors) if (a.inFire > 0) { a.inFire -= dt; G.burnTick(a, dt); }
+  for (const a of G.actors) if (a.inFire > 0 && !a.isPuppet) { a.inFire -= dt; G.burnTick(a, dt); }
   // objects
   G.updateObjects(dt);
-  if (run) { G.events(dt); G.depthTrack(p); G.markSeen(p, dt); }
+  if (run) { G.events(dt); if (p.alive) { G.depthTrack(p); G.markSeen(p, dt); } }
+  G.ambient(dt);
   G.blackout = Math.max(0, G.blackout - dt);
   G.camera(rdt);
 };
+G.focus = function () { return G.goop || (G.wisp ? G.wisp : G.player); };
 G.burnTick = function (a, dt) { if (!(a.inFire > 0)) return; a.burnAcc = (a.burnAcc || 0) + dt; if (a.burnAcc > 0.45) { a.burnAcc = 0; a.hurt(pick(['lleg', 'rleg', 'torso', 'larm', 'rarm']), rf(3, 5), 'burn', 'Fire'); if (a.isPlayer) G.say('HOT—', 0.3); } };
 G.propHit = function (a, h) {
-  if (!a.alive) return; const b = h.b; if (b.hitCD > G.t) return; b.hitCD = G.t + 0.4;
-  const heavy = b.kind === 'debris' || b.kind === 'brick' || b.kind === 'crate' || b.kind === 'barrel';
-  const dmg = h.v / (heavy ? 18 : 40) * (b.pts[0].m); if (dmg < 2) return;
+  if (!a.alive || a.isPuppet) return; const b = h.b; if (b.hitCD > G.t) return; b.hitCD = G.t + 0.5;
+  const m = b.mass || b.pts[0].m || 1; const dragged = b.dragBy && b.dragT > G.t - 0.6 || (G.grab && G.grab.body === b);
+  let dmg = (h.v - 210) / 45 * Math.min(2.2, 0.35 + m * 0.4); if (b.kind === 'debris') dmg *= 1.3; if (dragged) dmg *= 0.3;
+  dmg = Math.min(dmg, dragged ? 4 : b.kind === 'debris' ? 14 : 9); if (dmg < 1.5) return;
   const part = h.p.y < a.y - a.h + 5 ? 'head' : pick(['torso', 'larm', 'rarm']);
-  a.hurt(part, dmg, 'blunt', b.kind === 'debris' ? 'Falling debris' : 'Thrown ' + (b.item || b.kind), { x: Math.sign(h.p.x - h.p.ox) || 0, y: 0.5 }); NE.Audio.play('thud');
+  a.hurt(part, dmg, 'blunt', b.kind === 'debris' ? 'Falling rock' : 'Thrown ' + (b.item || b.kind), { x: Math.sign(h.p.x - h.p.ox) || 0, y: 0.5 }); NE.Audio.play('thud');
   if (b.thrownBy && a.onAggro) a.onAggro(b.thrownBy);
 };
 G.computeEnv = function (p) {
@@ -247,6 +289,7 @@ G.computeEnv = function (p) {
   if (rad > 0 && Math.random() < rad * 0.5) NE.Audio.play('geiger', Math.min(1, rad));
   env.dark = !p.light.on && !G.lightAt(p.x, p.cy);
   env.threat = G.actors.some(a => a.alive && a.target === p && NE.dist(a.x, a.y, p.x, p.y) < 140);
+  const tf = G.inTown(); if (tf) { env.town = true; env.dark = false; }
   env.sprint = p.sprint;
   return env;
 };
@@ -275,7 +318,7 @@ G.hazards = function (p, dt) {
   // glass shards
   if (W.get(tx, ty) === TLs() && Math.abs(p.vx) > 22 && p.onGround) { if (Math.random() < dt * (p.sprint ? 2.5 : 1.2)) { p.hurt(p.crawl ? pick(['larm', 'rarm', 'torso']) : pick(['lleg', 'rleg']), rf(3, 6), 'glass', 'Glass shards'); NE.Audio.play('glass'); G.say('Glass—!', 0.5); } }
   // crumbling floor
-  const fy = Math.floor((p.y + 1) / T); for (const xx of [p.x - 2, p.x + 2]) { const cx = Math.floor(xx / T); if (p.onGround && W.get(cx, fy) === 6) { const k = cx + ',' + fy; const v = (W.crumble.get(k) || 0) + dt; W.crumble.set(k, v); if (v > 0.7) { W.set(cx, fy, 0); W.crumble.delete(k); NE.Audio.play('crack'); G.dust(cx * T + 4, fy * T, 8); G.phys.box('debris', cx * T + 4, fy * T + 4, 5, 4, 2, W.biomeAtY(fy * T).pal.tile); } } }
+  const fy = Math.floor((p.y + 1) / T); for (const xx of [p.x - 2, p.x + 2]) { const cx = Math.floor(xx / T); if (p.onGround && W.get(cx, fy) === 6) { const k = cx + ',' + fy; const v = (W.crumble.get(k) || 0) + dt; W.crumble.set(k, v); if (v > 0.7) { W.setMod(cx, fy, 0); W.crumble.delete(k); NE.Audio.play('crack'); G.dust(cx * T + 4, fy * T, 8); G.phys.box('debris', cx * T + 4, fy * T + 4, 5, 4, 2, W.biomeAtY(fy * T).pal.tile); } } }
 };
 function TLs() { return 4; }
 G.nearObjs = function () {
@@ -296,7 +339,7 @@ G.updateObjects = function (dt) {
     else if (o.type === 'standoff' && !o.done && G.state === 'run') { if (o.grp.every(e => !e.alive)) o.done = true; else if (NE.dist(o.x, o.y, p.x, p.y) < 70 && Math.abs(o.y - p.y) < 14) { o.done = true; NE.UI.standoff(o); } }
     else if (o.type === 'fire' && Math.random() < dt * 14) G.addP(o.x + rf(-3, 3), o.y - 2, rf(-6, 6), rf(-40, -20), rf(0.3, 0.6), pick(['#ff6020', '#ffb040', '#ffe080']), 'spark', -0.3);
   }
-  if (G.state === 'run' && G.world.floors[0]) { /* nothing */ }
+  
 };
 
 // ---------------- combat ray ----------------
@@ -306,22 +349,41 @@ G.fireRay = function (sh, ox, oy, dx, dy, range, dmg, snd) {
   for (let d = 2; d < range; d += 2) {
     const px = ox + dx * d, py = oy + dy * d;
     if (W.solidAt(px, py)) { ex = px; ey = py; G.sparks(px - dx * 2, py - dy * 2, 5); break; }
-    let hit = null; for (const a of G.actors) { if (a === sh || !a.alive) continue; if (a.contains(px, py, 0.5)) { hit = a; break; } }
-    if (hit) { const part = hit.partNear(px, py); hit.hurt(part, dmg, 'bullet', name, { x: dx, y: dy }); if (hit.onAggro) hit.onAggro(sh); ex = px; ey = py; if (hit.isPlayer) G.shake(3); break; }
+    let hit = null; for (const a of G.actors) { if (a === sh || !a.alive || (sh.isPlayer && (a.isRemote || a.town)) || (sh.isRemote && a.isPlayer)) continue; if (a.contains(px, py, 0.5)) { hit = a; break; } }
+    if (hit) { const part = hit.partNear(px, py); hit.hurt(part, dmg * (part === 'head' ? 1.5 : 1), 'bullet', name, { x: dx, y: dy }); if (hit.onAggro) hit.onAggro(sh); ex = px; ey = py; if (hit.isPlayer) G.shake(3); break; }
   }
   G.phys.impulse(ex, ey, 6, 220);
   G.tracers.push({ x1: ox, y1: oy, x2: ex, y2: ey, t: 0.05 });
+  if (G.net && G.net.on && !sh.isPuppet) G.net.send({ t: 'shot', x1: ox, y1: oy, x2: ex, y2: ey, snd });
 };
-G.explode = function (x, y) {
-  NE.Audio.play('boom'); G.shake(6); G.phys.impulse(x, y, 60, 900); G.sparks(x, y, 30); G.dust(x, y, 20); G.noise(x, y, 300);
-  for (const a of G.actors) { if (!a.alive) continue; const d = NE.dist(a.x, a.cy, x, y); if (d < 45) { const k = 1 - d / 45; for (let i = 0; i < 3; i++) a.hurt(pick(NE.PARTS), 14 * k + 4, 'frag', 'Explosion', { x: (a.x - x) / (d || 1), y: -0.5 }); a.vy -= 120 * k; a.vx += (a.x - x) / (d || 1) * 120 * k; } }
+G.explode = function (x, y, power, remote) {
+  power = power || 1; NE.Audio.play('boom'); G.shake(6 * power); G.phys.impulse(x, y, 60 * power, 900); G.sparks(x, y, 30); G.dust(x, y, 26); G.noise(x, y, 300);
+  for (let i = 0; i < 14; i++) G.addP(x, y, rf(-60, 60), rf(-60, 20), rf(0.5, 1.2), pick(['#ffd060', '#ff8020', '#fff0b0']), 'spark', 0.3);
+  // blow the rock apart (each side does this; the result is identical)
+  const W = G.world; if (W && !W.lobby) { const R = 2.6 * power, tx0 = Math.floor(x / T), ty0 = Math.floor(y / T); for (let ty = Math.floor(ty0 - R); ty <= ty0 + R; ty++) for (let tx = Math.floor(tx0 - R); tx <= tx0 + R; tx++) { const d = Math.hypot(tx + 0.5 - x / T, ty + 0.5 - y / T); if (d > R) continue; const t = W.get(tx, ty); if (!W.diggable(tx, ty)) continue; if (W.damageTile(tx, ty, (R - d + 1) * 6) === 'broke' && chance(0.35)) { const db = G.phys.box('debris', tx * T + 4, ty * T + 4, rf(3, 5), rf(3, 4), 2.5, W.biomeAtY(ty * T).pal.tile); db.setVel((tx * T - x) * 4, (ty * T - y) * 4 - 60); db.noActor = true; setTimeout(() => db.noActor = false, 600); } } }
+  for (const a of G.actors) { if (!a.alive || a.isPuppet || a.isRemote) continue; const d = NE.dist(a.x, a.cy, x, y); const rr = 45 * power; if (d < rr) { const k = 1 - d / rr; for (let i = 0; i < 3; i++) a.hurt(pick(NE.PARTS), 14 * k + 4, 'frag', 'Explosion', { x: (a.x - x) / (d || 1), y: -0.5 }); a.vy -= 120 * k; a.vx += (a.x - x) / (d || 1) * 120 * k; } }
+  if (G.goop && NE.dist(G.goop.x, G.goop.y, x, y) < 40) G.goop.vy -= 150;
+};
+// mining: pickaxe / ice axe / rock hammer chip at the rock under the cursor
+G.tryDig = function (pl, w) {
+  const W = G.world; if (W.lobby) return false; const m = G.mouse; const hx = pl.x, hy = pl.y - pl.h * 0.6;
+  let dx = m.wx - hx, dy = m.wy - hy; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+  let tx = -1, ty = -1; for (let d = 2; d <= 15; d += 1) { const px = hx + dx * d, py = hy + dy * d; if (W.solidAt(px, py) || W.get(Math.floor(px / T), Math.floor(py / T)) === 4) { tx = Math.floor(px / T); ty = Math.floor(py / T); break; } }
+  if (tx < 0) return false; if (G.actors.some(a => a !== pl && a.alive && !a.town && NE.dist(a.x, a.cy, hx, hy) < 16 && (a.x - hx) * dx > 0)) return false;
+  if (!W.diggable(tx, ty)) { G.toast('Too hard to break.'); NE.Audio.play('deny'); return true; }
+  const t = W.get(tx, ty); const res = W.damageTile(tx, ty, w.dig * (pl.stats.melee || 1));
+  const cx = tx * T + 4, cy = ty * T + 4; const col = t === 10 ? '#cfeeff' : W.biomeAtY(cy).pal.tile;
+  for (let i = 0; i < 6; i++) G.addP(cx - dx * 4, cy - dy * 4, rf(-50, 50) - dx * 30, rf(-60, 10), rf(0.3, 0.7), i % 2 ? col : NE.shade(col, 1.4), 'spark', 1); G.noise(cx, cy, 70);
+  if (res === 'broke') { NE.Audio.play('crack'); G.dust(cx, cy + 3, 8); if (chance(0.25)) { const left = pl.inv.add('brick', 1); if (!left) G.toast('+1 Rock'); } if (t === 4) G.toast('Shattered the crystal shards.'); }
+  else NE.Audio.play('hit', 0.6);
+  return true;
 };
 
 // ---------------- interaction ----------------
 G.interactTarget = function () {
   const p = G.player; let best = null, bd = 16;
   for (const o of G.nearObjs()) { if (!o.act) continue; if (o.type === 'forage') o.label = 'Forage ' + NE.ITEMS[o.item].name; if (o.type === 'container' && o.actor && o.actor.rag) { const c = o.actor.rag.pts[2]; o.x = c.x; o.y = c.y + 3; } const dx = Math.abs(o.x - p.x), dy = Math.abs(o.y - p.y); if (dy > 14) continue; const r = o.type === 'elevator' ? 24 : 14; if (dx < r && dx < bd + (o.type === 'elevator' ? 10 : 0)) { bd = dx; best = o; } }
-  for (const a of G.actors) { if (!a.isNPC || !a.alive || a.leaving) continue; const dx = Math.abs(a.x - p.x); if (dx < 14 && Math.abs(a.y - p.y) < 14 && dx < bd) { bd = dx; best = a; } }
+  for (const a of G.actors) { if (!a.isNPC || !a.alive || a.leaving || a.isPuppet) continue; const dx = Math.abs(a.x - p.x); if (dx < 14 && Math.abs(a.y - p.y) < 14 && dx < bd) { bd = dx; best = a; } }
   return best;
 };
 G.interact = function () {
@@ -331,8 +393,13 @@ G.interact = function () {
     case 'wardrobe': return UI.open('wardrobe');
     case 'shop': return UI.open('shop');
     case 'dossier': return UI.open('dossier');
-    case 'descend': return UI.confirm('Ride the lift into the caves?', (G.meta.survivor.name) + ' will be lowered to 0m. Extraction lifts hang every 250m — reach one, or die trying.', 'DESCEND', () => G.descend());
-    case 'extract': { const d = Math.round(G.run.maxDepth); return UI.confirm(o.kind === 'arrival' ? 'Ride back up to the surface?' : 'Ride the extraction lift up?', 'Ends the run and banks your Survival Data and scrap. Max depth: ' + d + 'm.', 'EXTRACT', () => G.endRun(true, 'Extracted')); }
+    case 'descend': return UI.liftPrompt();
+    case 'arrival': return G.toast('The lift only goes down. Up is not an option anymore.');
+    case 'post': return UI.deepPost();
+    case 'rest': return G.rest();
+    case 'doctor': return UI.doctor(o);
+    case 'chat': { const line = NE.withSeed(NE.hash(o.x | 0, (G.t * 3) | 0) * 1e9, () => pick(NE.TOWN_LINES)); o.sayT = 3; o.line = line; G.toast(o.name + ': "' + line + '"'); NE.Audio.play('ui'); return; }
+    case 'harvest': return G.harvestRelic(o);
     case 'table': G.toast('Surgical table: treatments are faster and hurt less here.'); return UI.open('health');
     case 'drink': if (o.uses > 0) { o.uses--; p.anat.thirst = Math.min(100, p.anat.thirst + 40); G.toast('Clean water. (' + o.uses + ' left)'); NE.Audio.play('splash'); } else G.toast('Dispenser is dry.'); return;
     case 'fire': G.toast('Warmth. You can boil water here.'); return UI.open('craft');
@@ -357,6 +424,7 @@ G.beginSearch = function (o) {
   NE.Audio.play('open_' + (C.sound || 'wood')); p.search = { obj: o, t: 0, dur };
 };
 G.finishSearch = function (o) {
+  if (o.type === 'relic') return G.finishRelic(o);
   const p = G.player; const sec = o.locked === 'security';
   if (o.breach) {
     const tool = o.breach; o.breach = null; let ok;
@@ -367,8 +435,8 @@ G.finishSearch = function (o) {
     o.locked = null; NE.Audio.play('open_metal');
   }
   if (o.trap) { const tr = o.trap; o.trap = null; if (tr === 'needle') { p.hurt(pick(['larm', 'rarm']), 6, 'frag', 'Needle trap'); p.anat.tox += 25; G.log('A needle trap! Something was on it...', 'bad'); } else { G.log('Tripwire—!', 'bad'); G.explode(o.x, o.y - 4); } }
-  if (!o.items) o.items = G.genLoot(o);
-  o.searched = true; if (o.triage && !G.run.triage) { G.run.triage = true; G.log('Searched a Quarantine Triage Tent.', 'good'); }
+  if (!o.items) o.items = NE.withSeed((G.world.seed ^ Math.imul(o.x | 0, 7919) ^ Math.imul(o.y | 0, 104729)) >>> 0, () => G.genLoot(o));
+  o.searched = true; if (G.net && G.net.on) G.net.syncContainer(o); if (o.triage && !G.run.triage) { G.run.triage = true; G.log('Searched a Quarantine Triage Tent.', 'good'); }
   NE.UI.open('loot', o);
 };
 G.genLoot = function (o) {
@@ -392,9 +460,10 @@ G.onEnemyDeath = function (e, cause) {
 G.standoffBreak = function (e) { for (const o of G.nearObjs()) if (o.type === 'standoff' && o.grp.includes(e)) { o.done = true; for (const x of o.grp) { x.hostile = true; x.guard = false; } } };
 
 // ---------------- traders ----------------
-NE.PRICE = { bandage: 8, suture: 16, morphine: 30, bloodbag: 40, antibiotics: 22, antirad: 24, adrenaline: 26, painkillers: 12, water: 8, ration: 10, splint: 10, tourniquet: 12, forceps: 14, ammo9: 1.5, ammo762: 3, pistol: 60, rifle: 120, keycard: 30, respirator: 30, filter: 10, platevest: 90, milhelmet: 60, battery: 6, flare: 6, antiseptic: 10, lockpick: 6, axe: 30, crowbar: 18 };
-G.traderStock = function (depth) {
-  const pool = ['bandage', 'suture', 'morphine', 'bloodbag', 'antibiotics', 'painkillers', 'water', 'ration', 'splint', 'tourniquet', 'forceps', 'ammo9', 'battery', 'filter', 'antiseptic', 'keycard', 'lockpick'];
+NE.PRICE = { pickaxe: 28, dynamite: 22, nectar: 140, bandage: 8, suture: 16, morphine: 30, bloodbag: 40, antibiotics: 22, antirad: 24, adrenaline: 26, painkillers: 12, water: 8, ration: 10, splint: 10, tourniquet: 12, forceps: 14, ammo9: 1.5, ammo762: 3, pistol: 60, rifle: 120, keycard: 30, respirator: 30, filter: 10, platevest: 90, milhelmet: 60, battery: 6, flare: 6, antiseptic: 10, lockpick: 6, axe: 30, crowbar: 18 };
+G.traderStock = function (depth, med) {
+  if (med) { const pool = ['bandage', 'bandage', 'suture', 'splint', 'antiseptic', 'antibiotics', 'painkillers', 'morphine', 'bloodbag', 'tourniquet', 'forceps', 'antirad']; const out = []; const used = new Set(); for (let i = 0; i < 6; i++) { const id = pick(pool); if (used.has(id)) continue; used.add(id); const it = NE.ITEMS[id]; out.push({ id, n: it.uses || 1, price: Math.ceil(NE.PRICE[id] * 0.9) }); } return out; }
+  const pool = ['pickaxe', 'dynamite', 'bandage', 'suture', 'morphine', 'bloodbag', 'antibiotics', 'painkillers', 'water', 'ration', 'splint', 'tourniquet', 'forceps', 'ammo9', 'battery', 'filter', 'antiseptic', 'keycard', 'lockpick'];
   if (depth > 700) pool.push('ammo762', 'antirad', 'adrenaline', 'rifle', 'platevest', 'milhelmet'); else pool.push('pistol', 'respirator', 'crowbar', 'axe');
   const out = []; const used = new Set(); for (let i = 0; i < 6; i++) { const id = pick(pool); if (used.has(id)) continue; used.add(id); const it = NE.ITEMS[id]; out.push({ id, n: it.stack ? (it.cat === 'ammo' ? 10 : 1) : (it.uses || 1), price: Math.ceil(NE.PRICE[id] * (it.cat === 'ammo' ? 10 : 1)) }); }
   return out;
@@ -408,13 +477,14 @@ G.payValue = function (inv, price) {
 // ---------------- events ----------------
 G.events = function (dt) {
   if (G.state !== 'run') return; G.eventT -= dt; if (G.eventT > 0) return; G.eventT = rf(65, 125);
-  const p = G.player, fl = G.curFloor(); const b = fl.biome; if (fl.f === 0) { G.eventT = 20; return; }
-  const ev = NE.wpick([['cavein', b.id === 'desert' ? 4.5 : 3], ['blackout', 2], ['gas', b.id === 'grotto' ? 3 : 0.7], ['beacon', 2.2], ['ambush', 1.8 + fl.depth / 500]]);
+  const p = G.player, fl = G.curFloor(); const b = fl.biome; if (fl.f === 0 || fl.town || !p.alive) { G.eventT = 20; return; }
+  const guest = G.net && G.net.on && G.net.role === 'guest';
+  const ev = NE.wpick([['cavein', b.id === 'desert' ? 4.5 : 3], ['blackout', 2], ['gas', b.id === 'grotto' ? 0.8 : 0.6], ['beacon', guest ? 0 : 2.2], ['ambush', guest ? 0 : 1.8 + fl.depth / 500]]);
   if (ev === 'cavein') {
     G.log('The ceiling groans... CAVE-IN!', 'bad'); NE.Audio.play('rumble'); G.shake(5); G.shakeT = 1.6;
     const n = ri(6, 10); for (let i = 0; i < n; i++) { const x = clamp(p.x + rf(-60, 60), 3 * T, (G.world.W - 3) * T); setTimeout(() => { if (G.state !== 'run') return; const d = G.phys.box('debris', x, G.world.ceilY(fl, x) + 5, rf(3, 7), rf(3, 6), 2.5, b.pal.tile); d.setVel(rf(-20, 20), rf(30, 80)); G.dust(x, G.world.ceilY(fl, x) + 6, 5); }, i * 110 + rf(0, 300)); }
   } else if (ev === 'blackout') { G.blackout = rf(28, 45); G.log('A cold draft snuffs every lantern. Total darkness.', 'bad'); NE.Audio.play('hiss', 0.6); }
-  else if (ev === 'gas') { G.log(b.id === 'grotto' ? 'A fungal bloom bursts — SPORES!' : 'A pocket of cave gas vents — GAS!', 'bad'); NE.Audio.play('hiss', 1); const side = chance(0.5) ? 4 : G.world.W - 4; for (let i = 0; i < 9; i++) G.gas.push({ spore: b.id === 'grotto', x: side * T + (side < 10 ? i : -i) * 9, y: G.world.groundY(fl, side * T) - 10, r: 12, d: 0.8, vx: side < 10 ? 9 : -9, life: rf(35, 50), max: 40 }); }
+  else if (ev === 'gas') { G.log(b.id === 'grotto' ? 'A fungal bloom bursts — SPORES!' : 'A pocket of cave gas vents — GAS!', 'bad'); NE.Audio.play('hiss', 1); const side = chance(0.5) ? 4 : G.world.W - 4; for (let i = 0; i < 6; i++) G.gas.push({ spore: b.id === 'grotto', x: side * T + (side < 10 ? i : -i) * 9, y: G.world.groundY(fl, side * T) - 10, r: 12, d: 0.8, vx: side < 10 ? 9 : -9, life: rf(35, 50), max: 40 }); }
   else if (ev === 'beacon') {
     const tf = G.world.floors[fl.f + ri(1, 2)]; if (!tf) return; const x = ri(6, G.world.W - 6) * T;
     tf.objs.push({ type: 'beacon', x, y: G.world.groundY(tf, x), trap: chance(0.35), t: 0, label: 'Distress Beacon' }); NE.Audio.play('chime');
@@ -432,41 +502,51 @@ G.triggerBeacon = function (o) {
 };
 G.depthTrack = function (p) {
   const d = NE.depthOfY(p.y); const R = G.run; if (d > R.maxDepth) R.maxDepth = d;
-  const fl = G.curFloor(); if (fl && R.biome !== fl.biome.id) { if (R.biome) { NE.UI.banner(fl.biome.name, Math.round(fl.depth) + 'm — ' + fl.biome.challenge); G.log('Entered ' + fl.biome.name + '.', 'sys'); G.log('Perk: ' + fl.biome.perk, 'good'); G.log('Danger: ' + fl.biome.challenge, 'bad'); G.say(pick(NE.MONO.biome), 0.8); } R.biome = fl.biome.id; NE.Audio.setDrone(fl.biome.drone, 200 + (1000 - Math.min(1000, fl.depth)) * 0.2); }
-  const m = Math.floor(R.maxDepth / 250); if (m > R.milestone) { R.milestone = m; if (m > 0) { G.log('MILESTONE: ' + m * 250 + 'm. An extraction lift hangs somewhere on this level.', 'good'); } }
+  const fl = G.curFloor(); const key = fl ? (fl.town ? 'town:' + fl.f : fl.biome.id) : null;
+  if (fl && R.biome !== key) {
+    if (fl.town) { NE.UI.banner(fl.town.name, Math.round(fl.depth) + 'm — a town. Rest, trade and send your finds topside.'); if (!R.towns.includes(fl.f)) { R.towns.push(fl.f); G.log('Reached the town of ' + fl.town.name + ' (' + Math.round(fl.depth) + 'm).', 'good'); G.say(pick(NE.MONO.town), 0.9); G.autosave(); } }
+    else if (R.biome && !String(R.biome).startsWith('town') && R.biome !== fl.biome.id || (R.biome && String(R.biome).startsWith('town') && R.lastBiome !== fl.biome.id)) { NE.UI.banner(fl.biome.name, Math.round(fl.depth) + 'm — ' + fl.biome.challenge); G.log('Entered ' + fl.biome.name + '.', 'sys'); G.log('Perk: ' + fl.biome.perk, 'good'); G.log('Danger: ' + fl.biome.challenge, 'bad'); G.say(pick(NE.MONO.biome), 0.8); }
+    R.biome = key; if (!fl.town) R.lastBiome = fl.biome.id; G.musicFor();
+  }
+  const m = Math.floor(R.maxDepth / 250); if (m > R.milestone) { R.milestone = m; if (m > 0) G.log('MILESTONE: ' + m * 250 + 'm. The Hive is pleased.', 'good'); }
   if (fl && fl.medic && !fl.medicSaid && Math.abs(p.x - (fl.poi.x0 + fl.poi.x1) / 2) < 70) { fl.medicSaid = true; G.say(NE.MONO.medic[0]); }
-  if (fl) R.floors = Math.max(R.floors, fl.f + 1);
+  if (fl) { R.floors = Math.max(R.floors, fl.f + 1); for (const o of fl.objs) if (o.type === 'relic' && !o.seen && NE.dist(o.x, o.y, p.x, p.y) < 90) { o.seen = true; G.say(pick(NE.MONO.relic), 1); } }
+  p.infest = G.infestLevel();
 };
 G.markSeen = function (p, dt) {
   G.seenT = (G.seenT || 0) - dt; if (G.seenT > 0) return; G.seenT = 0.25; const W = G.world; const ptx = Math.floor(p.x / T), pty = Math.floor(p.y / T); const R = Math.round(12 * p.stats.sight * (p.light.on ? 1.2 : 0.7));
   for (let ty = pty - R; ty <= pty + R; ty++) { const fl = W.floors[Math.floor(ty / NE.FH)]; if (!fl) continue; for (let tx = ptx - R; tx <= ptx + R; tx++) { if (tx < 0 || tx >= W.W) continue; if ((tx - ptx) ** 2 + (ty - pty) ** 2 > R * R) continue; fl.seen[(ty - fl.y0) * W.W + tx] = 1; } }
 };
 G.playerDeath = function () {
-  const p = G.player; p.die(p.anat.cause); G.state = 'dying'; G.dieT = 3.2; NE.Audio.play('death'); G.log('You died. ' + p.anat.cause + '.', 'bad'); NE.UI.closeAll();
+  const p = G.player; p.die(p.anat.cause); NE.UI.closeAll(); G.releaseGrab();
+  G.log('Your host died. ' + p.anat.cause + '.', 'bad'); NE.Audio.play('death');
+  G.startBurst(p); // the Vespa erupts from the corpse for 10 seconds
+};
+G.afterDeath = function () {
+  const p = G.player; if (G.net && G.net.on && G.net.peer && G.net.peer.alive) return G.startWisp();
+  G.endRun(false, p.anat.cause);
 };
 G.endRun = function (extracted, cause) {
-  const R = G.run, p = G.player, M = G.meta; if (!R) return; G.state = 'runend';
+  const R = G.run, p = G.player, M = G.meta; if (!R) return; G.state = 'runend'; G.goop = null; G.wisp = null;
   const depth = Math.round(R.maxDepth);
-  let xp = depth * 0.5 + R.kills * 10 + R.treated * 25 + R.milestone * 30;
-  let scrap = 0, shards = 0; const carried = [];
-  if (extracted) { xp *= 1 + depth / 800; for (const e of p.inv.items) { const it = NE.ITEMS[e.id]; if (e.id === 'datashard') shards += e.n; else if (it.value) scrap += it.value * e.n; } xp += shards * 40; }
-  else xp *= 0.4;
-  xp = Math.round(xp); scrap = Math.round(scrap);
-  M.xp += xp; M.scrap += scrap; let lv = 0; while (M.xp >= NE.xpForLevel(M.level)) { M.xp -= NE.xpForLevel(M.level); M.level++; M.points++; lv++; }
+  let xp = depth * 0.6 + R.kills * 10 + R.treated * 25 + R.milestone * 40 + (R.towns || []).length * 30 + (R.abil || []).length * 25;
+  xp = Math.round(xp);
+  M.xp += xp; let lv = 0; while (M.xp >= NE.xpForLevel(M.level)) { M.xp -= NE.xpForLevel(M.level); M.level++; M.points++; lv++; }
   const unlocks = [];
-  const un = (kind, list, cond) => { for (const o of list) { if (!o.unlock || M.unlocked[kind].includes(o.id)) continue; const u = o.unlock; let ok = false; if (u.type === 'depth') ok = depth >= u.v; if (u.type === 'triage') ok = R.triage; if (u.type === 'specops') ok = R.specops; if (u.type === 'extract') ok = extracted && depth >= u.v; if (ok) { M.unlocked[kind].push(o.id); unlocks.push(o.name); } } };
+  const un = (kind, list) => { for (const o of list) { if (!o.unlock || M.unlocked[kind].includes(o.id)) continue; const u = o.unlock; let ok = false; if (u.type === 'depth') ok = depth >= u.v; if (u.type === 'triage') ok = R.triage; if (u.type === 'specops') ok = R.specops; if (ok) { M.unlocked[kind].push(o.id); unlocks.push(o.name); } } };
   un('backpacks', NE.BACKPACKS); un('outfits', NE.OUTFITS);
   M.best.depth = Math.max(M.best.depth, depth); M.best.time = Math.max(M.best.time, R.t); M.best.kills = Math.max(M.best.kills || 0, R.kills);
-  const s = M.survivor; M.cemetery.unshift({ name: s.name, occ: NE.OCCUPATIONS.find(o => o.id === s.occ).name, age: s.age, depth, cause: extracted ? 'Extracted alive' : cause, time: Math.round(R.t), kills: R.kills, extracted, date: new Date().toLocaleDateString(), look: s.look });
+  const s = M.survivor; M.cemetery.unshift({ name: s.name, occ: NE.OCCUPATIONS.find(o => o.id === s.occ).name, age: s.age, depth, cause, time: Math.round(R.t), kills: R.kills, extracted: false, date: new Date().toLocaleDateString(), look: s.look, abil: (R.abil || []).slice() });
   if (M.cemetery.length > 60) M.cemetery.length = 60;
-  M.survivor = null; G.save();
-  NE.UI.runEnd({ extracted, cause, depth, time: R.t, kills: R.kills, xp, scrap, shards, levels: lv, unlocks, name: s.name, treated: R.treated });
+  M.survivor = null; M.run = null; G.save();
+  if (G.net && G.net.on) G.net.send({ t: 'gone' });
+  NE.UI.runEnd({ extracted: false, cause, depth, time: R.t, kills: R.kills, xp, scrap: R.sent || 0, shards: 0, levels: lv, unlocks, name: s.name, treated: R.treated, towns: (R.towns || []).length, abil: R.abil || [] });
 };
 
 // ---------------- camera ----------------
 G.camera = function (dt) {
-  const p = G.player, W = G.world; const look = p.aimDir ? p.aimDir.x * 22 : 0;
-  let tx = p.x - VW / 2 + look, ty = p.y - VH * 0.58 + (p.aimDir ? p.aimDir.y * 12 : 0);
+  const p = G.player, W = G.world; const F = G.focus(); const look = F === p && p.aimDir ? p.aimDir.x * 22 : 0;
+  let tx = F.x - VW / 2 + look, ty = F.y - VH * 0.58 + (F === p && p.aimDir ? p.aimDir.y * 12 : 0);
   const maxX = W.W * T - VW; tx = maxX < 0 ? maxX / 2 : clamp(tx, 0, maxX); if (W.lobby) { const maxY = W.rows.length * T - VH; ty = maxY < 0 ? maxY / 2 : clamp(ty, 0, maxY); } else ty = Math.max(-20, ty);
   G.cam.x = lerp(G.cam.x, tx, Math.min(1, dt * 7)); G.cam.y = lerp(G.cam.y, ty, Math.min(1, dt * 7));
   G.shakeT = Math.max(0, (G.shakeT || 0) - dt); if (G.shakeT > 0) G.cam.shake = Math.max(G.cam.shake, 2.5 * G.meta.settings.shake);
@@ -475,7 +555,7 @@ G.camera = function (dt) {
 
 // ---------------- rendering ----------------
 G.render = function (dt) {
-  const ctx = G.ctx, W = G.world, p = G.player; const fl = W.floorOf(Math.floor((p.y - 2) / T)); const pal = fl.biome.pal;
+  const ctx = G.ctx, W = G.world, p = G.player; const F = G.focus(); const fl = W.floorOf(Math.floor((F.y - 2) / T)); const pal = fl.biome.pal;
   const tr = p.anat.tremor(); const sh = G.cam.shake + (G.state === 'run' ? tr * 0.6 : 0);
   const cx = Math.round(G.cam.x + rf(-sh, sh)), cy = Math.round(G.cam.y + rf(-sh, sh));
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, VW, VH);
@@ -485,10 +565,11 @@ G.render = function (dt) {
   for (const o of G.nearObjs()) G.drawObj(ctx, o);
   for (const b of G.phys.bodies) if (b.kind !== 'rag') G.drawBody(ctx, b);
   for (const a of G.actors) if (!a.alive) a.draw(ctx);
-  for (const a of G.actors) if (a.alive && a !== p && Math.abs(a.y - p.y) < 260) a.draw(ctx);
-  p.draw(ctx);
-  for (const q of G.parts) { ctx.fillStyle = q.col; ctx.globalAlpha = q.kind === 'steam' || q.kind === 'dust' ? Math.min(1, q.life / q.max * 1.5) : 1; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
-  ctx.globalAlpha = 1;
+  for (const a of G.actors) if (a.alive && a !== p && Math.abs(a.y - F.y) < 260) a.draw(ctx);
+  if (p.alive || !G.goop) p.draw(ctx);
+  if (G.goop) G.drawGoop(ctx);
+  for (const q of G.parts) { if (q.kind === 'glow') continue; ctx.fillStyle = q.col; ctx.globalAlpha = q.kind === 'steam' || q.kind === 'dust' ? Math.min(1, q.life / q.max * 1.5) : 1; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
+  ctx.globalAlpha = 1; G.drawAmbient(ctx);
   W.drawWater(ctx, cx, cy, G.t);
   for (const c of G.gas) { ctx.fillStyle = c.spore ? 'rgba(200,200,110,' + (c.d * 0.24) + ')' : 'rgba(150,190,70,' + (c.d * 0.22) + ')'; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 + G.t * 0.2; const rr = c.r * (0.4 + 0.6 * NE.hash(i, c.x | 0)); ctx.fillRect(Math.round(c.x + Math.cos(a) * rr * 0.6) - 3, Math.round(c.y + Math.sin(a) * rr * 0.3) - 2, 6, 4); } }
   for (const f of G.fires) { ctx.fillStyle = 'rgba(255,120,30,0.5)'; ctx.fillRect(Math.round(f.x - f.r), Math.round(f.y - 2), Math.round(f.r * 2), 2); }
@@ -501,10 +582,11 @@ G.render = function (dt) {
   ctx.translate(-cx, -cy);
   for (const a of G.actors) if (a.alive && a.state === 'aim' && a.target) { ctx.globalAlpha = 0.35; ctx.fillStyle = '#ff3030'; ctx.fillRect(Math.round(a.target.x), Math.round(a.target.cy), 1, 1); ctx.globalAlpha = 1; }
   if (G.grab) { ctx.fillStyle = '#e8e2d0'; ctx.fillRect(Math.round(G.grab.x) - 1, Math.round(G.grab.y) - 1, 3, 3); }
+  G.drawGlow(ctx);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   G.drawFX(dt);
   // crosshair
-  if (p.alive && !NE.UI.panel) { const m = G.mouse; ctx.fillStyle = p.gunOut ? '#e8e2d0' : 'rgba(232,226,208,0.6)'; const g = p.gunOut ? 2 + Math.round(p.anat.tremor() * 4) : 1; ctx.fillRect(Math.round(m.x) - g - 2, Math.round(m.y), 2, 1); ctx.fillRect(Math.round(m.x) + g + 1, Math.round(m.y), 2, 1); ctx.fillRect(Math.round(m.x), Math.round(m.y) - g - 2, 1, 2); ctx.fillRect(Math.round(m.x), Math.round(m.y) + g + 1, 1, 2); }
+  if ((p.alive || G.goop) && !NE.UI.panel) { const m = G.mouse; ctx.fillStyle = p.gunOut ? '#e8e2d0' : 'rgba(232,226,208,0.6)'; const g = p.gunOut ? 2 + Math.round(p.anat.tremor() * 4) : 1; ctx.fillRect(Math.round(m.x) - g - 2, Math.round(m.y), 2, 1); ctx.fillRect(Math.round(m.x) + g + 1, Math.round(m.y), 2, 1); ctx.fillRect(Math.round(m.x), Math.round(m.y) - g - 2, 1, 2); ctx.fillRect(Math.round(m.x), Math.round(m.y) + g + 1, 1, 2); }
 };
 G.drawBody = function (ctx, b) {
   const P = b.pts;
@@ -543,6 +625,12 @@ G.drawObj = function (ctx, o) {
     case 'gasleak': ctx.fillStyle = '#4a5a3a'; ctx.fillRect(x - 3, y - 4, 6, 3); break;
     case 'beacon': { ctx.fillStyle = '#3a3a3a'; ctx.fillRect(x - 2, y - 6, 4, 6); ctx.fillStyle = (t * 2 | 0) % 2 ? '#ff3020' : '#501010'; ctx.fillRect(x - 1, y - 8, 2, 2); ctx.fillStyle = '#888'; ctx.fillRect(x, y - 12, 1, 4); break; }
     case 'elevator': G.drawElevator(ctx, o, x, y); break;
+    case 'relic': { const pul = 0.6 + 0.4 * Math.sin(t * 2.4 + x); ctx.fillStyle = '#3a6a2a'; ctx.fillRect(x, y - 9, 1, 9); ctx.fillRect(x - 2, y - 5, 2, 1); ctx.fillRect(x + 1, y - 4, 2, 1);
+      const pc = ['#ffcf40', '#ffa830', '#ffe070'][o.hue || 0]; ctx.fillStyle = pc; ctx.fillRect(x - 2, y - 13, 5, 3); ctx.fillRect(x - 1, y - 14, 3, 5); ctx.fillStyle = '#fff6c0'; ctx.fillRect(x, y - 12, 1, 1);
+      ctx.fillStyle = 'rgba(255,200,60,' + pul * 0.9 + ')'; if ((t * 3 + x) % 2 < 1) ctx.fillRect(x + Math.round(Math.sin(t * 3) * 3), y - 16 - Math.round((t * 6) % 6), 1, 1); break; }
+    case 'post': { ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x - 1, y - 30, 3, 30); ctx.fillRect(x - 8, y - 30, 17, 2); ctx.fillStyle = '#6a5038'; ctx.fillRect(x - 6, y - 12, 13, 12); ctx.fillStyle = '#8a6a48'; ctx.fillRect(x - 6, y - 12, 13, 1); ctx.fillStyle = '#c0a060'; ctx.fillRect(x - 7, y - 28, 1, 16 - Math.round(Math.sin(t) * 2)); ctx.fillStyle = '#ffcf70'; ctx.fillRect(x - 2, y - 9, 5, 3); ctx.fillStyle = '#5a4030'; ctx.fillRect(x + 6, y - 28, 1, 10 + Math.round(Math.sin(t * 0.8) * 3)); break; }
+    case 'bed': ctx.fillStyle = '#5a3a24'; ctx.fillRect(x - 9, y - 5, 18, 3); ctx.fillRect(x - 9, y - 2, 1, 2); ctx.fillRect(x + 8, y - 2, 1, 2); ctx.fillStyle = '#a04848'; ctx.fillRect(x - 6, y - 7, 14, 2); ctx.fillStyle = '#e8e2d0'; ctx.fillRect(x - 9, y - 8, 4, 3); break;
+    case 'sign': ctx.fillStyle = '#4a3420'; ctx.fillRect(x, y - 16, 2, 16); ctx.fillStyle = '#7a5a38'; ctx.fillRect(x - 10, y - 18, 22, 7); ctx.fillStyle = '#ffd890'; ctx.fillRect(x - 8, y - 16, 18, 1); ctx.fillRect(x - 6, y - 14, 14, 1); break;
     case 'terminal': ctx.fillStyle = '#2a2e30'; ctx.fillRect(x - 6, y - 16, 12, 16); ctx.fillStyle = (t * 2 | 0) % 3 ? '#40e070' : '#20a050'; ctx.fillRect(x - 4, y - 14, 8, 6); ctx.fillStyle = '#1a1e20'; ctx.fillRect(x - 5, y - 6, 10, 2); ctx.fillStyle = '#e0c050'; ctx.fillRect(x - 1, y - 12, 2, 2); break;
     case 'locker': ctx.fillStyle = '#4a5058'; for (let i = -1; i <= 1; i++) { ctx.fillRect(x + i * 7 - 3, y - 18, 6, 18); } ctx.fillStyle = '#2a2e34'; for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * 7, y - 16, 1, 6); ctx.fillStyle = '#6b5a40'; ctx.fillRect(x + 12, y - 12, 5, 7); ctx.fillStyle = '#b03030'; ctx.fillRect(x + 18, y - 12, 5, 7); break;
     case 'quarter': ctx.fillStyle = '#4a3a28'; ctx.fillRect(x - 12, y - 8, 24, 8); ctx.fillStyle = '#6a5034'; ctx.fillRect(x - 12, y - 8, 24, 1); ctx.fillStyle = '#3a3e44'; ctx.fillRect(x - 6, y - 20, 12, 12); ctx.fillStyle = '#e0c050'; ctx.fillRect(x - 4, y - 18, 8, 2); ctx.fillStyle = '#9aa'; ctx.fillRect(x - 4, y - 14, 3, 3); ctx.fillRect(x + 1, y - 14, 3, 3); break;
@@ -560,11 +648,14 @@ G.drawElevator = function (ctx, o, x, y) {
 };
 G.drawLighting = function (cx, cy, fl) {
   const p = G.player, W = G.world, lx = G.lx, ctx = G.ctx; const lights = []; const st = p.stats; const sight = st.sight * (p.anat.org.eyes < 50 ? 0.8 : 1);
-  let dark = fl.biome.dark + Math.min(0.04, fl.depth / 25000); if (G.blackout > 0) dark = 0.985; if (W.lobby) dark = 0.5;
+  let dark = fl.biome.dark + Math.min(0.04, fl.depth / 25000); if (fl.town) dark = 0.5; if (G.blackout > 0) dark = 0.985; if (W.lobby) dark = 0.45;
+  if (G.goop) lights.push({ x: G.goop.x, y: G.goop.y - 4, r: 70, i: 0.85, col: '#ffc020', player: true });
+  if (G.wisp) lights.push({ x: G.wisp.x, y: G.wisp.y, r: 40, i: 0.7, col: '#ffd040', player: true });
+  if (G.net && G.net.peer && G.net.peer.alive && !G.net.peer.hidden) { const q = G.net.peer; lights.push({ x: q.x, y: q.cy, r: 28, i: 0.55, player: true }); if (q.lightOn && q.aimDir) { const a = Math.atan2(q.aimDir.y, q.aimDir.x); lights.push({ x: q.x, y: q.y - q.h + 4, r: 100, i: 0.85, cone: [a - 0.42, a + 0.42], player: true }); } }
   if (p.alive) {
-    lights.push({ x: p.x, y: p.cy, r: 24 * sight, i: 0.6, player: true });
+    lights.push({ x: p.x, y: p.cy, r: (p.abil && p.abil.includes('eyes') ? 62 : 24) * sight, i: 0.6, player: true });
     if (p.light.on) { const fk = p.light.bat < 15 ? (Math.random() < 0.15 ? 0.2 : 1) : 1; const a = Math.atan2(p.aimDir.y, p.aimDir.x); lights.push({ x: p.x + p.facing, y: p.y - p.h + 4, r: 115 * sight * fk * (0.6 + 0.4 * Math.min(1, p.light.bat / 40)), i: 0.95, cone: [a - 0.42, a + 0.42], player: true }); }
-  } else lights.push({ x: p.x, y: p.cy, r: 30, i: 0.4, player: true });
+  } else if (!G.goop && !G.wisp) lights.push({ x: p.x, y: p.cy, r: 30, i: 0.4, player: true });
   for (const o of G.nearObjs()) {
     if (o.type === 'lamp' && o.on && G.blackout <= 0) lights.push({ x: o.x, y: o.y + 6, r: 58, i: 0.75 * (o.flk == null ? 1 : o.flk), col: o.col });
     else if (o.type === 'glowshroom') lights.push({ x: o.x, y: o.y - 4, r: 28, i: 0.55, col: '#5affc8' });
@@ -576,6 +667,8 @@ G.drawLighting = function (cx, cy, fl) {
     else if (o.type === 'elevator') lights.push({ x: o.x, y: o.y - 34, r: 50, i: 0.6, col: o.kind === 'descent' ? '#ffb040' : '#60ff80' });
     else if (o.type === 'beacon' && o.type !== 'dead') lights.push({ x: o.x, y: o.y - 8, r: 18 + 14 * Math.abs(Math.sin(G.t * 2)), i: 0.7, col: '#ff3020' });
     else if (o.type === 'container' && o.ct === 'pod') lights.push({ x: o.x, y: o.y - 12, r: 20, i: 0.5, col: '#ff4030' });
+    else if (o.type === 'relic') lights.push({ x: o.x, y: o.y - 6, r: 48 + Math.sin(G.t * 2) * 6, i: 0.8, col: '#ffcf40' });
+    else if (o.type === 'post') lights.push({ x: o.x, y: o.y - 22, r: 36, i: 0.6, col: '#ffcf70' });
   }
   for (const f of G.fires) lights.push({ x: f.x, y: f.y - 4, r: 50, i: 0.85, col: '#ff8030' });
   { const tx0 = Math.floor(cx / T), ty0 = Math.floor(cy / T); for (let ty = ty0; ty < ty0 + Math.ceil(VH / T) + 1; ty++) for (let tx = tx0; tx < tx0 + Math.ceil(VW / T) + 1; tx += 2) if (W.get(tx, ty) === 9 && W.get(tx, ty - 1) !== 9) lights.push({ x: tx * T + 4, y: ty * T - 2, r: 40, i: 0.65, col: '#ff5a10' }); }
@@ -600,6 +693,9 @@ G.drawLighting = function (cx, cy, fl) {
 function hexA(h, a) { const n = parseInt(h.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
 G.drawFX = function () {
   const ctx = G.ctx, p = G.player, A = p.anat; if (G.state === 'lobby') return;
+  if (G.flashT > 0) { ctx.fillStyle = 'rgba(255,200,50,' + Math.min(0.55, G.flashT * 0.45) + ')'; ctx.fillRect(0, 0, VW, VH); }
+  if (G.pulseFx) { const f = G.pulseFx; f.t += 1 / 60; if (f.t > 0.5) G.pulseFx = null; else { ctx.strokeStyle = 'rgba(255,210,60,' + (1 - f.t * 2) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(f.x - G.cam.x, f.y - G.cam.y, f.t * 160, 0, 7); ctx.stroke(); } }
+  if (G.goop || G.wisp) { const k = G.goop ? 0.12 + 0.06 * Math.sin(G.t * 8) : 0.18; const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.3, VW / 2, VH / 2, VH * 0.9); gr.addColorStop(0, 'rgba(255,190,30,0)'); gr.addColorStop(1, 'rgba(255,170,20,' + (k * 2) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); return; }
   const bp = A.blood / 5000;
   if (bp < 0.8) { const k = clamp((0.8 - bp) / 0.35, 0, 1); const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * (0.5 - k * 0.3), VW / 2, VH / 2, VH * 0.85); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,' + (0.5 + k * 0.45) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); }
   const pk = clamp((A.pain - A.threshold * 0.5) / A.threshold, 0, 1); if (pk > 0) { const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.3, VW / 2, VH / 2, VH * 0.8); gr.addColorStop(0, 'rgba(120,0,0,0)'); gr.addColorStop(1, 'rgba(140,10,10,' + (pk * 0.45 + Math.sin(G.t * 6) * 0.05 * pk) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); }
@@ -610,50 +706,19 @@ G.drawFX = function () {
   if (G.state === 'dying') { ctx.fillStyle = 'rgba(0,0,0,' + clamp(1 - G.dieT / 3.2, 0, 0.9) + ')'; ctx.fillRect(0, 0, VW, VH); }
 };
 
-// ---------------- title & descent scenes ----------------
-G.titleRain = [];
-G.drawTitle = function (dt) {
-  const ctx = G.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
-  const gr = ctx.createLinearGradient(0, 0, 0, VH); gr.addColorStop(0, '#080706'); gr.addColorStop(1, '#17110c'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH);
-  // cave walls & hanging stalactites (parallax layers)
-  for (let layer = 0; layer < 2; layer++) { ctx.fillStyle = layer ? '#0d0a08' : '#14100c'; const sp = layer ? 9 : 14;
-    for (let i = 0; i < Math.ceil(VW / sp) + 2; i++) { const x = i * sp - 6; const h = (layer ? 18 : 34) + NE.hash(i, 11 + layer) * (layer ? 38 : 60); const w = sp * (0.6 + NE.hash(i, 5 + layer) * 0.5); for (let k = 0; k < h; k++) { const ww = Math.max(1, Math.round(w * (1 - k / h))); ctx.fillRect(Math.round(x + (w - ww) / 2), k, ww, 1); } }
-    for (let i = 0; i < Math.ceil(VW / sp) + 2; i++) { const x = i * sp - 4; const h = 6 + NE.hash(i, 21 + layer) * (layer ? 22 : 40); const w = sp * (0.7 + NE.hash(i, 25) * 0.5); for (let k = 0; k < h; k++) { const ww = Math.max(1, Math.round(w * (1 - k / h))); ctx.fillRect(Math.round(x + (w - ww) / 2), VH - 40 - k, ww, 1); } } }
-  // distant glowing crystals & mushrooms in the dark
-  for (let i = 0; i < 14; i++) { const x = NE.hash(i, 31) * VW, y = 60 + NE.hash(i, 32) * 110; const c = ['#5affc8', '#90a0ff', '#ffb050', '#c090ff'][i % 4]; ctx.globalAlpha = 0.25 + 0.2 * Math.sin(G.t * (0.6 + NE.hash(i, 33)) + i); ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 1, 2); ctx.globalAlpha = 1; }
-  const ox = Math.round((VW - 400) / 2); ctx.save(); ctx.translate(ox, 0);
-  // the pit & the winch lift dangling into it
-  ctx.fillStyle = '#050403'; for (let k = 0; k < VH - 108; k++) { const w = 70 + Math.sin(k * 0.21) * 4 + k * 0.25; ctx.fillRect(Math.round(200 - w / 2), 108 + k, Math.round(w), 1); }
-  ctx.fillStyle = '#4a3420'; ctx.fillRect(160, 104, 80, 4); ctx.fillRect(166, 104, 3, 14); ctx.fillRect(231, 104, 3, 14); ctx.fillStyle = '#6a5038'; ctx.fillRect(196, 100, 8, 6);
-  ctx.fillStyle = '#5a4a30'; ctx.fillRect(198, 106, 1, 84 + Math.sin(G.t * 0.3) * 4); ctx.fillRect(202, 106, 1, 84 + Math.sin(G.t * 0.3) * 4);
-  const cy = 190 + Math.sin(G.t * 0.3) * 4; ctx.fillStyle = '#1e1b18'; ctx.fillRect(184, cy, 34, 30); ctx.fillStyle = '#3a342e'; ctx.fillRect(184, cy, 34, 2); for (let i = 0; i < 5; i++) ctx.fillRect(186 + i * 7, cy + 2, 1, 28);
-  const fl = Math.random() < 0.05 ? 0.2 : 1; ctx.fillStyle = 'rgba(255,170,80,' + 0.9 * fl + ')'; ctx.fillRect(199, cy + 3, 3, 2);
-  const lg = ctx.createRadialGradient(200, cy + 4, 0, 200, cy + 4, 60); lg.addColorStop(0, 'rgba(255,160,70,' + 0.25 * fl + ')'); lg.addColorStop(1, 'rgba(255,160,70,0)'); ctx.fillStyle = lg; ctx.fillRect(140, cy - 56, 120, 120);
-  ctx.restore(); ctx.fillStyle = '#0c0a09'; ctx.fillRect(0, VH - 40, VW, 40);
-  // water drips from the ceiling + floating dust
-  if (G.titleRain.length < 60) for (let i = 0; i < 2; i++) G.titleRain.push({ x: rf(0, VW), y: rf(10, 40), v: chance(0.7) ? rf(120, 200) : 0, d: chance(0.5), t: 0 });
-  for (const r of G.titleRain) { if (r.d) { r.y += 6 * dt; r.x += Math.sin(G.t + r.x) * 3 * dt; ctx.fillStyle = 'rgba(220,200,170,0.3)'; ctx.fillRect(Math.round(r.x), Math.round(r.y), 1, 1); r.y += r.d && r.y > VH ? 0 : 0; if (Math.random() < dt * 0.1) r.y = VH + 1; } else { r.t += dt; if (r.t > 0.8) r.y += r.v * dt; ctx.fillStyle = 'rgba(150,190,210,0.55)'; ctx.fillRect(Math.round(r.x), Math.round(r.y), 1, r.t > 0.8 ? 2 : 1); } }
-  G.titleRain = G.titleRain.filter(r => r.y < VH - 40);
-  if (!G.titleImg || (!G.titleImg.logo && NE.logoImg.complete && NE.logoImg.naturalWidth)) G.titleImg = NE.makeNectarTitle();
-  const TI = G.titleImg; G.honeyDrops = G.honeyDrops || [];
-  const bob = Math.round(Math.sin(G.t * 1.2) * 1.5);
-  const glow = ctx.createRadialGradient(VW / 2, 50, 4, VW / 2, 50, 120); glow.addColorStop(0, 'rgba(255,170,40,0.16)'); glow.addColorStop(1, 'rgba(255,170,40,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, VW, 130);
-  const parts = []; if (TI.logo) parts.push({ h: TI.logo, x: Math.round(VW / 2 - TI.logo.img.width / 2), y: 4 + bob }); parts.push({ h: TI.title, x: Math.round(VW / 2 - TI.title.img.width / 2), y: TI.logo ? 54 : 26 });
-  for (const P of parts) { ctx.drawImage(P.h.img, P.x, P.y); if (Math.random() < dt * 1.6 && P.h.tips.length) { const tp = pick(P.h.tips); G.honeyDrops.push({ x: P.x + tp.x, y: P.y + tp.y, vy: 0, l: 0 }); } }
-  for (const d of G.honeyDrops) { d.l += dt; if (d.l > 0.6) { d.vy += 260 * dt; d.y += d.vy * dt; } ctx.fillStyle = '#e8902a'; ctx.fillRect(Math.round(d.x), Math.round(d.y), 1, d.l > 0.6 ? 2 : 1); ctx.fillStyle = '#ffd070'; ctx.fillRect(Math.round(d.x), Math.round(d.y), 1, 1); }
-  G.honeyDrops = G.honeyDrops.filter(d => d.y < VH - 40);
-  ctx.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 0; y < VH; y += 2) ctx.fillRect(0, y, VW, 1);
-};
+// ---------------- descent scene (title lives in title.js) ----------------
+G.drawWait = function (dt) { const ctx = G.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#050403'; ctx.fillRect(0, 0, VW, VH); ctx.fillStyle = '#e0c050'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.fillText('Waiting for your partner\'s world...', VW / 2, VH / 2); ctx.textAlign = 'left'; };
 G.drawDescent = function (dt) {
   const ctx = G.ctx; G.descT += dt; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#050403'; ctx.fillRect(0, 0, VW, VH); ctx.translate(Math.round((VW - 400) / 2), 0);
   const sp = Math.min(1, G.descT / 1.2) * (G.descT > 3.6 ? Math.max(0, 1 - (G.descT - 3.6) * 2) : 1); G.descOff = (G.descOff || 0) + dt * 260 * sp;
   for (let i = 0; i < 20; i++) { const y = ((i * 24 - G.descOff) % 480 + 480) % 480 - 20; ctx.fillStyle = '#1a1612'; ctx.fillRect(130, y, 140, 3); ctx.fillStyle = 'rgba(255,170,80,0.15)'; ctx.fillRect(140, y + 10, 2, 2); }
   ctx.fillStyle = '#100d0b'; ctx.fillRect(160, 60, 80, 110); ctx.fillStyle = '#3a342e'; ctx.fillRect(160, 60, 80, 2); ctx.fillRect(160, 168, 80, 2); for (let i = 0; i < 9; i++) ctx.fillRect(162 + i * 9, 62, 1, 106);
   const sw = Math.sin(G.descT * 3) * 3; ctx.fillStyle = '#ffb050'; ctx.fillRect(199 + Math.round(sw), 66, 3, 1);
-  const s = G.meta.survivor; if (s) { ctx.fillStyle = NE.SKIN[s.look.skin]; ctx.fillRect(198, 140, 5, 5); ctx.fillStyle = s.look.shirt; ctx.fillRect(198, 146, 5, 10); ctx.fillStyle = s.look.pants; ctx.fillRect(198, 156, 2, 12); ctx.fillRect(201, 156, 2, 12); ctx.fillStyle = NE.HAIRC[s.look.hairCol]; if (s.look.hair !== 'bald') ctx.fillRect(198, 139, 5, 2); }
+  const s = G.meta.survivor; if (s) { ctx.fillStyle = NE.SKIN[s.look.skin]; ctx.fillRect(198, 140, 5, 5); ctx.fillStyle = s.look.shirt; ctx.fillRect(198, 146, 5, 10); ctx.fillStyle = s.look.pants; ctx.fillRect(198, 156, 2, 12); ctx.fillRect(201, 156, 2, 12); ctx.fillStyle = NE.HAIRC[s.look.hairCol]; if (s.look.hair !== 'bald') ctx.fillRect(198, 139, 5, 2); ctx.fillStyle = '#ffd23a'; ctx.fillRect(201, 142, 1, 1); ctx.fillStyle = 'rgba(255,210,58,0.35)'; ctx.fillRect(200, 141, 3, 3); }
+  if (G.net && G.net.on && G.net.peerSurv) { const q = G.net.peerSurv.look; ctx.fillStyle = NE.SKIN[q.skin]; ctx.fillRect(210, 140, 5, 5); ctx.fillStyle = q.shirt; ctx.fillRect(210, 146, 5, 10); ctx.fillStyle = q.pants; ctx.fillRect(210, 156, 2, 12); ctx.fillRect(213, 156, 2, 12); ctx.fillStyle = '#ffd23a'; ctx.fillRect(213, 142, 1, 1); }
   const depth = Math.min(0, -0) + Math.round(G.descT * 3); ctx.fillStyle = '#e8e2d0'; ctx.font = '8px monospace'; ctx.fillText('LOWERING...', 165, 190); ctx.fillStyle = '#e0c050'; ctx.fillText('[' + '▮'.repeat(Math.min(10, Math.floor(G.descT * 2.5))) + ' '.repeat(Math.max(0, 10 - Math.floor(G.descT * 2.5))) + ']', 160, 202);
   G.cam.shake = 1.5 * sp; if (G.descT > 4.2) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, (G.descT - 4.2) * 3) + ')'; ctx.fillRect(0, 0, VW, VH); }
-  if (G.descT > 4.6) G.startRun();
+  if (G.descT > 4.6) { if (G.net && G.net.on && G.net.role === 'guest' && G.descSeed == null) { G.state = 'wait'; return; } G.startRun(); }
 };
-const boot = () => NE.atlasReady.then(() => G.init()); if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
+NE.bootGame = () => NE.atlasReady.then(() => G.init());
 })(window.NE);
