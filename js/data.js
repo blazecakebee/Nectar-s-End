@@ -404,4 +404,5 @@ NE.ISIZE = {
   vest: [3, 3], kevlar: [3, 3], platevest: [3, 3], scrapplate: [3, 3], riot: [3, 3], hazmat: [3, 3], helmet: [2, 2], milhelmet: [2, 2], leathercap: [2, 2], scraphelm: [2, 2], riothelm: [2, 2], hazhood: [2, 2], respirator: [2, 1],
   splint: [1, 2], bloodbag: [1, 2], alcohol: [1, 2], water: [1, 2], dirtywater: [1, 2], bottle: [1, 2], molotov: [1, 2], antiseptic: [1, 2], ration: [1, 1], brick: [1, 1], tourniquet: [1, 1],
 };
+NE.packGrid = slots => '10×' + Math.max(4, 4 + Math.floor((slots + 8 - 20) / 2)) + ' grid';
 NE.isize = id => NE.ISIZE[id] || [1, 1];

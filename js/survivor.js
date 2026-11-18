@@ -64,7 +64,7 @@ class Inv {
   // Tarkov-style grid: COLS wide, rows from the pack's slot count (2 cells per slot). Every entry has gx, gy and rot.
   constructor(slots, carry) { this.items = []; this.slots = slots; this.carry = carry; this.medHalf = false; }
   get cols() { return 10; }
-  get rows() { return Math.max(4, Math.ceil(this.slots * 3 / 10)); } // starting rucksack: 10x6 = 60 cells
+  get rows() { return Math.max(4, 4 + Math.floor((this.slots - 20) / 2)); } // starting rucksack 10x4 = 40 cells; each better pack adds a row or more
   dims(e, rot) { const s = NE.isize(e.id); return (rot != null ? rot : e.rot) ? [s[1], s[0]] : [s[0], s[1]]; }
   occupied(skip) { const C = this.cols, g = new Uint8Array(C * this.rows); for (const e of this.items) { if (e === skip || e.gx == null) continue; const [w, h] = this.dims(e); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = (e.gy + y) * C + e.gx + x; if (k < g.length) g[k] = 1; } } return g; }
   fits(x, y, w, h, skip, occ) { if (x < 0 || y < 0 || x + w > this.cols || y + h > this.rows) return false; occ = occ || this.occupied(skip); for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) if (occ[(y + yy) * this.cols + x + xx]) return false; return true; }

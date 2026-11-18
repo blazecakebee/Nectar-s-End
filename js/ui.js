@@ -20,6 +20,7 @@ UI.init = function () {
       <div class="t-sub">a Vespa's descent</div>
       <button class="t-btn primary" data-a="play"><span class="t-main">CONTINUE</span><small class="t-info"></small></button>
       <div class="t-pair"><button class="t-btn" data-a="slots">SAVE SLOTS</button><button class="t-btn" data-a="settings">SETTINGS</button></div>
+      <button class="t-btn cloud" data-a="cloud"><i class="cl-ico"></i><span class="cl-txt"><span class="cl-main">SIGN IN WITH GOOGLE</span><small class="cl-sub">back up your saves to the cloud</small></span></button>
       <div class="t-links"><button data-a="prologue">Prologue</button><i>·</i><button data-a="cemetery">Run Archive</button><i>·</i><button data-a="changelog">Update Log<i class="t-dot hide"></i></button></div>
     </div>
     <div class="t-foot"><span id="t-best"></span><span id="t-ver">click anywhere to enable sound</span></div>
@@ -45,7 +46,7 @@ UI.init = function () {
   <div id="panel" class="hide"><div class="pn-head"><span class="pn-title"></span><button class="pn-x">✕</button></div><div class="pn-body"></div></div>
   <div id="modal" class="hide"></div>
   <div id="fade"></div>`;
-  root.querySelectorAll('#title-ui [data-a]').forEach(b => b.onclick = () => { NE.Audio.init(); NE.Audio.play('ui'); const a = b.dataset.a; if (a === 'play') UI.playMain(); else if (a === 'prologue') UI.fade(() => NE.Prologue.start(null)); else UI.open(a); });
+  root.querySelectorAll('#title-ui [data-a]').forEach(b => b.onclick = () => { NE.Audio.init(); NE.Audio.play('ui'); const a = b.dataset.a; if (a === 'play') UI.playMain(); else if (a === 'cloud') UI.cloudMenu(); else if (a === 'prologue') UI.fade(() => NE.Prologue.start(null)); else UI.open(a); });
   $('#pro').onclick = () => NE.Prologue.next();
   $('.pn-x').onclick = () => UI.close();
   UI.buildHex();
@@ -53,7 +54,7 @@ UI.init = function () {
 };
 UI.fade = function (cb) { const f = $('#fade'); f.classList.add('on'); setTimeout(() => { cb(); setTimeout(() => f.classList.remove('on'), 60); }, 380); };
 UI.showTitle = function () {
-  UI.closeAll(); $('#title-ui').classList.remove('hide'); $('#hud').classList.add('hide'); $('#pro').classList.add('hide'); const g = G(), M = g.meta; UI.checkSeen(); const vi = window.NE_VERSION_INFO;
+  UI.closeAll(); $('#title-ui').classList.remove('hide'); $('#hud').classList.add('hide'); $('#pro').classList.add('hide'); const g = G(), M = g.meta; UI.checkSeen(); UI.cloudRefresh(); const vi = window.NE_VERSION_INFO;
   $('#t-ver').textContent = (vi && vi.version ? 'v' + vi.version + ' • ' : '') + 'Slot ' + (g.store.slot + 1) + ' • click anywhere to enable sound';
   $('#t-best').textContent = M.runs ? 'Deepest: ' + Math.round(M.best.depth) + 'm • Hosts lost: ' + M.cemetery.length + ' • Lv ' + M.level : '';
   const main = $('.t-main'), info = $('.t-info');
@@ -529,7 +530,7 @@ UI.previewHuman = function (canvas, surv, bpId, ofId) {
 };
 UI.render.wardrobe = function (b) {
   const g = G(), M = g.meta; const surv = M.survivor;
-  const row = (kind, list, eqKey) => list.map(o => { const un = M.unlocked[kind].includes(o.id); const eq = M.equipped[eqKey] === o.id; return '<div class="wr' + (eq ? ' eq' : '') + (un ? '' : ' locked') + '" data-k="' + kind + '" data-id="' + o.id + '">' + icn((kind === 'backpacks' ? 'bp_' : 'of_') + o.id, null, 4) + '<span><b>' + esc(o.name) + '</b><small>' + (kind === 'backpacks' ? o.slots + ' slots • ' + o.carry + 'kg • ' : '') + esc(o.desc || '') + '</small>' + (un ? '' : '<small class="warn">🔒 ' + esc(o.unlock ? o.unlock.text : '') + (o.price ? ' — or buy at Quartermaster (' + o.price + ')' : '') + '</small>') + '</span>' + (eq ? '<b class="good">WORN</b>' : un ? '<b>EQUIP</b>' : '') + '</div>'; }).join('');
+  const row = (kind, list, eqKey) => list.map(o => { const un = M.unlocked[kind].includes(o.id); const eq = M.equipped[eqKey] === o.id; return '<div class="wr' + (eq ? ' eq' : '') + (un ? '' : ' locked') + '" data-k="' + kind + '" data-id="' + o.id + '">' + icn((kind === 'backpacks' ? 'bp_' : 'of_') + o.id, null, 4) + '<span><b>' + esc(o.name) + '</b><small>' + (kind === 'backpacks' ? NE.packGrid(o.slots) + ' (' + Math.max(4, 4 + Math.floor((o.slots + 8 - 20) / 2)) * 10 + ' cells) • ' + (o.carry + 6) + 'kg • ' : '') + esc(o.desc || '') + '</small>' + (un ? '' : '<small class="warn">🔒 ' + esc(o.unlock ? o.unlock.text : '') + (o.price ? ' — or buy at Quartermaster (' + o.price + ')' : '') + '</small>') + '</span>' + (eq ? '<b class="good">WORN</b>' : un ? '<b>EQUIP</b>' : '') + '</div>'; }).join('');
   b.innerHTML = '<div class="ward"><div class="ward-prev"><canvas id="prevcv" width="144" height="132"></canvas><div class="dim center">' + esc(surv.name) + '</div></div><div class="ward-l"><h4>BACKPACKS</h4>' + row('backpacks', NE.BACKPACKS, 'backpack') + '<h4>OUTFITS</h4>' + row('outfits', NE.OUTFITS, 'outfit') + '</div></div>';
   UI.previewHuman($('#prevcv'), surv, M.equipped.backpack, M.equipped.outfit);
   b.querySelectorAll('.wr').forEach(el => el.onclick = () => { const k = el.dataset.k, id = el.dataset.id; if (!M.unlocked[k].includes(id)) { NE.Audio.play('deny'); return; } M.equipped[k === 'backpacks' ? 'backpack' : 'outfit'] = id; g.save(); NE.Audio.play('buy'); g.player.packCol = (NE.BACKPACKS.find(x => x.id === M.equipped.backpack)).col; const of = NE.OUTFITS.find(x => x.id === M.equipped.outfit); g.player.shirt = of.random ? surv.look.shirt : of.shirt; g.player.pants = of.random ? surv.look.pants : of.pants; UI.render.wardrobe(b); });
@@ -539,7 +540,7 @@ UI.render.shop = function (b) {
   let h = '<div class="shop"><div class="shop-h">' + icn('coin', null, 3) + ' <b>' + M.scrap + '</b> scrap <span class="dim">— bring scrap, trinkets & tape back alive to earn more.</span></div><div class="shop-c"><div><h4>SKINS</h4>';
   const skins = [...NE.BACKPACKS.map(o => ['backpacks', o]), ...NE.OUTFITS.map(o => ['outfits', o])].filter(([k, o]) => o.price && !M.unlocked[k].includes(o.id));
   if (!skins.length) h += '<div class="dim">You own everything for sale.</div>';
-  skins.forEach(([k, o]) => { h += '<div class="li' + (M.scrap >= o.price ? '' : ' no') + '" data-sk="' + k + '|' + o.id + '">' + icn((k === 'backpacks' ? 'bp_' : 'of_') + o.id, null, 4) + '<span>' + esc(o.name) + '<small>' + (k === 'backpacks' ? 'Backpack • ' + o.slots + ' slots, ' + o.carry + 'kg' : 'Outfit • ' + esc(o.desc || '')) + '</small></span><b>' + o.price + '</b></div>'; });
+  skins.forEach(([k, o]) => { h += '<div class="li' + (M.scrap >= o.price ? '' : ' no') + '" data-sk="' + k + '|' + o.id + '">' + icn((k === 'backpacks' ? 'bp_' : 'of_') + o.id, null, 4) + '<span>' + esc(o.name) + '<small>' + (k === 'backpacks' ? 'Backpack • ' + NE.packGrid(o.slots) + ', ' + (o.carry + 6) + 'kg' : 'Outfit • ' + esc(o.desc || '')) + '</small></span><b>' + o.price + '</b></div>'; });
   h += '</div><div><h4>STARTER SUPPLIES <small>(next run, ' + M.starter.length + '/4)</small></h4>';
   NE.SHOP_ITEMS.forEach(([id, pr]) => { h += '<div class="li' + (M.scrap >= pr && M.starter.length < 4 ? '' : ' no') + '" data-it="' + id + '|' + pr + '">' + ic(id) + '<span>' + esc(NE.ITEMS[id].name) + '<small>' + esc(NE.ITEMS[id].desc || '') + '</small></span><b>' + pr + '</b></div>'; });
   if (M.starter.length) h += '<div class="dim">Packed: ' + M.starter.map(i => NE.ITEMS[i].name).join(', ') + '</div>';
@@ -605,6 +606,16 @@ UI.peerTriage = function () {
   ch.push({ label: 'Done' });
   UI.dialog('Triage: ' + esc(name), '<i>Blood ' + (M.b || '?') + ' mL · pain ' + (M.pain || 0) + (M.u ? ' · <b class="bad">UNCONSCIOUS</b>' : '') + '</i>', ch);
 };
+// ---------- Google cloud saves ----------
+UI.cloudRefresh = function () { const b = document.querySelector('#title-ui .t-btn.cloud'); if (!b || !NE.Cloud) return; const [m, s] = NE.Cloud.label(); b.querySelector('.cl-main').textContent = m; b.querySelector('.cl-sub').textContent = s; b.classList.toggle('on', !!NE.Cloud.user); b.classList.toggle('busy', NE.Cloud.status === 'working'); b.classList.toggle('err', NE.Cloud.status === 'error'); };
+UI.cloudMenu = function () { const C = NE.Cloud; if (!C) return;
+  if (!C.user) return C.signIn();
+  UI.dialog('Cloud save', 'Signed in as <b>' + esc(C.user.email) + '</b>.<br>Your saves are kept in a private folder in your Google Drive that only this game can see. While you\'re connected, every save is backed up automatically.', [
+    { label: 'Back up now', hint: 'Upload this device\'s saves to Google', fn: () => C.syncNow() },
+    { label: 'Load from cloud', hint: 'Replace this device\'s saves with your Google copy', fn: () => C.pull() },
+    { label: 'Sign out', hint: 'Saves stay on this device', fn: () => C.signOut() },
+    { label: 'Close' }]); };
+setInterval(() => UI.cloudRefresh && UI.cloudRefresh(), 15000);
 UI.confirm = (t, x, ok, fn) => UI.dialog(t, esc(x), [{ label: ok, fn }, { label: 'Not yet' }]);
 UI.survivor = function (npc) {
   const g = G(), p = g.player; const band = ['bandage', 'cleanrag', 'rag'].find(i => p.inv.has(i));

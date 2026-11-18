@@ -1,7 +1,7 @@
 // Nectar's End — procedural endless CAVE descent: organic bands, ropes, pits, stalactites, five cave biomes
 (function (NE) {
-const G_t = () => (NE.G && NE.G.t) || performance.now() / 1000;
 'use strict';
+const G_t = () => (NE.G && NE.G.t) || performance.now() / 1000;
 const { ri, rf, pick, chance, clamp } = NE; const T = NE.T;
 const TL = NE.TL = { AIR: 0, SOLID: 1, PLAT: 2, LADDER: 3, SHARDS: 4, WATER: 5, CRUMBLE: 6, VENT: 7, METAL: 8, LAVA: 9, ICE: 10 };
 NE.depthOfY = y => Math.max(0, (y - 10 * T) / T * NE.MPT);
@@ -106,9 +106,11 @@ class World {
         for (let r = Math.max(0, fl2 - 5); r < Math.min(FH, fl2); r++) rows[r][xx] = 0; if (i >= len - 1) for (let r = fl2; r < FH; r++) rows[r][xx] = 0; xe = xx; }
       chutes.push([Math.min(xe, xe - dir), Math.max(xe, xe - dir), dir]);
     }
-    const lads = []; for (let k = 0; k < (f === 0 ? 1 : chutes.length ? (chance(0.3) ? 1 : 0) : 1); k++) { const x = tryX(0, 3); if (x > 0) { lads.push(x); for (let r = g[x]; r < FH; r++) rows[r][x] = 3; } }
-    if (!lads.length) { const x = 24; lads.push(x); for (let r = g[x]; r < FH; r++) rows[r][x] = 3; }
-    this.ladNext = lads;
+        if (!chutes.length) { // guarantee at least one natural way down
+      const len = 8, x = clamp(20 + Math.floor(rf(0, 40)), 4, W - 14), dir = 1; const g0 = g[x]; let xe = x;
+      for (let i = 0; i <= len; i++) { const xx = x + i; const fl2 = Math.min(FH, g0 + Math.round((FH - g0) * (i + 1) / (len + 1))); for (let r = Math.max(0, fl2 - 5); r < Math.min(FH, fl2); r++) rows[r][xx] = 0; if (i >= len - 1) for (let r = fl2; r < FH; r++) rows[r][xx] = 0; xe = xx; }
+      chutes.push([xe - 1, xe, dir]); }
+    this.ladNext = [];
     // open pits (risky shortcut drops)
     const pits = []; for (let k = 0; k < (f === 0 ? 0 : ri(0, 2)); k++) { const w = ri(2, 3); const x = tryX(w, 2); if (x > 0) { pits.push([x, x + w - 1]); for (let i = 0; i < w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0; } }
     if (f > 0 && chance(0.55)) { const w = ri(5, 8), x = tryX(w, 2); if (x > 0) { for (let i = 0; i <= w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0;
@@ -174,7 +176,8 @@ class World {
     for (const lx of fl.ladIn) { for (let r = 0; r < g[lx]; r++) rows[r][lx] = 3; }
     const name = pick(NE.TOWNS[B] || ['Waystation']); fl.town = { name, x0: 6 * T, x1: (W - 7) * T };
     // ropes onward
-    const lx = ri(0, 1) ? 9 : W - 10; for (let r = gv; r < FH; r++) rows[r][lx] = 3; this.ladNext = [lx]; this.pitNext = [];
+    { const dir = ri(0, 1) ? 1 : -1, x0 = dir > 0 ? 7 : W - 8; let xe = x0; for (let i = 0; i < 7; i++) { const xx = x0 + dir * i; const fl2 = Math.min(FH, gv + Math.round((FH - gv) * (i + 1) / 7)); for (let r = Math.max(gv - 1, fl2 - 4); r < Math.min(FH, fl2); r++) rows[r][xx] = 0; if (i >= 5) for (let r = fl2; r < FH; r++) rows[r][xx] = 0; xe = xx; }
+      this.ladNext = []; this.pitNext = [[Math.min(xe, xe - dir), Math.max(xe, xe - dir), dir]]; }
     for (let x = 14; x < W - 14; x += ri(9, 13)) fl.decor.push({ k: 'shack', x: x * T, y: 0, s: rf(0, 1), col: pick(['#6a4a30', '#5a4636', '#4a3a2a', '#705038']) });
     const mid = Math.floor(W / 2) * T; const at = k => (k) * T;
     fl.objs.push({ type: 'post', x: mid, label: 'Deep Post — send loot topside', act: 'post' });

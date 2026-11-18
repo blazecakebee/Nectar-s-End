@@ -299,7 +299,8 @@ class Enemy extends Actor {
   weaponId() { return this.weapon; }
   get gunOut() { return this.weapon && NE.ITEMS[this.weapon].gun && (this.state === 'chase' || this.state === 'aim'); }
   get twoHand() { return !!(this.weapon && NE.ITEMS[this.weapon].twoHand); }
-  isHostileTo(a) { if (!a.alive || a === this || a.hidden || a.isPuppet) return false; if (a.isPlayer || a.isRemote) return this.hostile; if (a.town) return false; if (!a.faction || a.faction === 'neutral') return false; return a.faction !== this.faction; }
+  inTown(o) { const W = this.g.world; if (!W || W.lobby) return false; const fl = W.floorOf(Math.floor((o.y - 2) / T)); return !!(fl && fl.town); }
+  isHostileTo(a) { if (!a.alive || a === this || a.hidden || a.isPuppet) return false; if (this.inTown(a)) return false; /* towns are safe havens */ if (a.isPlayer || a.isRemote) return this.hostile; if (a.town) return false; if (!a.faction || a.faction === 'neutral') return false; return a.faction !== this.faction; }
   onAggro(src) { if (!this.alive) return; if (src && src.isPlayer && !this.hostile) { this.hostile = true; this.g.standoffBreak(this); } if (src && this.isHostileTo(src)) { this.target = src; this.state = 'chase'; this.lastSeen = { x: src.x, y: src.y }; } }
   onHurt(src) { const a = this.g.actors.find(x => (x.isPlayer || x.isRemote) && x.surv && x.surv.first === src) || this.g.actors.find(x => x.D && x.D.name === src); if (a) this.onAggro(a); }
   canSee(a) {
@@ -312,6 +313,8 @@ class Enemy extends Actor {
     const g = this.g, A = this.anat;
     this.cd = Math.max(0, this.cd - dt); this.swingT = Math.max(0, this.swingT - dt); this.flash = Math.max(0, this.flash - dt);
     A.update(dt, {}); if (A.dead) { g.onEnemyDeath(this, A.cause); return; }
+    if (this.inTown(this)) { this.gone = true; return; } // hostiles never set foot in a town
+    if (this.target && this.inTown(this.target)) { this.target = null; this.state = 'idle'; this.exec = null; this.windT = 0; this.charge = null; }
     if (A.uncon) { this.fallHurt(this.physicsMove(dt, { mx: 0 })); return; }
     // staggered: reeling from a hit, can't act
     if (this.stagger > 0) { this.stagger -= dt; this.windT = 0; this.charge = null; this.exec = null; this.fallHurt(this.physicsMove(dt, { mx: 0 })); NE.Combat.tick(this, dt, this.x + this.facing * 10, this.y, false); return; }

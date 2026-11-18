@@ -423,3 +423,11 @@ button, .btn, .t-btn, .hx, .slot, .li, .wr, .tr, .eq, .kb-k, [data-a], [data-c],
 .gprev { position: absolute; box-sizing: border-box; border: 2px dashed #7ad07a; background: rgba(122,208,122,.12); pointer-events: none; } .gprev.bad { border-color: #ff5a4a; background: rgba(255,90,74,.14); }
 
 .gi.long .gi-img img { transform: rotate(-45deg) scale(1.45); } .gi.long.rot .gi-img img { transform: rotate(45deg) scale(1.45); }
+
+/* Google cloud-save button: a slim tertiary row under Save Slots / Settings */
+.t-btn.cloud { display: flex; align-items: center; gap: .55em; justify-content: center; font-size: .62em; letter-spacing: .14em; padding: .35em .8em; margin-top: .45em; background: rgba(14,10,20,.55); border: 2px dashed rgba(240,180,80,.3); }
+.t-btn.cloud .cl-txt { display: flex; flex-direction: column; align-items: flex-start; text-align: left; } .t-btn.cloud .cl-sub { font-family: 'VT323', monospace; font-weight: 400; font-size: .95em; letter-spacing: .04em; color: #a89068; max-width: 22em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-ico { width: 1.5em; height: 1em; flex: none; background: radial-gradient(circle at 30% 70%, #f0c060 0 35%, transparent 36%), radial-gradient(circle at 55% 45%, #f0c060 0 42%, transparent 43%), radial-gradient(circle at 78% 70%, #f0c060 0 32%, transparent 33%); opacity: .8; image-rendering: pixelated; }
+.t-btn.cloud.on { border-style: solid; border-color: rgba(122,208,122,.45); } .t-btn.cloud.on .cl-ico { filter: hue-rotate(60deg) saturate(.8); }
+.t-btn.cloud.busy .cl-ico { animation: clp 1s ease-in-out infinite; } @keyframes clp { 50% { opacity: .3; } }
+.t-btn.cloud.err { border-color: rgba(255,90,74,.5); } .t-btn.cloud.err .cl-sub { color: #ff8a7a; }

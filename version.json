@@ -1,6 +1,34 @@
 {
  "log": [
   {
+   "version": "0.6.4",
+   "date": "2026-11-18",
+   "title": "Google cloud saves",
+   "changes": [
+    "New \"Sign in with Google\" button on the title screen, under Save Slots and Settings. Your saves (all 3 slots and your settings) are backed up to a private folder in your Google Drive that only this game can see.",
+    "While you're signed in, every save is backed up automatically. If your Google account already has a save, you choose whether to load the cloud copy or keep this device's save.",
+    "Click the button while signed in to back up now, load from the cloud, or sign out. Signing out never deletes anything on this device."
+   ]
+  },
+  {
+   "version": "0.6.3",
+   "date": "2026-11-18",
+   "title": "No more ropes",
+   "changes": [
+    "Ropes are gone. Every way down is now a natural path: winding sloped tunnels and collapsed caverns with stair-step ledges. Every level is guaranteed at least one way down, and towns lead on through a winding stair cut into the floor.",
+    "Respawn sound: when the Vespa takes a new host (a new run, or a new host after dying in co-op), you hear a wet gasp, a rising hive-shimmer and the new host's first heartbeats. Co-op re-hosting also gets a flash of glow.",
+    "Inventory rebalance: the starting rucksack is now a 10×4 grid (40 cells), down from 60. Better backpacks now clearly add room: Paramedic and Hauling Rig 10×5, Brass 10×6, Expedition Frame 10×7, Crystal Duffel 10×8. Every 2 ranks of Pack Mule or Organized Packing add another row. The Gear Rack shows each pack's grid size and cell count."
+   ]
+  },
+  {
+   "version": "0.6.2",
+   "date": "2026-11-18",
+   "title": "Safe towns",
+   "changes": [
+    "Towns are true safe havens. Hostiles never spawn on a town floor, and any that fall or wander in vanish. Enemies chasing you stop the moment you reach a town, and an enemy standing over you for a finisher backs off."
+   ]
+  },
+  {
    "version": "0.6.1",
    "date": "2026-11-18",
    "title": "Cleaner title screen",

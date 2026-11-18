@@ -160,7 +160,7 @@ G.infestUpdate = function (dt) {
   if (t < 1.6) { const k = t / 1.6; tx = p.x + 60 - k * 40 + Math.sin(t * 5) * 10; ty = p.y - 120 + k * 90; } // drifting down the shaft
   else if (t < 3.4) { const a = (t - 1.6) * 5.2; const r = 22 - (t - 1.6) * 8; tx = hx + Math.cos(a) * r; ty = hy - 4 + Math.sin(a) * r * 0.6; } // circling, tasting
   else if (t < 3.9) { const k = (t - 3.4) / 0.5; tx = lerp(I.x, hx + 1, k * k); ty = lerp(I.y, hy - 1, k * k); if (!I.dove) { I.dove = 1; NE.Audio.play('screech', 0.55); } } // the dive
-  else { tx = hx + 1; ty = hy - 1; if (!I.inside) { I.inside = 1; NE.Audio.play('squelch', 1); NE.Audio.play('burst', 0.4); G.shake(5); G.flashT = 0.7; p.vespa = true; p.vglow = I.v.glow; for (let i = 0; i < 40; i++) G.addP(hx, hy, rf(-70, 70), rf(-90, 20), rf(0.4, 1.1), pick([I.col, '#fff6c0', '#ffd23a']), 'glow', 0.2); } }
+  else { tx = hx + 1; ty = hy - 1; if (!I.inside) { I.inside = 1; NE.Audio.play('squelch', 1); NE.Audio.play('respawn'); G.shake(5); G.flashT = 0.7; p.vespa = true; p.vglow = I.v.glow; for (let i = 0; i < 40; i++) G.addP(hx, hy, rf(-70, 70), rf(-90, 20), rf(0.4, 1.1), pick([I.col, '#fff6c0', '#ffd23a']), 'glow', 0.2); } }
   I.x = lerp(I.x, tx, Math.min(1, dt * (t < 3.4 ? 6 : 14))); I.y = lerp(I.y, ty, Math.min(1, dt * (t < 3.4 ? 6 : 14)));
   if (t < 4) { I.trail.push({ x: I.x, y: I.y, a: 1 }); if (I.trail.length > 26) I.trail.shift(); if (Math.random() < dt * 30) G.addP(I.x, I.y, rf(-8, 8), rf(-8, 8), 0.6, I.col, 'glow', 0); }
   for (const q of I.trail) q.a -= dt * 2;
@@ -208,7 +208,7 @@ G.rehost = function () {
   // drop into a safe spot
   const W = G.world; let tries = 0; while (W.solidAt(np.x, np.y - 4) && tries++ < 30) np.y -= T;
   for (const q of np.rag.pts) { q.x += 0; q.ox = q.x; q.oy = q.y; }
-  NE.UI.showRun(); NE.UI.banner('NEW HOST', s.name + ', ' + s.age + ' — wandered too close.'); G.log('The Vespa takes ' + s.name + '. Their eyes turn gold.', 'good'); NE.Audio.play('nectar');
+  NE.UI.showRun(); NE.UI.banner('NEW HOST', s.name + ', ' + s.age + ' — wandered too close.'); G.log('The Vespa takes ' + s.name + '. Their eyes turn gold.', 'good'); NE.Audio.play('respawn'); G.flashT = 0.6; for (let i = 0; i < 30; i++) G.addP(np.x, np.cy, rf(-60, 60), rf(-80, 10), rf(0.4, 1), pick(['#ffd23a', '#fff6c0', '#ffb020']), 'glow', 0.2);
   if (G.net && G.net.on) G.net.sendHello(); G.musicFor(); G.autosave();
 };
 
