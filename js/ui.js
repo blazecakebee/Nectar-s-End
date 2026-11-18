@@ -173,9 +173,10 @@ UI.render = {};
 UI.render.status = function (b) {
   const p = G().player, A = p.anat, s = p.surv, R = G().run; const occ = NE.OCCUPATIONS.find(o => o.id === s.occ);
   const card = (l, v, sub, cls) => '<div class="st-card ' + (cls || '') + '"><small>' + l + '</small><b>' + v + '</b>' + (sub ? '<i>' + sub + '</i>' : '') + '</div>';
-  const org = k => { const v = A.org[k]; return '<div class="org"><span>' + k.toUpperCase() + '</span>' + bar(v, 100, v > 70 ? '#40c060' : v > 35 ? '#d0a030' : '#e03030', Math.round(v) + '%') + '</div>'; };
+  const org = k => { const v = A.org[k]; return '<div class="org"><span>' + k.toUpperCase() + '</span>' + bar(v, 100, v > 70 ? 'linear-gradient(90deg,#b8701c,#ffc040)' : v > 35 ? 'linear-gradient(90deg,#8a3a10,#e07020)' : 'linear-gradient(90deg,#6a0808,#ff3a2a)', Math.round(v) + '%') + '</div>'; };
   b.innerHTML = '<div class="crt"><div class="crt-l">' +
-    '<div class="ecg-wrap"><canvas id="ecg" width="300" height="70"></canvas><div class="bpm">' + Math.round(A.bpm) + '<small>BPM</small></div></div>' +
+    '<div class="st-head"><canvas id="stp"></canvas><div><b>' + esc(s.name) + '</b><small>' + occ.name + ', ' + s.age + '</small><div class="st-inf"><span>VESPA HOLD</span><div class="bar"><div class="bar-f" style="width:' + Math.round((p.infest || 0) * 100) + '%;background:repeating-linear-gradient(90deg,#ffc030 0 6px,#2a1a08 6px 9px)"></div><span>' + Math.round((p.infest || 0) * 100) + '%</span></div></div></div></div>' +
+    '<h4>HEARTBEAT</h4><div class="ecg-wrap"><canvas id="ecg" width="300" height="70"></canvas><div class="bpm">' + Math.round(A.bpm) + '<small>BPM</small></div></div>' +
     '<div class="st-grid">' + card('BLOOD', Math.round(A.blood) + 'mL', Math.round(A.blood / 50) + '% • ' + (A.bleeding > 0.05 ? '-' + A.bleeding.toFixed(2) + ' mL/s' : 'not bleeding'), A.blood < 3800 ? 'bad' : '') + card('PAIN', Math.round(A.pain), 'threshold ' + Math.round(A.threshold), A.pain > A.threshold ? 'bad' : '') + card('CONSCIOUS', Math.round(Math.max(0, A.cons)) + '%', A.uncon ? 'UNCONSCIOUS' : '', A.cons < 40 ? 'bad' : '') + card('TEMP', A.temp.toFixed(1) + '°C', A.wet > 0.3 ? 'wet' : '', A.temp < 35.5 || A.temp > 38.3 ? 'warn' : '') + card('STAMINA', Math.round(A.stam) + '/' + Math.round(A.stamMax)) + card('HUNGER', Math.round(A.hunger) + '%', '', A.hunger < 25 ? 'warn' : '') + card('THIRST', Math.round(A.thirst) + '%', '', A.thirst < 25 ? 'warn' : '') + card('INFECTION', Math.round(A.infection) + '%', '', A.infection > 30 ? 'warn' : '') + card('RADIATION', Math.round(A.rad), '', A.rad > 25 ? 'warn' : '') + card('TOXINS', Math.round(A.tox), '', A.tox > 30 ? 'warn' : '') + card('STRESS', Math.round(A.stress) + '%', '', A.stress > 60 ? 'warn' : '') + card('CARRY', p.inv.weight().toFixed(1) + '/' + p.inv.carry.toFixed(0) + 'kg', '', p.inv.weight() > p.inv.carry ? 'warn' : '') + '</div>' +
     '<h4>ORGANS</h4><div class="orgs">' + ['brain', 'eyes', 'lungs', 'heart', 'stomach', 'liver'].map(org).join('') + '</div></div>' +
     '<div class="crt-r"><h4>CONDITIONS</h4><div class="conds">' + A.conditions().map(c => '<span class="' + c[1] + '">' + esc(c[0]) + '</span>').join('') + '</div>' +
@@ -183,6 +184,7 @@ UI.render.status = function (b) {
     '<h4>THE VESPA</h4><div class="dos">Infestation: <b class="warn">' + Math.round((p.infest || 0) * 100) + '%</b><br>' + ((p.abil || []).length ? p.abil.map(id => { const A = NE.ABILITIES.find(x => x.id === id); return '<span class="good">' + A.name + '</span> <small>' + A.desc + '</small>'; }).join('<br>') : '<span class="dim">No gifts awakened yet. Find a relic flower and drink its nectar.</span>') + '</div>' +
     (R ? '<h4>THIS RUN</h4><div class="dos">Depth: ' + Math.round(NE.depthOfY(p.y)) + 'm • Deepest: ' + Math.round(R.maxDepth) + 'm<br>Time: ' + fmtT(R.t) + ' • Kills: ' + R.kills + ' • Survivors helped: ' + R.treated + '</div>' : '') + '</div></div>';
   UI.ecg = { c: $('#ecg').getContext('2d'), x: 0, ph: 0 };
+  const sp = $('#stp'); if (sp) { sp.style.background = NE.portraitBG(s.look); const pr = new NE.Portrait(sp, s); pr.draw({ life: Math.min(1, A.blood / 5000 * 1.15), expr: A.pain > A.threshold * 0.7 ? 'pain' : 'neutral', vespa: true, shirt: p.shirt }); }
 };
 UI.live.status = function () { if (!UI._stT || performance.now() - UI._stT > 1000) { UI._stT = performance.now(); const e = UI.ecg; UI.render.status($('.pn-body')); if (e) { UI.ecg.x = e.x; UI.ecg.ph = e.ph; } } };
 UI.drawECG = function (dt) {
@@ -191,7 +193,8 @@ UI.drawECG = function (dt) {
     E.ph += bps / sp; if (E.ph >= 1) E.ph -= 1; const ph = E.ph; let y = 0;
     if (A.dead) y = 0; else if (ph < 0.08) y = Math.sin(ph / 0.08 * Math.PI) * -4; else if (ph > 0.14 && ph < 0.17) y = 6; else if (ph >= 0.17 && ph < 0.21) y = -28; else if (ph >= 0.21 && ph < 0.24) y = 10; else if (ph > 0.38 && ph < 0.5) y = Math.sin((ph - 0.38) / 0.12 * Math.PI) * -7;
     if (A.org.heart < 35 && !A.dead) y += (Math.random() - 0.5) * 10;
-    c.fillStyle = '#041a0a'; c.fillRect(E.x, 0, 4, 70); c.fillStyle = A.blood < 3500 ? '#ff5040' : '#50ff80'; c.fillRect(E.x, 35 + y, 2, 2); if (E.ly != null) { const a = Math.min(E.ly, 35 + y), bb = Math.max(E.ly, 35 + y); c.fillRect(E.x, a, 2, bb - a + 1); } E.ly = 35 + y; E.x = (E.x + 1) % 300;
+    c.fillStyle = '#140b05'; c.fillRect(E.x, 0, 4, 70); c.fillStyle = 'rgba(255,180,60,0.08)'; for (let gy = 5; gy < 70; gy += 10) c.fillRect(E.x, gy, 4, 1); if ((E.x + 4) % 20 < 4) c.fillRect(E.x, 0, 1, 70);
+    c.fillStyle = A.blood < 3500 ? 'rgba(255,80,60,0.25)' : 'rgba(255,190,60,0.22)'; c.fillRect(E.x, 34 + y, 2, 4); c.fillStyle = A.blood < 3500 ? '#ff5a40' : '#ffc040'; c.fillRect(E.x, 35 + y, 2, 2); if (E.ly != null) { const a = Math.min(E.ly, 35 + y), bb = Math.max(E.ly, 35 + y); c.fillRect(E.x, a, 2, bb - a + 1); } E.ly = 35 + y; E.x = (E.x + 1) % 300;
   }
 };
 

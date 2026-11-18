@@ -1,6 +1,15 @@
 {
  "log": [
   {
+   "version": "0.4.2",
+   "date": "2026-11-18",
+   "title": "Honey cursor & new Status tab",
+   "changes": [
+    "Custom pixel cursors: a honey arrow on menus, a pointing hand over anything clickable, and a new honey reticle in-game. With guns it's four ticks that spread when you're shaky or just fired. With melee it's a small cross with a ring that fills while you charge a heavy attack.",
+    "Status tab restyled in the game's amber and wax look: a host header with portrait and a striped Vespa hold meter, a honey heartbeat monitor, wax-edged stat cards, honey-gradient organ bars and rounded condition chips."
+   ]
+  },
+  {
    "version": "0.4.1",
    "date": "2026-11-18",
    "title": "Heavy attacks, lighter crates, bigger skill web",

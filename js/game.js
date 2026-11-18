@@ -222,6 +222,7 @@ G.frame = function (dt) {
   }
   if (G.net) G.net.tick(dt);
   NE.UI.tick(dt);
+  const hideOS = (G.state === 'run' || G.state === 'lobby' || G.state === 'burst' || G.state === 'dying') && !NE.UI.panel && !NE.UI.hexOpen && !NE.UI.modalOpen(); if (hideOS !== G._hideOS) { G._hideOS = hideOS; G.cv.style.cursor = hideOS ? 'none' : ''; }
 };
 G.update = function (dt, rdt) {
   const p = G.player, W = G.world, run = G.state === 'run' || G.state === 'dying' || G.state === 'burst';
@@ -611,7 +612,11 @@ G.render = function (dt) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   G.drawFX(dt);
   // crosshair
-  if ((p.alive || G.goop) && !NE.UI.panel) { const m = G.mouse; ctx.fillStyle = p.gunOut ? '#e8e2d0' : 'rgba(232,226,208,0.6)'; const g = p.gunOut ? 2 + Math.round(p.anat.tremor() * 4) : 1; ctx.fillRect(Math.round(m.x) - g - 2, Math.round(m.y), 2, 1); ctx.fillRect(Math.round(m.x) + g + 1, Math.round(m.y), 2, 1); ctx.fillRect(Math.round(m.x), Math.round(m.y) - g - 2, 1, 2); ctx.fillRect(Math.round(m.x), Math.round(m.y) + g + 1, 1, 2); }
+  if ((p.alive || G.goop) && !NE.UI.panel && !NE.UI.hexOpen && !NE.UI.modalOpen()) { const m = G.mouse, mx = Math.round(m.x), my = Math.round(m.y); const O = 'rgba(20,10,4,0.85)', Y = '#ffc030', L = '#fff0b0';
+    const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }; const tick = (x, y, w, h) => { px(x - 1, y - 1, w + 2, h + 2, O); px(x, y, w, h, Y); };
+    if (p.gunOut) { const g = 2 + Math.round(p.anat.tremor() * 4 + (p.cd > 0 ? 1 : 0)); tick(mx - g - 3, my, 3, 1); tick(mx + g + 1, my, 3, 1); tick(mx, my - g - 3, 1, 3); tick(mx, my + g + 1, 1, 3); px(mx, my, 1, 1, L); }
+    else { px(mx - 2, my - 2, 5, 5, O); px(mx - 1, my, 3, 1, Y); px(mx, my - 1, 1, 3, Y); px(mx, my, 1, 1, L);
+      if (p.charge) { const k = Math.min(1, p.charge.t / 0.82); const n = Math.round(16 * k); for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2 - Math.PI / 2; const x = Math.round(mx + Math.cos(a) * 5), y = Math.round(my + Math.sin(a) * 5); px(x, y, 1, 1, i < n ? (k >= 1 ? L : Y) : 'rgba(20,10,4,0.6)'); } } } }
 };
 G.drawBody = function (ctx, b) {
   if (NE.Gore.drawBody(ctx, b)) return;
