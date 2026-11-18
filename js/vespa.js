@@ -86,7 +86,7 @@ G.startBurst = function (p) {
 };
 G.goopUpdate = function (dt) {
   const g = G.goop; const K = G.keys; const block = NE.UI.modalOpen();
-  const L = !block && (K.KeyA || K.ArrowLeft), Rr = !block && (K.KeyD || K.ArrowRight), U = !block && (K.KeyW || K.ArrowUp || K.Space);
+  const L = !block && G.kd('left'), Rr = !block && G.kd('right'), U = !block && (G.kd('up') || G.kd('jump'));
   const mx = (Rr ? 1 : 0) - (L ? 1 : 0); if (mx) g.facing = mx;
   g.vx = lerp(g.vx, mx * 105, Math.min(1, dt * 9));
   if (U && g.onGround) { g.vy = -250; g.onGround = false; NE.Audio.play('squelch', 0.6); }

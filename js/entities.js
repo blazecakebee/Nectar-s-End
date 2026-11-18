@@ -50,7 +50,19 @@ class Actor {
     }
     this.sliding = false;
     const under = W.get(Math.floor(this.x / T), Math.floor((this.y + 1) / T)); this.onIce = this.onGround && under === 10;
-    const tgt = c.mx * spd * (this.onIce ? 1.1 : 1); const acc = this.onIce ? 70 : this.onGround ? 520 : 170;
+    // ---- wall parkour (player): slide down walls, kick off them, sprint-boost up them
+    this.wallLock = Math.max(0, (this.wallLock || 0) - dt); this.wallCoy = Math.max(0, (this.wallCoy || 0) - dt);
+    if (this.onGround) { this.wallBoosts = 0; this.lastWall = 0; }
+    const wd = this.isPlayer && !this.onGround && !this.climbing && !this.crawl && !A.uncon ? this.wallAt() : 0; if (wd) { this.wallDir = wd; this.wallCoy = 0.12; }
+    this.wallSliding = false;
+    if (wd && c.mx === wd && this.vy > 40 && A.armFactor() > 0.4) { this.vy = Math.min(this.vy, 70); this.wallSliding = true; if (Math.random() < dt * 12) this.g.dust(this.x + wd * 3, this.y - 6, 1); }
+    if (this.isPlayer && jumpPress && !this.onGround && !this.climbing && this.wallCoy > 0 && A.stam > 4 && legs.broken < 2) {
+      const d = this.wallDir; const boost = c.sprint && c.mx === d && (this.wallBoosts || 0) < 2 && this.lastWall !== -d;
+      if (boost) { this.vy = -230; this.vx = -d * 40; this.wallBoosts = (this.wallBoosts || 0) + 1; this.wallLock = 0.12; A.stam -= 7; NE.Audio.play('land', 0.35); }
+      else { this.vy = -205; this.vx = -d * 135; this.wallLock = 0.22; this.facing = -d; A.stam -= 5; NE.Audio.play('step', 0.8); }
+      this.lastWall = d; this.wallCoy = 0; this.g.dust(this.x + d * 3, this.y - 4, 5); this.g.noise(this.x, this.y, 30);
+    }
+    const tgt = c.mx * spd * (this.onIce ? 1.1 : 1); const acc = this.onIce ? 70 : this.onGround ? 520 : this.wallLock > 0 ? 40 : 170;
     if (this.vx < tgt) this.vx = Math.min(tgt, this.vx + acc * dt); else if (this.vx > tgt) this.vx = Math.max(tgt, this.vx - acc * dt);
     if (c.mx) this.facing = c.mx > 0 ? 1 : -1;
     if (c.jump && this.onGround && !this.crawl && legs.broken < 2 && A.stam > 4) { this.vy = -192 * (legs.broken ? 0.7 : 1) * (inWater ? 0.8 : 1); this.onGround = false; A.stam -= 6; if (c.down) { this.vy = 0; this.dropT = 0.25; } }
@@ -63,6 +75,7 @@ class Actor {
     if (Math.abs(this.vx) > 2 && this.onGround) { this.walkPh += dt * Math.abs(this.vx) * 0.32; this.stepT += dt * Math.abs(this.vx); }
     return { landed: landed ? vyb : 0 };
   }
+  wallAt() { const W = this.g.world; for (const d of [1, -1]) { const xx = this.x + d * (this.w / 2 + 1.2); if (W.solid(W.get(Math.floor(xx / T), Math.floor((this.y - this.h * 0.55) / T))) && W.solid(W.get(Math.floor(xx / T), Math.floor((this.y - this.h + 2) / T)))) return d; } return 0; }
   onGroundSolid() { const W = this.g.world; return W.solid(W.get(Math.floor(this.x / T), Math.floor((this.y + 1) / T))); }
   ladderAt() { const W = this.g.world; const tx = Math.floor(this.x / T); for (const yy of [this.y - 2, this.y - this.h / 2, this.y + 2]) if (W.get(tx, Math.floor(yy / T)) === 3) return true; return false; }
   ladderX() { return (Math.floor(this.x / T) + 0.5) * T; }
@@ -122,7 +135,7 @@ class Actor {
   }
   draw(ctx) {
     const o = { facing: this.facing, anat: this.anat, dead: !this.alive, pack: this.packCol, weapon: this.weaponId(), aimDir: this.aimDir, shirt: this.shirt, pants: this.pants, skinCol: this.skinCol,
-      vest: !!this.gear.body, helmet: this.gear.head ? (NE.ITEMS[this.gear.head.id].col || '#888') : null, mask: !!this.gear.face || this.masked, vespa: !!this.vespa, infest: this.infest || 0, muts: this.muts };
+      vest: !!this.gear.body, helmet: this.gear.head ? (NE.ITEMS[this.gear.head.id].col || '#888') : null, mask: !!this.gear.face || this.masked, walkPh: this.walkPh, lantern: NE.hasLantern(this) ? (this.isPlayer ? (this.light.on ? 1 : 0.01) : this.isRemote ? (this.lightOn ? 1 : 0.01) : 1) : 0, vespa: !!this.vespa, infest: this.infest || 0, muts: this.muts };
     NE.drawHuman(ctx, this.rag, this.look, o);
     if (this.flash > 0 && this.alive) { ctx.fillStyle = 'rgba(255,60,40,0.5)'; for (const p of this.rag.pts) ctx.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 1, 2, 2); }
   }
@@ -156,7 +169,7 @@ class Player extends Actor {
     if ((this.treating || this.search) && (input.mx || input.jump || input.up)) { if (this.treating) { g.toast('Treatment interrupted.'); this.treating = null; } if (this.search) { this.search = null; } c = input; }
     const res = this.physicsMove(dt, c);
     if (res.landed > 300) {
-      const v = res.landed; const dmg = (v - 300) * 0.16 * st.fall * (this.glide ? 0.4 : 1); NE.Audio.play('land', 1);
+      const v = res.landed; const dmg = (v - 300) * 0.16 * 0.7 * st.fall * (this.glide ? 0.4 : 1); NE.Audio.play('land', 1);
       this.hurt(pick(['lleg', 'rleg']), dmg, 'fall', 'Fall'); if (dmg > 8) this.hurt(pick(['lleg', 'rleg']), dmg * 0.6, 'fall', 'Fall'); if (v > 430) this.hurt('torso', dmg * 0.4, 'blunt', 'Fall');
       g.shake(Math.min(4, dmg / 6)); g.dust(this.x, this.y, 6);
     } else if (res.landed > 120) { NE.Audio.play('land', 0.5); }
@@ -166,8 +179,8 @@ class Player extends Actor {
     // aim
     const dx = g.mouse.wx - this.x, dy = g.mouse.wy - (this.y - this.h + 4); const L = Math.hypot(dx, dy) || 1; this.aimDir = { x: dx / L, y: dy / L };
     if (!c.mx && !this.climbing && !A.uncon) this.facing = dx >= 0 ? 1 : -1;
-    // flashlight
-    if (this.light.on) { this.light.bat = Math.max(0, this.light.bat - dt * 100 / (360 * st.battery)); if (this.light.bat <= 0) { this.light.on = false; g.toast('Flashlight died.'); } }
+    // waist lantern (oil)
+    if (this.light.on) { this.light.bat = Math.max(0, this.light.bat - dt * 100 / (360 * st.battery)); if (this.light.bat <= 0) { this.light.on = false; g.toast('Your lantern sputters out.'); } }
     if (this.gear.face && g.env.gas > 0 && this.filterT > 0) this.filterT = Math.max(0, this.filterT - dt);
     // pending melee hit
     if (this.pendingHit) { this.pendingHit.t -= dt; if (this.pendingHit.t <= 0) { this.resolveMelee(this.pendingHit.w); this.pendingHit = null; } }
@@ -408,7 +421,7 @@ NE.consume = function (pl, entry) {
     g.toast((it.thirst ? 'Drank ' : 'Ate ') + it.name.toLowerCase() + '.'); NE.Audio.play('ui'); return true;
   }
   if (entry.id === 'nectar') { entry.n--; if (entry.n <= 0) pl.inv.remove(entry); g.drinkNectar(pl); return true; }
-  if (entry.id === 'battery') { pl.light.bat = 100; entry.n--; if (entry.n <= 0) pl.inv.remove(entry); g.toast('Flashlight recharged.'); return true; }
+  if (entry.id === 'battery') { pl.light.bat = 100; entry.n--; if (entry.n <= 0) pl.inv.remove(entry); g.toast('Lantern refilled.'); NE.Audio.play('splash', 0.4); return true; }
   if (entry.id === 'filter') { if (!pl.gear.face) { g.toast('Equip a respirator first.'); return false; } pl.filterT += 90; entry.n--; if (entry.n <= 0) pl.inv.remove(entry); g.toast('Filter screwed in (+90s).'); return true; }
   if (it.med === 'drug') { NE.startTreat(pl, entry, 'torso'); return true; }
   return false;

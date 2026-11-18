@@ -82,7 +82,7 @@ UI.tick = function (dt) {
   const s = $('#say'); if (UI.sayT > 0) { UI.sayT -= dt; const sp = UI.toScreen(p.x, p.y - p.h - 16); s.style.left = sp.x + 'px'; s.style.top = sp.y + 'px'; s.style.opacity = Math.min(1, UI.sayT); if (UI.sayT <= 0) s.classList.add('hide'); }
   // interaction prompt
   const pr = $('#prompt'); const tgt = !UI.panel && !UI.hexOpen && p.alive && !p.search && !p.treating ? g.interactTarget() : null;
-  if (tgt) { const sp = UI.toScreen(tgt.x, (tgt.y || p.y) - (tgt.type === 'elevator' ? 40 : 20)); let lab = tgt.label || 'Interact'; if (tgt.type === 'container') lab = (tgt.searched ? 'Open ' : tgt.locked ? 'Breach ' : 'Search ') + lab + (tgt.locked ? ' 🔒' : ''); else if (tgt.isNPC) lab = (tgt.kind === 'trader' ? 'Trade with ' : 'Talk to ') + tgt.label; else if (tgt.type === 'elevator') lab = tgt.kind === 'descent' ? 'Ride the Descent Lift' : tgt.label; pr.innerHTML = '<b>[E]</b> ' + esc(lab); pr.style.left = sp.x + 'px'; pr.style.top = sp.y + 'px'; pr.classList.remove('hide'); } else pr.classList.add('hide');
+  if (tgt) { const sp = UI.toScreen(tgt.x, (tgt.y || p.y) - (tgt.type === 'elevator' ? 40 : 20)); let lab = tgt.label || 'Interact'; if (tgt.type === 'container') lab = (tgt.searched ? 'Open ' : tgt.locked ? 'Breach ' : 'Search ') + lab + (tgt.locked ? ' 🔒' : ''); else if (tgt.isNPC) lab = (tgt.kind === 'trader' ? 'Trade with ' : 'Talk to ') + tgt.label; else if (tgt.type === 'elevator') lab = tgt.kind === 'descent' ? 'Ride the Descent Lift' : tgt.label; pr.innerHTML = '<b>[' + NE.keyLabel('interact') + ']</b> ' + esc(lab); pr.style.left = sp.x + 'px'; pr.style.top = sp.y + 'px'; pr.classList.remove('hide'); } else pr.classList.add('hide');
   // progress bar
   const pg = $('#prog'); const act = p.treating || p.search; if (act) { const sp = UI.toScreen(p.x, p.y - p.h - 4); pg.style.left = sp.x + 'px'; pg.style.top = sp.y + 'px'; pg.firstChild.style.width = (act.t / act.dur * 100) + '%'; pg.dataset.l = p.treating ? (p.treating.op === 'removeTq' ? 'Loosening' : 'Treating ' + NE.PART_NAMES[p.treating.part]) : p.search.relic ? 'Harvesting nectar' : 'Searching'; pg.classList.remove('hide'); } else pg.classList.add('hide');
   $('#slowmo').classList.toggle('hide', !(UI.panel || UI.hexOpen) || g.state !== 'run');
@@ -107,16 +107,16 @@ UI.hudUpdate = function () {
     vrow('p_drop', 'Blood', A.blood, 5000, bp > 80 ? 'blood' : bp > 60 ? 'blood warn' : 'blood bad', Math.round(A.blood) + ' mL' + (A.bleeding > 0.05 ? ' <em>▼' + A.bleeding.toFixed(1) + '</em>' : '')) +
     vrow('p_lungs', 'Stamina', A.stam, A.stamMax, 'stam', Math.round(A.stam)) +
     vrow('p_bolt', 'Pain', A.pain, A.threshold * 1.4, A.pain > A.threshold ? 'pain bad' : 'pain', Math.round(A.pain) + (A.pain > A.threshold ? ' !' : '')) +
-    '<div class="v-chips"><span>' + '<img class="pix" src="' + NE.iconURL('p_heart', null, 2) + '">' + Math.round(A.bpm) + '</span><span class="' + (A.temp < 35.6 || A.temp > 38.3 ? 'warn' : '') + '">' + A.temp.toFixed(1) + '°</span><span class="' + (A.hunger < 25 ? 'warn' : '') + '"><img class="pix" src="' + NE.iconURL('ration', null, 2) + '">' + Math.round(A.hunger) + '</span><span class="' + (A.thirst < 25 ? 'warn' : '') + '"><img class="pix" src="' + NE.iconURL('water', null, 2) + '">' + Math.round(A.thirst) + '</span>' + (A.rad > 5 ? '<span class="warn">☢ ' + Math.round(A.rad) + '</span>' : '') + (A.infection > 10 ? '<span class="warn">✚ ' + Math.round(A.infection) + '</span>' : '') + (p.abil && p.abil.includes('pulse') ? '<span class="' + (p.pulseCD > 0 ? '' : 'good') + '">[X] ' + (p.pulseCD > 0 ? Math.ceil(p.pulseCD) + 's' : 'Pulse') + '</span>' : '') + '</div>';
+    '<div class="v-chips"><span>' + '<img class="pix" src="' + NE.iconURL('p_heart', null, 2) + '">' + Math.round(A.bpm) + '</span><span class="' + (A.temp < 35.6 || A.temp > 38.3 ? 'warn' : '') + '">' + A.temp.toFixed(1) + '°</span><span class="' + (A.hunger < 25 ? 'warn' : '') + '"><img class="pix" src="' + NE.iconURL('ration', null, 2) + '">' + Math.round(A.hunger) + '</span><span class="' + (A.thirst < 25 ? 'warn' : '') + '"><img class="pix" src="' + NE.iconURL('water', null, 2) + '">' + Math.round(A.thirst) + '</span>' + (A.rad > 5 ? '<span class="warn">☢ ' + Math.round(A.rad) + '</span>' : '') + (A.infection > 10 ? '<span class="warn">✚ ' + Math.round(A.infection) + '</span>' : '') + (p.abil && p.abil.includes('pulse') ? '<span class="' + (p.pulseCD > 0 ? '' : 'good') + '">[' + NE.keyLabel('pulse') + '] ' + (p.pulseCD > 0 ? Math.ceil(p.pulseCD) + 's' : 'Pulse') + '</span>' : '') + '</div>';
   // hotbar
   const w = p.equip.weapon, wd = p.weaponDef(); let ammo = ''; if (wd.gun) ammo = (w.jammed ? '<b class="bad">JAM</b> ' : '') + w.mag + '/' + wd.gun.mag + ' <span class="dim">(' + p.inv.count(wd.gun.ammo) + ')</span>';
   const th = g.throwSel(); const band = p.inv.count('bandage') + p.inv.count('cleanrag') + p.inv.count('rag');
-  $('#hotbar').innerHTML = '<div class="hb">' + (w ? ic(w.id) : icn('fist')) + '<div><b>' + esc(wd.name) + '</b><small>' + (ammo || 'LMB attack • [1] swap') + '</small></div></div>' +
-    '<div class="hb' + (p.light.on ? '' : ' off') + '">' + icn('flashlight') + '<div><b>[F] Light</b><small>' + Math.round(p.light.bat) + '%</small></div></div>' +
-    (g.state === 'run' ? '<div class="hb">' + (th ? ic(th) : icn('bottle')) + '<div><b>[G] Throw</b><small>' + (th ? esc(NE.ITEMS[th].name) + ' ×' + p.inv.count(th) : 'none • [Q] cycle') + '</small></div></div>' +
-    '<div class="hb">' + icn('bandage') + '<div><b>[B] Bandage</b><small>' + band + ' dressings</small></div></div>' : '') +
+  $('#hotbar').innerHTML = '<div class="hb">' + (w ? ic(w.id) : icn('fist')) + '<div><b>' + esc(wd.name) + '</b><small>' + (ammo || 'LMB attack • [' + NE.keyLabel('weapon') + '] swap') + '</small></div></div>' +
+    '<div class="hb' + (p.light.on ? '' : ' off') + '">' + icn('ui_town') + '<div><b>[' + NE.keyLabel('light') + '] Lantern</b><small>' + Math.round(p.light.bat) + '% oil</small></div></div>' +
+    (g.state === 'run' ? '<div class="hb">' + (th ? ic(th) : icn('bottle')) + '<div><b>[' + NE.keyLabel('throw') + '] Throw</b><small>' + (th ? esc(NE.ITEMS[th].name) + ' ×' + p.inv.count(th) : 'none • [' + NE.keyLabel('cycleThrow') + '] cycle') + '</small></div></div>' +
+    '<div class="hb">' + icn('bandage') + '<div><b>[' + NE.keyLabel('bandage') + '] Bandage</b><small>' + band + ' dressings</small></div></div>' : '') +
     (p.gear.face ? '<div class="hb">' + icn('respirator') + '<div><b>Filter</b><small>' + Math.round(p.filterT) + 's</small></div></div>' : '') +
-    '<div class="hb key" onclick="NE.UI.openHex()">' + icn('gear') + '<div><b>[M] Menu</b><small>Tab inv • H health</small></div></div>';
+    '<div class="hb key" onclick="NE.UI.openHex()">' + icn('gear') + '<div><b>[' + NE.keyLabel('menu') + '] Menu</b><small>' + NE.keyLabel('inventory') + ' inv • ' + NE.keyLabel('health') + ' health</small></div></div>';
 };
 
 // ---------------- hex menu ----------------
@@ -126,20 +126,18 @@ const HEX_ITEMS = [
   { id: 'skills', name: 'Skills', icon: 'star' }, { id: 'coop', name: 'Co-op', icon: 'ui_coop' }, { id: 'settings', name: 'Settings', icon: 'gear' }, { id: 'quit', name: 'Save & Quit', icon: 'door' },
 ];
 UI.buildHex = function () {
-  const h = $('#hex'); const w = 92, hh = 104; // pointy-top hex cell
-  const pos = [[0, -0.75], [0.5 * 1.0 + 0.5, -0.75 * 0], [0.5, 0.75], [-0.5, 0.75], [-1, 0], [-0.5, -0.75]];
-  const ring = [[0.5, -0.75], [1, 0], [0.5, 0.75], [-0.5, 0.75], [-1, 0], [-0.5, -0.75]];
+  const h = $('#hex'); const W = 112, H = 128, GAP = 1.1; // pointy-top hexes in a 4-3-4 honeycomb with gaps
+  const by = id => HEX_ITEMS.find(x => x.id === id);
+  const rows = [[by('status'), by('inventory'), by('health'), by('craft')], [by('map'), { id: 'close', name: 'Close', x: 1 }, by('journal')], [by('skills'), by('coop'), by('settings'), by('quit')]];
   let html = '<div class="hex-title">MENU</div><div class="hex-wrap">';
-  html += '<div class="hx center" data-id="close" style="left:0;top:0"><div class="hx-in">' + '<span class="x">✕</span></div></div>';
-  HEX_ITEMS.slice(0, 6).forEach((it, i) => { const p = ring[i]; html += '<div class="hx" data-id="' + it.id + '" style="left:' + p[0] * w + 'px;top:' + p[1] * hh + 'px"><div class="hx-in">' + icn(it.icon, null, 6) + '</div><div class="hx-lab">' + it.name + '</div></div>'; });
-  const out = [[-1.5, 1.5], [-0.5, 1.5], [0.5, 1.5], [1.5, 1.5]];
-  HEX_ITEMS.slice(6).forEach((it, i) => { const p = out[i]; html += '<div class="hx small" data-id="' + it.id + '" style="left:' + p[0] * w + 'px;top:' + p[1] * hh + 'px"><div class="hx-in">' + icn(it.icon, null, 5) + '</div><div class="hx-lab">' + it.name + '</div></div>'; });
-  html += '</div><div class="hex-tip">M / Esc to close • Tab Inventory • H Health • V Status • K Craft • N Map • J Journal</div>';
+  rows.forEach((row, r) => row.forEach((it, i) => { const x = (i - (row.length - 1) / 2) * W * GAP, y = (r - 1) * H * 0.75 * GAP;
+    html += '<div class="hx' + (it.x ? ' center' : '') + '" data-id="' + it.id + '" style="left:' + x + 'px;top:' + y + 'px"><div class="hx-in">' + (it.x ? '<span class="x">✕</span>' : icn(it.icon, null, 6)) + '<b class="hx-name">' + it.name + '</b></div></div>'; }));
+  html += '</div><div class="hex-tip"></div>';
   h.innerHTML = html;
   h.querySelectorAll('.hx').forEach(el => { el.onclick = () => { NE.Audio.play('ui'); const id = el.dataset.id; if (id === 'close') return UI.closeHex(); if (id === 'quit') return UI.quitPrompt(); UI.closeHex(); UI.open(id); }; el.onmouseenter = () => NE.Audio.play('click', 0.4); });
   h.onclick = e => { if (e.target === h) UI.closeHex(); };
 };
-UI.openHex = function () { if (UI.panel) UI.close(); UI.hexOpen = true; $('#hex').classList.remove('hide'); NE.Audio.play('ui'); };
+UI.openHex = function () { if (UI.panel) UI.close(); UI.hexOpen = true; const L = NE.keyLabel; $('.hex-tip').textContent = L('menu') + ' / Esc to close • ' + L('inventory') + ' Inventory • ' + L('health') + ' Health • ' + L('status') + ' Status • ' + L('craft') + ' Craft • ' + L('map') + ' Map • ' + L('journal') + ' Journal'; $('#hex').classList.remove('hide'); NE.Audio.play('ui'); };
 UI.closeHex = function () { UI.hexOpen = false; $('#hex').classList.add('hide'); };
 UI.quitPrompt = function () {
   const g = G(); UI.closeHex();
@@ -155,7 +153,7 @@ UI.open = function (name, arg) {
   $('.pn-title').textContent = TITLES[name] || name.toUpperCase(); UI.render[name](P.querySelector('.pn-body'), arg); NE.Audio.play('ui');
 };
 UI.toggle = function (name) { if (UI.panel === name) UI.close(); else UI.open(name); };
-UI.close = function () { if (!UI.panel) return; if (UI.tree) { UI.tree.destroy(); UI.tree = null; } UI.ecg = null; UI.panel = null; $('#panel').classList.add('hide'); NE.Audio.play('uiback'); if (G().state === 'lobby' || G().state === 'title') G().save(); };
+UI.close = function () { UI.rebinding = null; if (!UI.panel) return; if (UI.tree) { UI.tree.destroy(); UI.tree = null; } UI.ecg = null; UI.panel = null; $('#panel').classList.add('hide'); NE.Audio.play('uiback'); if (G().state === 'lobby' || G().state === 'title') G().save(); };
 UI.closeTop = function () { if (UI.modalOpen()) { if (UI._modalCancel) UI._modalCancel(); return true; } if (UI.panel) { UI.close(); return true; } if (UI.hexOpen) { UI.closeHex(); return true; } return false; };
 UI.closeAll = function () { UI.closeModal(); UI.close(); UI.closeHex(); };
 UI.refresh = function () { if (UI.panel && ['inventory', 'health', 'loot', 'craft', 'trade', 'wardrobe', 'shop', 'dossier'].includes(UI.panel)) UI.render[UI.panel]($('.pn-body'), UI.arg); };
@@ -193,7 +191,7 @@ UI.render.inventory = function (b) {
   const g = G(), p = g.player, inv = p.inv; const wt = inv.weight();
   const eqSlot = (lab, e, slot) => '<div class="eq" data-slot="' + slot + '">' + (e ? ic(e.id) : '<div class="eq-empty"></div>') + '<div><small>' + lab + '</small><b>' + (e ? esc(NE.ITEMS[e.id].name) : '—') + '</b>' + (e && e.dur != null ? '<i>' + Math.round(e.dur) + '% dur</i>' : '') + (e && e.mag != null ? '<i>' + e.mag + ' in mag</i>' : '') + '</div></div>';
   let h = '<div class="inv"><div class="inv-eq"><h4>EQUIPPED</h4>' + eqSlot('WEAPON', p.equip.weapon, 'weapon') + eqSlot('HEAD', p.gear.head, 'head') + eqSlot('BODY', p.gear.body, 'body') + eqSlot('FACE', p.gear.face, 'face') +
-    '<div class="eq">' + icn('flashlight') + '<div><small>FLASHLIGHT</small><b>' + Math.round(p.light.bat) + '% battery</b></div></div>' +
+    '<div class="eq">' + icn('ui_town') + '<div><small>WAIST LANTERN</small><b>' + Math.round(p.light.bat) + '% oil</b></div></div>' +
     '<h4>BACKPACK</h4><div class="dim">' + esc((NE.BACKPACKS.find(x => x.id === g.meta.equipped.backpack) || NE.BACKPACKS[0]).name) + '</div>' + bar(wt, inv.carry, wt > inv.carry ? '#e04040' : '#c0a040', wt.toFixed(1) + ' / ' + inv.carry.toFixed(1) + ' kg') + (wt > inv.carry ? '<div class="bad">Overencumbered — slow, no sprint.</div>' : '') + '</div>';
   h += '<div class="inv-grid">'; for (let i = 0; i < inv.slots; i++) { const e = inv.items[i]; h += '<div class="slot' + (e && UI.sel === e ? ' sel' : '') + (e && p.equip.weapon === e ? ' eqd' : '') + '" data-i="' + i + '">' + (e ? ic(e.id) + (e.n > 1 || NE.ITEMS[e.id].uses ? '<span class="cnt">' + (NE.ITEMS[e.id].uses ? e.n + 'u' : e.n) + '</span>' : '') : '') + '</div>'; } h += '</div>';
   h += '<div class="inv-det">' + UI.itemDetail(UI.sel) + '</div></div>';
@@ -213,7 +211,7 @@ UI.itemDetail = function (e) {
   if (it.med && it.med !== 'drug') h += btn('treat', 'Treat a body part...');
   if (it.med === 'drug') h += btn('use', 'Take');
   if (e.id === 'nectar') h += btn('use', 'Drink the nectar');
-  if (e.id === 'battery') h += btn('use', 'Recharge flashlight'); if (e.id === 'filter') h += btn('use', 'Load into respirator');
+  if (e.id === 'battery') h += btn('use', 'Refill lantern'); if (e.id === 'filter') h += btn('use', 'Load into respirator');
   if (it.cat === 'weapon') h += p.equip.weapon === e ? btn('unequip', 'Holster') : btn('equip', 'Hold');
   if (it.slot) h += btn('wear', 'Wear');
   if (it.throwable) h += btn('throwsel', 'Set as [G] throwable');
@@ -352,7 +350,11 @@ UI.render.settings = function (b) {
     '<label class="set"><span>Gore / trauma</span><select data-k="gore"><option value="0">Low</option><option value="1">Normal</option><option value="2">High</option></select></label>' +
     '<label class="set"><span>Tips</span><input type="checkbox" data-k="tips"' + (S.tips ? ' checked' : '') + '></label>' +
     '<h4>SAVE DATA</h4><div class="acts"><button class="btn" id="slotsb">Save slots</button><button class="btn" id="exp">Export save</button><button class="btn" id="imp">Import save</button><button class="btn danger" id="rst">Erase this slot</button></div><h4>UPDATES</h4><div class="acts"><button class="btn" id="clog">View update log</button><span class="dim">Running v' + esc((window.NE_VERSION_INFO && window.NE_VERSION_INFO.version) || '?') + '</span></div><input type="file" id="impf" accept=".json" class="hide"></div>' +
-    '<div><h4>KEYBINDS</h4><table class="keys">' + [['A / D', 'Move'], ['W / S', 'Climb ropes (W to grab mid-air)'], ['Space', 'Jump — also jumps off ropes'], ['Shift + S', 'Slide down a rope fast'], ['Shift', 'Sprint'], ['Ctrl / C', 'Crouch (walk into low gaps to crawl)'], ['LMB', 'Attack / shoot — or dig rock with a pickaxe'], ['RMB (hold)', 'Grab & drag physics objects'], ['E', 'Interact / search'], ['F', 'Flashlight'], ['R', 'Reload / clear jam'], ['G / Q', 'Throw / cycle throwable'], ['X', 'Hive Pulse (once awakened)'], ['B', 'Quick-bandage worst bleed'], ['1', 'Cycle weapon'], ['M / Esc', 'Hex menu'], ['Tab / I', 'Inventory'], ['H', 'Health & triage'], ['V', 'Status'], ['K', 'Crafting'], ['N', 'Map'], ['J', 'Journal']].map(r => '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>').join('') + '</table></div></div>';
+    '<div><h4>KEYBINDS <small class="dim">click a key, then press the new one • Esc cancels • Del clears</small></h4><div class="kb">' + NE.BIND_DEFS.map(d => { const bb = NE.bindOf(d[0]); return '<div class="kb-r"><span>' + d[1] + '</span><button class="kb-k" data-bind="' + d[0] + '|0">' + NE.keyName(bb[0]) + '</button><button class="kb-k alt" data-bind="' + d[0] + '|1">' + NE.keyName(bb[1]) + '</button></div>'; }).join('') +
+    '<div class="kb-r fixed"><span>Attack / shoot / dig</span><button class="kb-k" disabled>LMB</button><button class="kb-k alt" disabled>—</button></div><div class="kb-r fixed"><span>Grab & drag objects</span><button class="kb-k" disabled>RMB</button><button class="kb-k alt" disabled>—</button></div><div class="kb-r fixed"><span>Close / menu</span><button class="kb-k" disabled>Esc</button><button class="kb-k alt" disabled>—</button></div>' +
+    '</div><div class="acts" style="margin-top:.4em"><button class="btn sm" id="kbreset">Reset keybinds to default</button></div></div></div>';
+  b.querySelectorAll('[data-bind]').forEach(el => el.onclick = () => { b.querySelectorAll('.kb-k.wait').forEach(x => x.classList.remove('wait')); el.classList.add('wait'); el.textContent = 'press a key…'; UI.rebinding = { a: el.dataset.bind.split('|')[0], i: +el.dataset.bind.split('|')[1] }; NE.Audio.play('ui'); });
+  $('#kbreset').onclick = () => { g.store.settings.binds = {}; NE.Save.write(g); UI.render.settings(b); UI.toast('Keybinds reset.'); };
   b.querySelector('[data-k=gore]').value = S.gore; b.querySelector('[data-k=theme]').value = S.theme || 'honey';
   b.querySelectorAll('[data-k]').forEach(el => el.oninput = el.onchange = () => { const k = el.dataset.k; S[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' && k === 'theme' ? el.value : +el.value;
     if (el.type === 'range') { el.style.setProperty('--pct', pct(+el.value, +el.min, +el.max)); el.parentNode.querySelector('b').textContent = P(S[k]); }
@@ -361,6 +363,16 @@ UI.render.settings = function (b) {
   $('#exp').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([localStorage.getItem(NE.Save.KEY) || '{}'], { type: 'application/json' })); a.download = 'nectars-end-save.json'; a.click(); };
   $('#imp').onclick = () => $('#impf').click(); $('#impf').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const d = JSON.parse(t); if (d.slots) localStorage.setItem(NE.Save.KEY, JSON.stringify(d)); else { localStorage.removeItem(NE.Save.KEY); localStorage.setItem(NE.Save.OLD, JSON.stringify(d)); } location.reload(); } catch (er) { UI.toast('Bad save file.'); } }); };
   $('#rst').onclick = () => UI.dialog('Erase slot ' + (g.store.slot + 1) + '?', 'Skills, unlocks, scrap, the cemetery and any run in progress in this slot will be erased.', [{ label: 'Erase it', fn: () => { NE.Save.remove(g, g.store.slot); location.reload(); } }, { label: 'Cancel' }]);
+};
+
+UI.finishRebind = function (code) {
+  const r = UI.rebinding; UI.rebinding = null; const g = G(); const B = NE.binds();
+  if (code !== 'Escape') {
+    const cur = NE.bindOf(r.a).slice(); const nv = code === 'Delete' || code === 'Backspace' ? null : code;
+    if (nv) for (const d of NE.BIND_DEFS) { if (d[0] === r.a) continue; const o = NE.bindOf(d[0]).slice(); let ch = false; for (let i = 0; i < 2; i++) if (o[i] === nv) { o[i] = null; ch = true; } if (ch) { B[d[0]] = o; UI.toast(NE.keyName(nv) + ' removed from "' + d[1] + '".'); } }
+    cur[r.i] = nv; B[r.a] = cur; NE.Save.write(g); NE.Audio.play('buy');
+  }
+  if (UI.panel === 'settings') UI.render.settings($('.pn-body'));
 };
 
 // ----- SAVE SLOTS -----

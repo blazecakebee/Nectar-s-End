@@ -41,7 +41,8 @@ G.bindInput = function () {
   const K = G.keys;
   window.addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT')) return;
-    if (['Tab', 'Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
+    if (NE.UI.rebinding) { e.preventDefault(); NE.UI.finishRebind(e.code); return; }
+    if (['Tab', 'Space', 'ArrowUp', 'ArrowDown'].includes(e.code) || G.actionOf(e.code)) e.preventDefault();
     if (!K[e.code]) G.onKey(e.code); K[e.code] = true;
   });
   window.addEventListener('keyup', e => { K[e.code] = false; });
@@ -54,6 +55,20 @@ G.bindInput = function () {
   cv.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('contextmenu', e => { if (G.state === 'run' || G.state === 'lobby' || G.state === 'burst') e.preventDefault(); });
 };
+// ---------------- rebindable keys ----------------
+NE.BIND_DEFS = [
+  ['left', 'Move left', ['KeyA', 'ArrowLeft']], ['right', 'Move right', ['KeyD', 'ArrowRight']], ['up', 'Climb up / grab rope', ['KeyW', 'ArrowUp']], ['down', 'Climb down / crouch', ['KeyS', 'ArrowDown']],
+  ['jump', 'Jump (also off ropes & walls)', ['Space', null]], ['sprint', 'Sprint (+ down: slide a rope)', ['ShiftLeft', 'ShiftRight']], ['crouch', 'Crouch / crawl', ['ControlLeft', 'KeyC']],
+  ['interact', 'Interact / search', ['KeyE', null]], ['light', 'Lantern on / off', ['KeyF', null]], ['reload', 'Reload / clear jam', ['KeyR', null]], ['throw', 'Throw', ['KeyG', null]], ['cycleThrow', 'Cycle throwable', ['KeyQ', null]],
+  ['weapon', 'Cycle weapon', ['Digit1', null]], ['bandage', 'Quick-bandage worst bleed', ['KeyB', null]], ['pulse', 'Hive Pulse (once awakened)', ['KeyX', null]],
+  ['menu', 'Hex menu', ['KeyM', null]], ['inventory', 'Inventory', ['Tab', 'KeyI']], ['health', 'Health & triage', ['KeyH', null]], ['status', 'Status', ['KeyV', null]], ['craft', 'Crafting', ['KeyK', null]], ['map', 'Map', ['KeyN', null]], ['journal', 'Journal', ['KeyJ', null]],
+];
+NE.binds = () => { const S = G.store.settings; S.binds = S.binds || {}; return S.binds; };
+NE.bindOf = a => { const b = NE.binds()[a]; if (b) return b; const d = NE.BIND_DEFS.find(x => x[0] === a); return d ? d[2] : [null, null]; };
+NE.keyName = function (code) { if (!code) return '—'; const m = { Space: 'Space', ShiftLeft: 'L-Shift', ShiftRight: 'R-Shift', ControlLeft: 'L-Ctrl', ControlRight: 'R-Ctrl', AltLeft: 'L-Alt', AltRight: 'R-Alt', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Tab: 'Tab', Enter: 'Enter', Backspace: 'Bksp', CapsLock: 'Caps', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\' }; if (m[code]) return m[code]; if (code.startsWith('Key')) return code.slice(3); if (code.startsWith('Digit')) return code.slice(5); if (code.startsWith('Numpad')) return 'Num' + code.slice(6); return code; };
+NE.keyLabel = a => NE.keyName(NE.bindOf(a)[0] || NE.bindOf(a)[1]);
+G.kd = a => { const b = NE.bindOf(a); return !!((b[0] && G.keys[b[0]]) || (b[1] && G.keys[b[1]])); };
+G.actionOf = code => { for (const d of NE.BIND_DEFS) { const b = NE.bindOf(d[0]); if (b[0] === code || b[1] === code) return d[0]; } return null; };
 G.playing = () => (G.state === 'run' || G.state === 'lobby' || G.state === 'burst') && G.player;
 G.onKey = function (code) {
   NE.Audio.init();
@@ -62,27 +77,23 @@ G.onKey = function (code) {
   if (code === 'Escape') { if (UI.closeTop()) return; if (G.playing()) UI.openHex(); return; }
   if (!G.playing()) return;
   if (UI.modalOpen()) return;
-  if (code === 'KeyM') { if (UI.hexOpen) UI.closeHex(); else UI.openHex(); return; }
-  if (code === 'Tab' || code === 'KeyI') return UI.toggle('inventory');
-  if (code === 'KeyH') return UI.toggle('health');
-  if (code === 'KeyJ') return UI.toggle('journal');
-  if (code === 'KeyK') return UI.toggle('craft');
-  if (code === 'KeyN') return UI.toggle('map');
-  if (code === 'KeyV') return UI.toggle('status');
+  const act = G.actionOf(code); if (!act) return;
+  if (act === 'menu') { if (UI.hexOpen) UI.closeHex(); else UI.openHex(); return; }
+  const panels = { inventory: 'inventory', health: 'health', journal: 'journal', craft: 'craft', map: 'map', status: 'status' }; if (panels[act]) return UI.toggle(panels[act]);
   if (UI.panel) return;
   if (G.goop) return;
   if (p.anat.uncon || !p.alive) return;
-  if (code === 'KeyE') G.interact();
-  if (code === 'KeyF') { if (p.light.bat > 0) { p.light.on = !p.light.on; NE.Audio.play('click'); } else G.toast('Battery dead. Use a battery.'); }
-  if (code === 'KeyR') p.reload();
-  if (code === 'KeyB' && run) NE.quickBandage(p);
-  if (code === 'KeyG' && run) { const id = G.throwSel(); if (id) NE.throwItem(G, p, id); else G.toast('Nothing to throw.'); }
-  if (code === 'KeyQ') G.cycleThrow();
-  if (code === 'Digit1') G.cycleWeapon();
-  if (code === 'KeyX' && run) G.hivePulse(p);
+  if (act === 'interact') G.interact();
+  if (act === 'light') { if (p.light.bat > 0) { p.light.on = !p.light.on; NE.Audio.play('click'); } else G.toast('Lantern is out of oil. Use Lantern Oil.'); }
+  if (act === 'reload') p.reload();
+  if (act === 'bandage' && run) NE.quickBandage(p);
+  if (act === 'throw' && run) { const id = G.throwSel(); if (id) NE.throwItem(G, p, id); else G.toast('Nothing to throw.'); }
+  if (act === 'cycleThrow') G.cycleThrow();
+  if (act === 'weapon') G.cycleWeapon();
+  if (act === 'pulse' && run) G.hivePulse(p);
 };
 G.throwSel = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick']; if (G.throwPref && p.inv.has(G.throwPref)) return G.throwPref; return ids.find(i => p.inv.has(i)); };
-G.cycleThrow = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick'].filter(i => p.inv.has(i)); if (!ids.length) return G.toast('No throwables.'); const i = (ids.indexOf(G.throwSel()) + 1) % ids.length; G.throwPref = ids[i]; G.toast('Throw: ' + NE.ITEMS[ids[i]].name + ' [G]'); };
+G.cycleThrow = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick'].filter(i => p.inv.has(i)); if (!ids.length) return G.toast('No throwables.'); const i = (ids.indexOf(G.throwSel()) + 1) % ids.length; G.throwPref = ids[i]; G.toast('Throw: ' + NE.ITEMS[ids[i]].name + ' [' + NE.keyLabel('throw') + ']'); };
 G.cycleWeapon = function () { const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const cur = p.equip.weapon; const all = [null, ...ws]; const i = (all.indexOf(cur) + 1) % all.length; p.equip.weapon = all[i]; G.toast('Holding: ' + (all[i] ? NE.ITEMS[all[i].id].name : 'fists')); NE.Audio.play('ui'); };
 G.onClick = function () { if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
 G.startGrab = function () {
@@ -94,8 +105,8 @@ G.releaseGrab = function () { const gp = G.grab; if (!gp) return; const b = gp.b
 G.ctl = function () {
   const K = G.keys; const p = G.player; const block = NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen();
   if (block) return { mx: 0 };
-  const L = K.KeyA || K.ArrowLeft, R = K.KeyD || K.ArrowRight, U = K.KeyW || K.ArrowUp, D = K.KeyS || K.ArrowDown;
-  return { mx: (R ? 1 : 0) - (L ? 1 : 0), up: U, down: D, jump: K.Space, sprint: K.ShiftLeft || K.ShiftRight, crouch: K.ControlLeft || K.KeyC || (D && !p.climbing && !p.ladderAt()), drop: D && K.Space };
+  const L = G.kd('left'), R = G.kd('right'), U = G.kd('up'), D = G.kd('down'), J = G.kd('jump');
+  return { mx: (R ? 1 : 0) - (L ? 1 : 0), up: U, down: D, jump: J, sprint: G.kd('sprint'), crouch: G.kd('crouch') || (D && !p.climbing && !p.ladderAt()), drop: D && J };
 };
 
 // ---------------- helpers ----------------
@@ -651,10 +662,11 @@ G.drawLighting = function (cx, cy, fl) {
   let dark = fl.biome.dark + Math.min(0.04, fl.depth / 25000); if (fl.town) dark = 0.5; if (G.blackout > 0) dark = 0.985; if (W.lobby) dark = 0.45;
   if (G.goop) lights.push({ x: G.goop.x, y: G.goop.y - 4, r: 70, i: 0.85, col: '#ffc020', player: true });
   if (G.wisp) lights.push({ x: G.wisp.x, y: G.wisp.y, r: 40, i: 0.7, col: '#ffd040', player: true });
-  if (G.net && G.net.peer && G.net.peer.alive && !G.net.peer.hidden) { const q = G.net.peer; lights.push({ x: q.x, y: q.cy, r: 28, i: 0.55, player: true }); if (q.lightOn && q.aimDir) { const a = Math.atan2(q.aimDir.y, q.aimDir.x); lights.push({ x: q.x, y: q.y - q.h + 4, r: 100, i: 0.85, cone: [a - 0.42, a + 0.42], player: true }); } }
+  if (G.net && G.net.peer && G.net.peer.alive && !G.net.peer.hidden) { const q = G.net.peer; lights.push({ x: q.x, y: q.cy, r: 28, i: 0.55, player: true }); if (q.lightOn) { const L = NE.lanternPos(q); lights.push({ x: L.x, y: L.y, r: 88, i: 0.85, col: '#ffb860', player: true }); } }
   if (p.alive) {
     lights.push({ x: p.x, y: p.cy, r: (p.abil && p.abil.includes('eyes') ? 62 : 24) * sight, i: 0.6, player: true });
-    if (p.light.on) { const fk = p.light.bat < 15 ? (Math.random() < 0.15 ? 0.2 : 1) : 1; const a = Math.atan2(p.aimDir.y, p.aimDir.x); lights.push({ x: p.x + p.facing, y: p.y - p.h + 4, r: 115 * sight * fk * (0.6 + 0.4 * Math.min(1, p.light.bat / 40)), i: 0.95, cone: [a - 0.42, a + 0.42], player: true }); }
+    if (p.light.on) { const fk = p.light.bat < 15 ? (Math.random() < 0.15 ? 0.45 : 1) : 0.94 + Math.sin(G.t * 9) * 0.03 + Math.sin(G.t * 23) * 0.03; const L = NE.lanternPos(p); lights.push({ x: L.x, y: L.y, r: 92 * sight * fk * (0.6 + 0.4 * Math.min(1, p.light.bat / 40)), i: 0.95, col: '#ffb860', player: true }); }
+  for (const a of G.actors) { if (!a.alive || a === p || a.isRemote || !NE.hasLantern(a) || Math.abs(a.y - p.y) > 200) continue; const L = NE.lanternPos(a); lights.push({ x: L.x, y: L.y, r: 50, i: 0.62 + Math.sin(G.t * 11 + a.x) * 0.04, col: a.town ? '#ffd090' : '#ffa850' }); }
   } else if (!G.goop && !G.wisp) lights.push({ x: p.x, y: p.cy, r: 30, i: 0.4, player: true });
   for (const o of G.nearObjs()) {
     if (o.type === 'lamp' && o.on && G.blackout <= 0) lights.push({ x: o.x, y: o.y + 6, r: 58, i: 0.75 * (o.flk == null ? 1 : o.flk), col: o.col });

@@ -1,6 +1,27 @@
 {
  "log": [
-  {"version": "0.3.1", "date": "2026-11-18", "title": "Centered title screen", "changes": ["The logo and main menu are now centered on every screen width, including ultrawide."]},
+  {
+   "version": "0.3.2",
+   "date": "2026-11-18",
+   "title": "Wall parkour, lanterns & rebindable keys",
+   "changes": [
+    "Every keybind can be changed in Settings: click a key, press the new one (Del clears, Esc cancels). Each action has two slots and a reset button. On-screen hints update to match.",
+    "Volume sliders now use the game's honey colors and follow the selected UI theme.",
+    "Hex menu rebuilt: the hexes no longer overlap and every button's name is printed inside it.",
+    "Wall parkour: hold toward a wall in mid-air to slide down it, press Jump to kick off the other way, and Sprint+Jump into a wall to boost up it (twice per jump). You can chain wall jumps up shafts.",
+    "The flashlight is now a small oil lantern hanging at your waist. It sways as you move and lights all around you instead of a cone. Batteries are now Lantern Oil.",
+    "Every human now carries a waist lantern: raiders, soldiers, traders and townsfolk (the cave-mad wretches don't). You can see them coming, and they light you up too.",
+    "Fall damage reduced by 30%."
+   ]
+  },
+  {
+   "version": "0.3.1",
+   "date": "2026-11-18",
+   "title": "Centered title screen",
+   "changes": [
+    "The logo and main menu are now centered on every screen width, including ultrawide."
+   ]
+  },
   {
    "version": "0.3.0",
    "date": "2026-11-18",

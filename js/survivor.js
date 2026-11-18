@@ -289,6 +289,8 @@ NE.ragPose = function (a) {
     P[0] = [1.2, -10]; P[1] = [0.6, -7.5]; P[2] = [-0.5, -4]; P[7] = [1.5, -3]; P[8] = [-1, 0]; P[9] = [2.5, -2.6]; P[10] = [1.5, 0];
     P[3] = [0, -5]; P[4] = [1, -3]; P[5] = [1.5, -5]; P[6] = [2.5, -3];
     if (mv > 0.1) { P[8][0] += s * 1.5; P[10][0] -= s * 1.5; }
+  } else if (a.wallSliding) {
+    P[3] = [1.5, -12]; P[4] = [2.5, -14]; P[5] = [2, -11]; P[6] = [3, -13.5]; P[7] = [1.5, -4.5]; P[8] = [2.5, -2]; P[9] = [0.5, -4]; P[10] = [0, -1]; P[0] = [-0.5, -14];
   } else if (!a.onGround) {
     P[7] = [0.5, -4.5]; P[8] = [-0.5, -1.5]; P[9] = [1.5, -4]; P[10] = [1, -1]; P[3] = [-2, -10]; P[4] = [-3, -11.5]; P[5] = [2, -10]; P[6] = [3, -11.5];
   } else if (mv > 0.05) {
@@ -319,6 +321,9 @@ NE.driveRag = function (rag, a, dt) {
 };
 NE.ragLimp = function (rag) { rag.tiles = true; rag.collide = true; rag.noActor = false; rag.damp = 0.985; for (const c of rag.cons) if (c.s < 1) c.s = 0.02; };
 
+// waist lantern: hangs from the front hip, sways with movement
+NE.hasLantern = a => !!a && (a.isPlayer || a.isRemote || a.town || (a.D && a.type !== 'feral') || a.kind === 'trader' || a.kind === 'survivor');
+NE.lanternPos = function (a) { const p = a.rag.pts; const f = a.facing || 1; const sw = Math.sin((a.walkPh || 0) * 1.0) * (Math.abs(a.vx) > 5 ? 1.2 : 0.3) - (a.vx || 0) * 0.012; return { x: p[2].x + f * 2 + sw, y: p[2].y + 3.5 }; };
 // draw a humanoid from ragdoll points
 NE.drawHuman = function (ctx, rag, look, o) {
   o = o || {}; const p = rag.pts; const f = o.facing || 1;
@@ -360,6 +365,10 @@ NE.drawHuman = function (ctx, rag, look, o) {
   if (o.mask) { ctx.fillStyle = '#2a2e30'; ctx.fillRect(hx + (f > 0 ? 0 : -2), hy + 1, 3, 2); }
   partMark('head', p[0].x, p[0].y - 1, p[0].x, p[0].y + 1);
   if (anat && anat.parts.head.bandage) { ctx.fillStyle = '#e8e2d0'; ctx.fillRect(hx - 2, hy - 2, 5, 1); }
+  // waist lantern
+  if (o.lantern) { const f2 = f; const sw = Math.sin((o.walkPh || 0)) * 0.6; const lx = Math.round(p[2].x + f2 * 2 + sw), ly = Math.round(p[2].y + 1); const lit = o.lantern > 0.5 && !o.dead;
+    ctx.fillStyle = '#3a2a1a'; ctx.fillRect(lx, ly, 1, 1); ctx.fillStyle = '#2a1e14'; ctx.fillRect(lx - 1, ly + 1, 3, 1); ctx.fillRect(lx - 1, ly + 4, 3, 1);
+    ctx.fillStyle = lit ? (Math.random() < 0.08 ? '#ffd890' : '#ffb84a') : '#4a3e30'; ctx.fillRect(lx - 1, ly + 2, 3, 2); if (lit) { ctx.fillStyle = '#fff4c8'; ctx.fillRect(lx, ly + 2, 1, 1); } }
   // front arm
   limbDraw(1, 5, 6, shirt, skin, fr + 'arm', false);
   // weapon
