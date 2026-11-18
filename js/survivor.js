@@ -27,7 +27,7 @@ NE.makeSurvivor = function () {
 const ADD = new Set(['stamina', 'carry', 'painTol', 'slots', 'craft']);
 function applyMods(s, m) { if (!m) return; for (const k in m) { if (k === 'lungs') s.lungs = m[k]; else if (ADD.has(k)) s[k] += m[k]; else s[k] = (s[k] == null ? 1 : s[k]) * m[k]; } }
 NE.computeStats = function (meta, surv) {
-  const s = { speed: 1, stamina: 0, staminaCost: 1, fall: 1, noise: 1, climb: 1, gas: 1, sight: 1, aim: 1, tox: 1, rad: 1, infect: 1, bleed: 1, painTol: 0, fracture: 1, hunger: 1, thirst: 1, cold: 1, melee: 1, carry: 0, slots: 0, stress: 1, barter: 1, treat: 1, search: 1, loot: 1, coldblood: false, medEff: 1, battery: 1, craft: 0, lungs: 100 };
+  const s = { speed: 1, stamina: 0, staminaCost: 1, fall: 1, noise: 1, climb: 1, gas: 1, sight: 1, aim: 1, tox: 1, rad: 1, infect: 1, bleed: 1, painTol: 0, fracture: 1, hunger: 1, thirst: 1, cold: 1, melee: 1, carry: 0, slots: 0, stress: 1, barter: 1, treat: 1, search: 1, loot: 1, coldblood: false, medEff: 1, battery: 1, craft: 0, lungs: 100, heat: 1 };
   const P = (meta && meta.perks) || {}; const r = id => P[id] || 0;
   s.speed += r('movement') * 0.04; s.staminaCost -= r('movement') * 0.05;
   s.fall -= r('agility') * 0.1; s.noise -= r('agility') * 0.08; s.climb += r('agility') * 0.1;
@@ -102,7 +102,7 @@ class Anatomy {
     this.org = { brain: 100, eyes: 100, lungs: this.s.lungs || 100, heart: 100, stomach: 100, liver: 100 };
     this.blood = 5000; this.pain = 0; this.painSpike = 0; this.cons = 100; this.stam = 100; this.hunger = 100; this.thirst = 100; this.temp = 37;
     this.infection = 0; this.rad = 0; this.tox = 0; this.wet = 0; this.stress = 0; this.bpm = 72; this.gas = 0;
-    this.drugs = { painkiller: 0, morphine: 0, antibiotic: 0, antirad: 0, adrenaline: 0, blood: 0 };
+    this.drugs = { painkiller: 0, morphine: 0, antibiotic: 0, antirad: 0, adrenaline: 0, blood: 0, herb: 0 };
     this.uncon = false; this.dead = false; this.cause = ''; this.lastHit = ''; this.flags = {}; this.ev = [];
   }
   get stamMax() { return Math.max(30, (100 + this.s.stamina) * (0.4 + 0.6 * this.org.lungs / 100) * (this.blood > 3800 ? 1 : 0.7)); }
@@ -164,7 +164,8 @@ class Anatomy {
         } else { w.age += dt; if (w.age > (w.t === 'bruise' ? 50 : w.t === 'burn' ? 160 : w.sutured ? 90 : 140) && w.inf < 20) { P.wounds.splice(i, 1); continue; } }
         if (env.dirtyWater && !P.bandage) w.dirty = Math.min(1, w.dirty + dt * 0.02);
         const bandClean = P.bandage && !P.bandage.dirty ? 0.4 : 1;
-        if (w.dirty > 0) w.inf += dt * 0.03 * w.dirty * s.infect * bandClean;
+        if (w.dirty > 0) w.inf += dt * 0.03 * w.dirty * s.infect * bandClean * (env.infectMul || 1);
+        if (this.drugs.herb > 0) w.inf = Math.max(0, w.inf - dt * 0.15);
         if (this.drugs.antibiotic > 0) { w.inf = Math.max(0, w.inf - dt * 0.6); w.dirty = Math.max(0, w.dirty - dt * 0.01); }
         maxInf = Math.max(maxInf, w.inf);
         painW += W.pain * 0.7 * (w.closed ? 0.3 : 1) * (w.bullet ? 1.4 : 1);
@@ -175,27 +176,27 @@ class Anatomy {
       if (P.bandage && P.wounds.length === 0) P.bandage = null;
       if (P.wounds.every(w => w.closed) && !this.npc && this.hunger > 20 && this.thirst > 20) P.hp = Math.min(P.max, P.hp + dt * 0.12);
     }
-    bleed *= s.bleed; if (s.coldblood && this.stress > 40) bleed *= 0.8;
+    bleed *= s.bleed * (env.bleedMul || 1); if (s.coldblood && this.stress > 40) bleed *= 0.8;
     this.bleeding = bleed; this.blood -= bleed * dt;
     if (bleed < 0.05 && this.thirst > 15) this.blood = Math.min(5000, this.blood + dt * 0.6);
     if (this.drugs.blood > 0) this.blood = Math.min(5000, this.blood + dt * 8.5);
     this.infection = lerp(this.infection, maxInf, Math.min(1, dt)) ;
     // ----- drugs decay
-    const dur = { painkiller: 120, morphine: 150, antibiotic: 200, antirad: 60, adrenaline: 40, blood: 118 };
+    const dur = { painkiller: 120, morphine: 150, antibiotic: 200, antirad: 60, adrenaline: 40, blood: 118, herb: 90 };
     for (const k in this.drugs) if (this.drugs[k] > 0) this.drugs[k] = Math.max(0, this.drugs[k] - dt / dur[k]);
     // ----- pain
     this.painSpike *= Math.exp(-dt / 3);
-    const relief = this.drugs.painkiller * 30 + this.drugs.morphine * 70 + this.drugs.adrenaline * 25;
+    const relief = this.drugs.herb * 14 + this.drugs.painkiller * 30 + this.drugs.morphine * 70 + this.drugs.adrenaline * 25;
     let tp = painW + this.painSpike + (this.infection > 50 ? 10 : 0) + (100 - this.org.stomach) * 0.08 - relief;
     this.pain = lerp(this.pain, Math.max(0, tp), Math.min(1, dt * 2.5));
     // ----- survival needs (player only)
     if (!this.npc) {
       const mv = env.sprint ? 1.6 : 1;
       this.hunger = Math.max(0, this.hunger - dt * 100 / 1300 * s.hunger * mv);
-      this.thirst = Math.max(0, this.thirst - dt * 100 / 900 * s.thirst * mv * (this.temp > 38 ? 1.4 : 1));
+      this.thirst = Math.max(0, this.thirst - dt * 100 / 900 * s.thirst * mv * (this.temp > 38 ? 1.4 : 1) * (1 + (env.thirstMul ? env.thirstMul - 1 : 0) * s.heat));
       if (env.water) this.wet = 1; else this.wet = Math.max(0, this.wet - dt * (env.fire ? 0.08 : 0.008));
       let tt = 37 - (env.cold || 0) * 2.2 * s.cold - this.wet * 2.2 * s.cold * (env.cold ? 1 : 0.4);
-      if (env.fire) tt = 37.4;
+      tt += (env.heat || 0) * 1.3 * s.heat; if (env.fire) tt = Math.max(tt, 37.4);
       if (this.infection > 35) tt += (this.infection - 35) / 18;
       if (this.blood < 3500) tt -= 1;
       this.temp = lerp(this.temp, tt, Math.min(1, dt * 0.012));
@@ -247,7 +248,7 @@ class Anatomy {
     for (const p of PARTS) { const P = this.parts[p]; if (P.frac) c.push([(P.splint ? 'Splinted ' : 'Broken ') + NE.PART_NAMES[p].toLowerCase(), P.splint ? 'warn' : 'bad']); if (P.tq) c.push(['Tourniquet: ' + NE.PART_NAMES[p] + ' (' + Math.floor(P.tqT) + 's)', P.tqT > 150 ? 'bad' : 'warn']); if (P.wounds.some(w => w.bullet)) c.push(['Lodged fragment: ' + NE.PART_NAMES[p], 'warn']); }
     const bp = this.blood / 5000; if (bp < 0.6) c.push(['Hypovolemic shock', 'bad']); else if (bp < 0.8) c.push(['Blood loss', 'warn']);
     if (this.pain > this.threshold) c.push(['Agonizing pain', 'bad']); else if (this.pain > this.threshold * 0.6) c.push(['In pain', 'warn']);
-    if (this.temp < 35) c.push(['Hypothermia', 'bad']); else if (this.temp < 36) c.push(['Cold', 'warn']); if (this.temp > 38.3) c.push(['Fever', 'warn']);
+    if (this.temp < 35) c.push(['Hypothermia', 'bad']); else if (this.temp < 36) c.push(['Cold', 'warn']); if (this.temp > 38.3) c.push([this.infection > 35 ? 'Fever' : 'Overheating', 'warn']);
     if (this.infection > 70) c.push(['Sepsis', 'bad']); else if (this.infection > 30) c.push(['Infection', 'warn']);
     if (this.rad > 60) c.push(['Radiation sickness', 'bad']); else if (this.rad > 25) c.push(['Irradiated', 'warn']);
     if (this.tox > 30) c.push(['Nauseous', 'warn']); if (this.gas > 0) c.push(['Choking', 'bad']);
@@ -255,7 +256,7 @@ class Anatomy {
     if (this.thirst < 15) c.push(['Dehydrated', 'bad']); else if (this.thirst < 35) c.push(['Thirsty', 'warn']);
     if (this.org.brain < 70) c.push(['Concussed', 'warn']); if (this.org.eyes < 60) c.push(['Blurred vision', 'warn']); if (this.org.lungs < 60) c.push(['Damaged lungs', 'warn']);
     if (this.stress > 70) c.push(['Panicking', 'bad']); else if (this.stress > 45) c.push(['Stressed', 'warn']);
-    for (const k in this.drugs) if (this.drugs[k] > 0) c.push([{ painkiller: 'Painkillers', morphine: 'Morphine', antibiotic: 'Antibiotics', antirad: 'Anti-Rad', adrenaline: 'Adrenaline', blood: 'Transfusion' }[k] + ' active', 'good']);
+    for (const k in this.drugs) if (this.drugs[k] > 0) c.push([{ painkiller: 'Painkillers', morphine: 'Morphine', antibiotic: 'Antibiotics', antirad: 'Anti-Rad', adrenaline: 'Adrenaline', blood: 'Transfusion', herb: 'Herb' }[k] + ' active', 'good']);
     if (!c.length) c.push(['Stable', 'good']);
     return c;
   }

@@ -128,7 +128,7 @@ G.toLobby = function () {
   for (let i = 0; i < 3; i++) G.phys.box('crate', (24 + i * 1.2) * T, fl.feetY - 6 - i * 9, 7, 7, 2, '#6a5034');
   const b = G.phys.stick('bottle', 33 * T, fl.feetY - 4, 4, 0, 1.2, 0.6);
   G.cam.x = 0; G.cam.y = fl.feetY - VH * 0.6; NE.UI.showLobby(); NE.Audio.setDrone(52, 380);
-  if (G.meta.settings.tips && G.meta.runs === 0) setTimeout(() => G.toast('Walk to the stations and press [E]. The elevator on the right takes you down.'), 800);
+  if (G.meta.settings.tips && G.meta.runs === 0) setTimeout(() => G.toast('Walk to the stations and press [E]. The winch lift on the right lowers you into the caves.'), 800);
 };
 G.descend = function () {
   NE.UI.closeAll(); G.state = 'descent'; G.descT = 0; NE.Audio.play('elevator'); NE.UI.hideHUD();
@@ -150,7 +150,7 @@ G.startRun = function () {
   G.cam.x = p.x - VW / 2; G.cam.y = p.y - VH * 0.55; G.save();
   NE.UI.showRun(); NE.Audio.setDrone(48, 300); NE.Audio.play('ding');
   setTimeout(() => G.say(pick(NE.MONO.start)), 600);
-  G.log('Arrived at 0m — ' + f0.biome.name + '.', 'sys');
+  G.log('Arrived at 0m — ' + f0.biome.name + '.', 'sys'); G.log('Perk: ' + f0.biome.perk, 'good'); G.log('Danger: ' + f0.biome.challenge, 'bad');
 };
 G.spawnFloor = function (fl) {
   for (const s of fl.spawns) {
@@ -191,7 +191,7 @@ G.update = function (dt, rdt) {
   }
   // others (only near)
   const fy = p.y;
-  for (const a of G.actors) { if (a === p || !a.alive) continue; if (Math.abs(a.y - fy) > 260) continue; a.update(dt); if (a.burnAcc != null) G.burnTick(a, dt); }
+  for (const a of G.actors) { if (!a.alive || Math.abs(a.y - fy) > 260) continue; if (W.isLava && W.isLava(a.x, a.y - 2)) { a.inFire = 0.3; a.vy = Math.min(a.vy, -40); } if (a === p) continue; a.update(dt); if (a.burnAcc != null) G.burnTick(a, dt); }
   G.actors = G.actors.filter(a => !a.gone || (a.rag.remove = true, false));
   // physics
   G.physAcc = (G.physAcc || 0) + dt; let n = 0;
@@ -237,8 +237,8 @@ G.propHit = function (a, h) {
 };
 G.computeEnv = function (p) {
   const W = G.world; const env = {}; if (G.state === 'lobby') return env;
-  const b = W.biomeAtY(p.y - 4); env.cold = b.cold || 0; env.water = W.isWater(p.x, p.y - 3) || W.isWater(p.x, p.y - 8);
-  env.dirtyWater = env.water;
+  const b = W.biomeAtY(p.y - 4); env.cold = b.cold || 0; env.heat = b.heat || 0; env.bleedMul = b.bleed || 1; env.infectMul = b.infect || 1; env.thirstMul = b.thirst || 1; env.water = (W.isWater(p.x, p.y - 3) || W.isWater(p.x, p.y - 8)) && !W.isLava(p.x, p.y - 3);
+  env.dirtyWater = env.water && b.id !== 'ice';
   let gas = 0; for (const c of G.gas) { const d = NE.dist(c.x, c.y, p.x, p.cy); if (d < c.r) gas += c.d * (1 - d / c.r) * 1.4; }
   if (p.gear.face && p.filterT > 0) gas *= 0.04; env.gas = Math.min(1, gas);
   let rad = 0; let fire = false; let table = false;
@@ -265,7 +265,7 @@ G.handleAnatEvents = function (p) {
   A.ev.length = 0;
   const per = (k, cond, lines, every) => { G.monoT[k] = (G.monoT[k] || 0) - 1 / 60; if (cond && G.monoT[k] <= 0) { G.monoT[k] = every; G.say(pick(lines), 0.7); } };
   per('lb', A.blood < 3600, NE.MONO.lowblood, 30); per('hu', A.hunger < 20, NE.MONO.hungry, 60); per('th', A.thirst < 20, NE.MONO.thirsty, 60);
-  per('co', A.temp < 35.6, NE.MONO.cold, 40); per('pa', A.pain > A.threshold, NE.MONO.pain, 15); per('in', A.infection > 40, NE.MONO.infection, 60); per('dk', G.env.dark, NE.MONO.dark, 90);
+  per('co', A.temp < 35.6, NE.MONO.cold, 40); per('ht', A.temp > 38.4 && A.infection < 35, NE.MONO.heat, 45); per('pa', A.pain > A.threshold, NE.MONO.pain, 15); per('in', A.infection > 40, NE.MONO.infection, 60); per('dk', G.env.dark, NE.MONO.dark, 90);
   if (A.bleeding > 0.4 && Math.random() < A.bleeding * 0.02) { G.addP(p.x + rf(-2, 2), p.y - rf(4, 10), rf(-5, 5), 0, 1, '#7a0e0e', 'blood'); }
   if (A.blood < 3200 && Math.random() < 0.016) NE.Audio.play('heart', clamp((3800 - A.blood) / 1500, 0.3, 1));
   if (A.stam < 15 && Math.random() < 0.02) NE.Audio.play('breath', 0.8);
@@ -287,7 +287,10 @@ G.updateObjects = function (dt) {
   const p = G.player;
   for (const o of G.nearObjs()) {
     if (o.type === 'vent') { o.t += dt; const ph = o.t % o.period; o.active = ph < 1.4; if (o.active) { if (Math.random() < dt * 40) G.addP(o.x + rf(-2, 2), o.y - 2, rf(-6, 6), rf(-90, -50), rf(0.4, 0.8), 'rgba(220,230,235,0.5)', 'steam', -0.15); if (ph < dt * 1.5) NE.Audio.play('hiss', NE.dist(o.x, o.y, p.x, p.y) < 150 ? 0.8 : 0.1); for (const a of G.actors) if (a.alive && Math.abs(a.x - o.x) < 6 && a.y <= o.y + 1 && a.y > o.y - 44) { a.inFire = 0.15; a.vy -= 20; } } }
-    else if (o.type === 'gasleak') { o.t -= dt; if (o.t <= 0) { o.t = rf(2.5, 4); G.gas.push({ x: o.x + rf(-6, 6), y: o.y + 8, r: 8, d: 0.55, vx: rf(-5, 5), life: 28, max: 34 }); } if (Math.random() < dt * 4) G.addP(o.x, o.y, rf(-10, 10), rf(5, 20), 0.6, 'rgba(160,200,90,0.5)', 'steam', 0); }
+    else if (o.type === 'icicle' && o.armed) { if (Math.abs(p.x - o.x) < 7 && p.y > o.y && p.y - o.y < 110) { o.armed = false; o.dropT = 0.45; NE.Audio.play('crack'); } }
+    else if (o.type === 'icicle' && o.dropT > 0) { o.dropT -= dt; if (o.dropT <= 0) { o.type = 'dead'; const b = G.phys.stick('debris', o.x, o.y + 4, 6, Math.PI / 2, 1.5, 2.5); b.kind = 'debris'; b.color = '#cfeeff'; b.setVel(0, 60); } }
+    else if (o.type === 'gasleak') { o.t -= dt; if (o.t <= 0) { o.t = rf(2.5, 4); G.gas.push({ spore: !!o.spore, x: o.x + rf(-6, 6), y: o.y + 8, r: 8, d: o.spore ? 0.4 : 0.55, vx: rf(-5, 5), life: 28, max: 34 }); } if (Math.random() < dt * 4) G.addP(o.x, o.y, rf(-10, 10), rf(5, 20), 0.6, o.spore ? 'rgba(200,210,120,0.6)' : 'rgba(160,200,90,0.5)', 'steam', 0); }
+    else if (o.type === 'ember' && Math.random() < dt * 3) G.addP(o.x + rf(-3, 3), o.y - 2, rf(-5, 5), rf(-40, -15), rf(0.6, 1.2), pick(['#ff6020', '#ffa040']), 'spark', -0.2);
     else if (o.type === 'lamp' && o.flick) { o.flk = Math.random() < o.flick * 0.08 ? rf(0, 0.3) : Math.min(1, (o.flk || 1) + dt * 4); }
     else if (o.type === 'beacon') { o.t = (o.t || 0) + dt; if (o.t % 4 < dt) { if (NE.dist(o.x, o.y, p.x, p.y) < 260) NE.Audio.play('chime'); } if (NE.dist(o.x, o.y, p.x, p.y) < 22 && !o.done) G.triggerBeacon(o); }
     else if (o.type === 'standoff' && !o.done && G.state === 'run') { if (o.grp.every(e => !e.alive)) o.done = true; else if (NE.dist(o.x, o.y, p.x, p.y) < 70 && Math.abs(o.y - p.y) < 14) { o.done = true; NE.UI.standoff(o); } }
@@ -317,7 +320,7 @@ G.explode = function (x, y) {
 // ---------------- interaction ----------------
 G.interactTarget = function () {
   const p = G.player; let best = null, bd = 16;
-  for (const o of G.nearObjs()) { if (!o.act) continue; if (o.type === 'container' && o.actor && o.actor.rag) { const c = o.actor.rag.pts[2]; o.x = c.x; o.y = c.y + 3; } const dx = Math.abs(o.x - p.x), dy = Math.abs(o.y - p.y); if (dy > 14) continue; const r = o.type === 'elevator' ? 24 : 14; if (dx < r && dx < bd + (o.type === 'elevator' ? 10 : 0)) { bd = dx; best = o; } }
+  for (const o of G.nearObjs()) { if (!o.act) continue; if (o.type === 'forage') o.label = 'Forage ' + NE.ITEMS[o.item].name; if (o.type === 'container' && o.actor && o.actor.rag) { const c = o.actor.rag.pts[2]; o.x = c.x; o.y = c.y + 3; } const dx = Math.abs(o.x - p.x), dy = Math.abs(o.y - p.y); if (dy > 14) continue; const r = o.type === 'elevator' ? 24 : 14; if (dx < r && dx < bd + (o.type === 'elevator' ? 10 : 0)) { bd = dx; best = o; } }
   for (const a of G.actors) { if (!a.isNPC || !a.alive || a.leaving) continue; const dx = Math.abs(a.x - p.x); if (dx < 14 && Math.abs(a.y - p.y) < 14 && dx < bd) { bd = dx; best = a; } }
   return best;
 };
@@ -328,8 +331,8 @@ G.interact = function () {
     case 'wardrobe': return UI.open('wardrobe');
     case 'shop': return UI.open('shop');
     case 'dossier': return UI.open('dossier');
-    case 'descend': return UI.confirm('Enter the elevator and descend?', (G.meta.survivor.name) + ' will start at 0m. Extract at elevators every 250m — or die trying.', 'DESCEND', () => G.descend());
-    case 'extract': { const d = Math.round(G.run.maxDepth); return UI.confirm(o.kind === 'arrival' ? 'Return to the surface?' : 'Ride the extraction elevator?', 'Ends the run and banks your Survival Data and scrap. Max depth: ' + d + 'm.', 'EXTRACT', () => G.endRun(true, 'Extracted')); }
+    case 'descend': return UI.confirm('Ride the lift into the caves?', (G.meta.survivor.name) + ' will be lowered to 0m. Extraction lifts hang every 250m — reach one, or die trying.', 'DESCEND', () => G.descend());
+    case 'extract': { const d = Math.round(G.run.maxDepth); return UI.confirm(o.kind === 'arrival' ? 'Ride back up to the surface?' : 'Ride the extraction lift up?', 'Ends the run and banks your Survival Data and scrap. Max depth: ' + d + 'm.', 'EXTRACT', () => G.endRun(true, 'Extracted')); }
     case 'table': G.toast('Surgical table: treatments are faster and hurt less here.'); return UI.open('health');
     case 'drink': if (o.uses > 0) { o.uses--; p.anat.thirst = Math.min(100, p.anat.thirst + 40); G.toast('Clean water. (' + o.uses + ' left)'); NE.Audio.play('splash'); } else G.toast('Dispenser is dry.'); return;
     case 'fire': G.toast('Warmth. You can boil water here.'); return UI.open('craft');
@@ -337,6 +340,7 @@ G.interact = function () {
     case 'talk': return UI.survivor(o);
     case 'trade': return UI.open('trade', o);
     case 'search': return G.beginSearch(o);
+    case 'pick': { const left = p.inv.add(o.item, 1); if (left) return G.toast('Backpack full.'); o.type = 'dead'; o.act = null; NE.Audio.play('rummage'); G.toast('Foraged: ' + NE.ITEMS[o.item].name + '.'); return; }
   }
 };
 G.station = function (kind) { const p = G.player; for (const o of G.nearObjs()) { if (NE.dist(o.x, o.y, p.x, p.y) > 34) continue; if (kind === 'fire' && o.type === 'fire') return true; if (kind === 'workbench' && o.type === 'bench') return true; } return false; };
@@ -405,19 +409,19 @@ G.payValue = function (inv, price) {
 G.events = function (dt) {
   if (G.state !== 'run') return; G.eventT -= dt; if (G.eventT > 0) return; G.eventT = rf(65, 125);
   const p = G.player, fl = G.curFloor(); const b = fl.biome; if (fl.f === 0) { G.eventT = 20; return; }
-  const ev = NE.wpick([['cavein', 3], ['blackout', 2], ['gas', b.id === 'quarantine' ? 3 : 0.7], ['beacon', 2.2], ['ambush', 1.8 + fl.depth / 500]]);
+  const ev = NE.wpick([['cavein', b.id === 'desert' ? 4.5 : 3], ['blackout', 2], ['gas', b.id === 'grotto' ? 3 : 0.7], ['beacon', 2.2], ['ambush', 1.8 + fl.depth / 500]]);
   if (ev === 'cavein') {
     G.log('The ceiling groans... CAVE-IN!', 'bad'); NE.Audio.play('rumble'); G.shake(5); G.shakeT = 1.6;
-    const n = ri(6, 10); for (let i = 0; i < n; i++) { const x = clamp(p.x + rf(-60, 60), 3 * T, (G.world.W - 3) * T); setTimeout(() => { if (G.state !== 'run') return; const d = G.phys.box('debris', x, fl.y0 * T + 5, rf(3, 7), rf(3, 6), 2.5, b.pal.tile); d.setVel(rf(-20, 20), rf(30, 80)); G.dust(x, fl.y0 * T + 6, 5); }, i * 110 + rf(0, 300)); }
-  } else if (ev === 'blackout') { G.blackout = rf(28, 45); G.log('The lights die. Total darkness.', 'bad'); NE.Audio.play('boom'); }
-  else if (ev === 'gas') { G.log('A hiss from the vents — GAS BREACH!', 'bad'); NE.Audio.play('hiss', 1); const side = chance(0.5) ? 4 : G.world.W - 4; for (let i = 0; i < 9; i++) G.gas.push({ x: side * T + (side < 10 ? i : -i) * 9, y: fl.feetY - 10, r: 12, d: 0.8, vx: side < 10 ? 9 : -9, life: rf(35, 50), max: 40 }); }
+    const n = ri(6, 10); for (let i = 0; i < n; i++) { const x = clamp(p.x + rf(-60, 60), 3 * T, (G.world.W - 3) * T); setTimeout(() => { if (G.state !== 'run') return; const d = G.phys.box('debris', x, G.world.ceilY(fl, x) + 5, rf(3, 7), rf(3, 6), 2.5, b.pal.tile); d.setVel(rf(-20, 20), rf(30, 80)); G.dust(x, G.world.ceilY(fl, x) + 6, 5); }, i * 110 + rf(0, 300)); }
+  } else if (ev === 'blackout') { G.blackout = rf(28, 45); G.log('A cold draft snuffs every lantern. Total darkness.', 'bad'); NE.Audio.play('hiss', 0.6); }
+  else if (ev === 'gas') { G.log(b.id === 'grotto' ? 'A fungal bloom bursts — SPORES!' : 'A pocket of cave gas vents — GAS!', 'bad'); NE.Audio.play('hiss', 1); const side = chance(0.5) ? 4 : G.world.W - 4; for (let i = 0; i < 9; i++) G.gas.push({ spore: b.id === 'grotto', x: side * T + (side < 10 ? i : -i) * 9, y: G.world.groundY(fl, side * T) - 10, r: 12, d: 0.8, vx: side < 10 ? 9 : -9, life: rf(35, 50), max: 40 }); }
   else if (ev === 'beacon') {
     const tf = G.world.floors[fl.f + ri(1, 2)]; if (!tf) return; const x = ri(6, G.world.W - 6) * T;
-    tf.objs.push({ type: 'beacon', x, y: tf.feetY, trap: chance(0.35), t: 0, label: 'Distress Beacon' }); NE.Audio.play('chime');
-    G.log('Radio crackle: a distress beacon pulses below (~' + Math.round(tf.depth) + 'm).', 'sys');
+    tf.objs.push({ type: 'beacon', x, y: G.world.groundY(tf, x), trap: chance(0.35), t: 0, label: 'Distress Beacon' }); NE.Audio.play('chime');
+    G.log('A flare-beacon\'s chirp echoes from below (~' + Math.round(tf.depth) + 'm).', 'sys');
   } else if (ev === 'ambush') {
     const x = p.x > G.world.W * T / 2 ? 5 * T : (G.world.W - 5) * T; const k = ri(1, 2) + (fl.depth > 500 ? 1 : 0);
-    for (let i = 0; i < k; i++) { const e = new NE.Enemy(G, x + i * 10, fl.feetY, NE.wpick(b.enemies), fl.depth); e.target = p; e.state = 'chase'; e.lastSeen = { x: p.x, y: p.y }; G.actors.push(e); }
+    for (let i = 0; i < k; i++) { const e = new NE.Enemy(G, x + i * 10, G.world.groundY(fl, x + i * 10), NE.wpick(b.enemies), fl.depth); e.target = p; e.state = 'chase'; e.lastSeen = { x: p.x, y: p.y }; G.actors.push(e); }
     G.log('Footsteps. Lots of them. Coming this way.', 'bad');
   }
 };
@@ -428,8 +432,8 @@ G.triggerBeacon = function (o) {
 };
 G.depthTrack = function (p) {
   const d = NE.depthOfY(p.y); const R = G.run; if (d > R.maxDepth) R.maxDepth = d;
-  const fl = G.curFloor(); if (fl && R.biome !== fl.biome.id) { if (R.biome) { NE.UI.banner(fl.biome.name, Math.round(fl.depth) + 'm'); G.log('Entered ' + fl.biome.name + '.', 'sys'); } R.biome = fl.biome.id; NE.Audio.setDrone(fl.biome.drone, 200 + (1000 - Math.min(1000, fl.depth)) * 0.2); }
-  const m = Math.floor(R.maxDepth / 250); if (m > R.milestone) { R.milestone = m; if (m > 0) { G.log('MILESTONE: ' + m * 250 + 'm. An extraction elevator is on this level.', 'good'); } }
+  const fl = G.curFloor(); if (fl && R.biome !== fl.biome.id) { if (R.biome) { NE.UI.banner(fl.biome.name, Math.round(fl.depth) + 'm — ' + fl.biome.challenge); G.log('Entered ' + fl.biome.name + '.', 'sys'); G.log('Perk: ' + fl.biome.perk, 'good'); G.log('Danger: ' + fl.biome.challenge, 'bad'); G.say(pick(NE.MONO.biome), 0.8); } R.biome = fl.biome.id; NE.Audio.setDrone(fl.biome.drone, 200 + (1000 - Math.min(1000, fl.depth)) * 0.2); }
+  const m = Math.floor(R.maxDepth / 250); if (m > R.milestone) { R.milestone = m; if (m > 0) { G.log('MILESTONE: ' + m * 250 + 'm. An extraction lift hangs somewhere on this level.', 'good'); } }
   if (fl && fl.medic && !fl.medicSaid && Math.abs(p.x - (fl.poi.x0 + fl.poi.x1) / 2) < 70) { fl.medicSaid = true; G.say(NE.MONO.medic[0]); }
   if (fl) R.floors = Math.max(R.floors, fl.f + 1);
 };
@@ -486,7 +490,7 @@ G.render = function (dt) {
   for (const q of G.parts) { ctx.fillStyle = q.col; ctx.globalAlpha = q.kind === 'steam' || q.kind === 'dust' ? Math.min(1, q.life / q.max * 1.5) : 1; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   ctx.globalAlpha = 1;
   W.drawWater(ctx, cx, cy, G.t);
-  for (const c of G.gas) { ctx.fillStyle = 'rgba(150,190,70,' + (c.d * 0.22) + ')'; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 + G.t * 0.2; const rr = c.r * (0.4 + 0.6 * NE.hash(i, c.x | 0)); ctx.fillRect(Math.round(c.x + Math.cos(a) * rr * 0.6) - 3, Math.round(c.y + Math.sin(a) * rr * 0.3) - 2, 6, 4); } }
+  for (const c of G.gas) { ctx.fillStyle = c.spore ? 'rgba(200,200,110,' + (c.d * 0.24) + ')' : 'rgba(150,190,70,' + (c.d * 0.22) + ')'; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 + G.t * 0.2; const rr = c.r * (0.4 + 0.6 * NE.hash(i, c.x | 0)); ctx.fillRect(Math.round(c.x + Math.cos(a) * rr * 0.6) - 3, Math.round(c.y + Math.sin(a) * rr * 0.3) - 2, 6, 4); } }
   for (const f of G.fires) { ctx.fillStyle = 'rgba(255,120,30,0.5)'; ctx.fillRect(Math.round(f.x - f.r), Math.round(f.y - 2), Math.round(f.r * 2), 2); }
   for (const t of G.tracers) NE.pline(ctx, t.x1, t.y1, t.x2, t.y2, 1, 'rgba(255,230,160,0.9)');
   // gunner laser telegraph
@@ -505,7 +509,7 @@ G.render = function (dt) {
 G.drawBody = function (ctx, b) {
   const P = b.pts;
   if (P.length === 4) { ctx.fillStyle = b.color || '#666'; ctx.beginPath(); ctx.moveTo(P[0].x, P[0].y); for (let i = 1; i < 4; i++) ctx.lineTo(P[i].x, P[i].y); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.stroke(); if (b.kind === 'crate') NE.pline(ctx, P[0].x, P[0].y, P[2].x, P[2].y, 1, 'rgba(0,0,0,0.35)'); if (b.kind === 'barrel') NE.pline(ctx, (P[0].x + P[3].x) / 2, (P[0].y + P[3].y) / 2, (P[1].x + P[2].x) / 2, (P[1].y + P[2].y) / 2, 1, 'rgba(0,0,0,0.35)'); }
-  else if (P.length === 2) { const col = { flare: '#d03020', glowstick: '#60f070', bottle: '#6a9a8a', molotov: '#3a8a40' }[b.kind] || '#999'; NE.pline(ctx, P[0].x, P[0].y, P[1].x, P[1].y, 1, col); if (b.kind === 'flare' && b.life > 0) { ctx.fillStyle = '#ffe0a0'; ctx.fillRect(Math.round(P[1].x), Math.round(P[1].y), 1, 1); } if (b.kind === 'molotov') { ctx.fillStyle = '#ffa040'; ctx.fillRect(Math.round(P[1].x), Math.round(P[1].y) - 1, 1, 1); } }
+  else if (P.length === 2) { const col = b.color || { flare: '#d03020', glowstick: '#e0a040', bottle: '#6a9a8a', molotov: '#3a8a40', brick: '#8a8070' }[b.kind] || '#999'; NE.pline(ctx, P[0].x, P[0].y, P[1].x, P[1].y, 1, col); if (b.kind === 'flare' && b.life > 0) { ctx.fillStyle = '#ffe0a0'; ctx.fillRect(Math.round(P[1].x), Math.round(P[1].y), 1, 1); } if (b.kind === 'molotov') { ctx.fillStyle = '#ffa040'; ctx.fillRect(Math.round(P[1].x), Math.round(P[1].y) - 1, 1, 1); } }
 };
 G.drawObj = function (ctx, o) {
   const x = Math.round(o.x), y = Math.round(o.y); const t = G.t;
@@ -522,7 +526,7 @@ G.drawObj = function (ctx, o) {
       if (!o.searched && G.player && G.state === 'run') { const r = 40 * G.player.stats.loot; if (NE.dist(x, y, G.player.x, G.player.y) < r) { ctx.fillStyle = 'rgba(232,226,208,' + (0.4 + 0.3 * Math.sin(t * 4)) + ')'; ctx.fillRect(x, y - 16 - (o.ct === 'cabinet' ? 6 : 0), 1, 1); } }
       break;
     }
-    case 'lamp': { const on = o.on && G.blackout <= 0; ctx.fillStyle = '#2a2a2a'; ctx.fillRect(x - 2, y - 2, 5, 2); ctx.fillStyle = on && (o.flk == null || o.flk > 0.5) ? o.col : '#333'; ctx.fillRect(x - 1, y, 3, 1); break; }
+    case 'lamp': { const on = o.on && G.blackout <= 0; ctx.fillStyle = '#5a4a30'; ctx.fillRect(x, y - 1, 1, 4); ctx.fillStyle = '#2a2420'; ctx.fillRect(x - 1, y + 3, 3, 1); ctx.fillRect(x - 1, y + 7, 3, 1); ctx.fillStyle = on && (o.flk == null || o.flk > 0.5) ? o.col : '#3a3430'; ctx.fillRect(x - 1, y + 4, 3, 3); break; }
     case 'table': ctx.fillStyle = '#9aa4a8'; ctx.fillRect(x - 9, y - 6, 18, 2); ctx.fillStyle = '#5a6468'; ctx.fillRect(x - 8, y - 4, 1, 4); ctx.fillRect(x + 7, y - 4, 1, 4); ctx.fillStyle = '#e0e8ff'; ctx.fillRect(x - 3, y - 14, 6, 1); break;
     case 'dispenser': ctx.fillStyle = '#6a8aa0'; ctx.fillRect(x - 3, y - 14, 6, 6); ctx.fillStyle = '#d0d8e0'; ctx.fillRect(x - 3, y - 8, 6, 8); ctx.fillStyle = '#3a6ab0'; ctx.fillRect(x - 1, y - 6, 2, 1); break;
     case 'fire': { ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x - 5, y - 2, 10, 2); const f = Math.sin(t * 20) > 0 ? 1 : 0; ctx.fillStyle = '#ff6020'; ctx.fillRect(x - 3, y - 5 - f, 6, 3 + f); ctx.fillStyle = '#ffd060'; ctx.fillRect(x - 1, y - 6 + f, 2, 3); break; }
@@ -531,6 +535,11 @@ G.drawObj = function (ctx, o) {
     case 'reactor': ctx.fillStyle = '#2a3a2e'; ctx.fillRect(x - 6, y - 22, 12, 22); ctx.fillStyle = 'rgba(120,255,140,' + (0.5 + 0.3 * Math.sin(t * 3)) + ')'; ctx.fillRect(x - 2, y - 18, 4, 14); break;
     case 'rad': ctx.fillStyle = '#c0b020'; ctx.fillRect(x - 3, y - 26, 7, 7); ctx.fillStyle = '#111'; ctx.fillRect(x, y - 25, 1, 2); ctx.fillRect(x - 2, y - 22, 2, 1); ctx.fillRect(x + 1, y - 22, 2, 1); break;
     case 'vent': break;
+    case 'icicle': { ctx.fillStyle = '#cfeeff'; const sh = o.dropT > 0 ? Math.round(rf(-1, 1)) : 0; ctx.fillRect(x - 1 + sh, y - 1, 3, 3); ctx.fillRect(x + sh, y + 2, 1, 4); ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 1 + sh, y - 1, 1, 2); break; }
+    case 'glowshroom': { const p2 = 0.7 + 0.3 * Math.sin(t * 2 + x); ctx.fillStyle = '#d8e8c8'; ctx.fillRect(x, y - 3, 1, 3); ctx.fillRect(x + 3, y - 2, 1, 2); ctx.fillStyle = 'rgba(90,255,200,' + p2 + ')'; ctx.fillRect(x - 1, y - 5, 3, 2); ctx.fillRect(x + 2, y - 3, 3, 1); break; }
+    case 'crystal': { ctx.fillStyle = o.col; if (o.ceil) { ctx.fillRect(x - 1, y - 1, 3, 3); ctx.fillRect(x, y + 2, 1, 4); ctx.fillRect(x + 2, y, 1, 3); } else { ctx.fillRect(x, y - 7, 2, 7); ctx.fillRect(x - 2, y - 4, 2, 4); ctx.fillRect(x + 2, y - 5, 2, 5); } ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(x, o.ceil ? y : y - 6, 1, 2); break; }
+    case 'ember': ctx.fillStyle = '#ff7020'; ctx.fillRect(x - 2, y - 1, 5, 1); ctx.fillStyle = '#ffd060'; ctx.fillRect(x, y - 2, 1, 1); break;
+    case 'forage': { const ic = NE.icon(NE.ITEMS[o.item].icon, null, 2); ctx.drawImage(ic, x - 4, y - 8, 8, 8); if (G.player && NE.dist(x, y, G.player.x, G.player.y) < 50) { ctx.fillStyle = 'rgba(232,226,208,' + (0.4 + 0.3 * Math.sin(t * 4)) + ')'; ctx.fillRect(x, y - 11, 1, 1); } break; }
     case 'gasleak': ctx.fillStyle = '#4a5a3a'; ctx.fillRect(x - 3, y - 4, 6, 3); break;
     case 'beacon': { ctx.fillStyle = '#3a3a3a'; ctx.fillRect(x - 2, y - 6, 4, 6); ctx.fillStyle = (t * 2 | 0) % 2 ? '#ff3020' : '#501010'; ctx.fillRect(x - 1, y - 8, 2, 2); ctx.fillStyle = '#888'; ctx.fillRect(x, y - 12, 1, 4); break; }
     case 'elevator': G.drawElevator(ctx, o, x, y); break;
@@ -557,7 +566,10 @@ G.drawLighting = function (cx, cy, fl) {
     if (p.light.on) { const fk = p.light.bat < 15 ? (Math.random() < 0.15 ? 0.2 : 1) : 1; const a = Math.atan2(p.aimDir.y, p.aimDir.x); lights.push({ x: p.x + p.facing, y: p.y - p.h + 4, r: 115 * sight * fk * (0.6 + 0.4 * Math.min(1, p.light.bat / 40)), i: 0.95, cone: [a - 0.42, a + 0.42], player: true }); }
   } else lights.push({ x: p.x, y: p.cy, r: 30, i: 0.4, player: true });
   for (const o of G.nearObjs()) {
-    if (o.type === 'lamp' && o.on && G.blackout <= 0) lights.push({ x: o.x, y: o.y + 2, r: 58, i: 0.75 * (o.flk == null ? 1 : o.flk), col: o.col, cone: [0.2, Math.PI - 0.2] });
+    if (o.type === 'lamp' && o.on && G.blackout <= 0) lights.push({ x: o.x, y: o.y + 6, r: 58, i: 0.75 * (o.flk == null ? 1 : o.flk), col: o.col });
+    else if (o.type === 'glowshroom') lights.push({ x: o.x, y: o.y - 4, r: 28, i: 0.55, col: '#5affc8' });
+    else if (o.type === 'crystal') lights.push({ x: o.x, y: o.y + (o.ceil ? 2 : -4), r: 44, i: 0.6, col: o.col });
+    else if (o.type === 'ember') lights.push({ x: o.x, y: o.y - 2, r: 30, i: 0.55, col: '#ff7030' });
     else if (o.type === 'fire') lights.push({ x: o.x, y: o.y - 4, r: 55, i: 0.85 + Math.sin(G.t * 13) * 0.05, col: '#ff8030' });
     else if (o.type === 'reactor' || o.type === 'rad') lights.push({ x: o.x, y: o.y - 10, r: o.type === 'rad' ? o.r : 30, i: 0.35, col: '#80ff90' });
     else if (o.type === 'console' || o.type === 'terminal') lights.push({ x: o.x, y: o.y - 10, r: 22, i: 0.5, col: '#40ff70' });
@@ -566,6 +578,7 @@ G.drawLighting = function (cx, cy, fl) {
     else if (o.type === 'container' && o.ct === 'pod') lights.push({ x: o.x, y: o.y - 12, r: 20, i: 0.5, col: '#ff4030' });
   }
   for (const f of G.fires) lights.push({ x: f.x, y: f.y - 4, r: 50, i: 0.85, col: '#ff8030' });
+  { const tx0 = Math.floor(cx / T), ty0 = Math.floor(cy / T); for (let ty = ty0; ty < ty0 + Math.ceil(VH / T) + 1; ty++) for (let tx = tx0; tx < tx0 + Math.ceil(VW / T) + 1; tx += 2) if (W.get(tx, ty) === 9 && W.get(tx, ty - 1) !== 9) lights.push({ x: tx * T + 4, y: ty * T - 2, r: 40, i: 0.65, col: '#ff5a10' }); }
   for (const b of G.phys.bodies) { if (b.life > 0 && b.item === 'flare') lights.push({ x: b.pts[1].x, y: b.pts[1].y, r: 75, i: 0.9, col: '#ff3020' }); if (b.life > 0 && b.item === 'glowstick') lights.push({ x: b.pts[0].x, y: b.pts[0].y, r: 34, i: 0.7, col: '#60ff70' }); }
   if (G.muzzle && (G.muzzle.t -= 1 / 60) > 0) lights.push({ x: G.muzzle.x, y: G.muzzle.y, r: 70, i: 0.9, col: '#ffd080' });
   G.lights = lights;
@@ -601,21 +614,26 @@ G.drawFX = function () {
 G.titleRain = [];
 G.drawTitle = function (dt) {
   const ctx = G.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
-  const gr = ctx.createLinearGradient(0, 0, 0, VH); gr.addColorStop(0, '#0d0b0a'); gr.addColorStop(1, '#1d1611'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH);
-  // skyline
-  for (let i = 0; i < Math.ceil(VW / 11) + 2; i++) { const w = 8 + NE.hash(i, 1) * 18, h = 30 + NE.hash(i, 2) * 70, x = i * 11 - 10 + Math.sin(G.t * 0.02 + i) * 0; ctx.fillStyle = '#16120f'; ctx.fillRect(Math.round(x), Math.round(VH - 40 - h), Math.round(w), Math.round(h)); if (NE.hash(i, 3) < 0.3) { ctx.fillStyle = 'rgba(255,170,80,' + (0.25 + 0.2 * Math.sin(G.t * (1 + NE.hash(i, 4)) + i)) + ')'; ctx.fillRect(Math.round(x + 3), Math.round(VH - 40 - h + 8), 1, 1); } }
+  const gr = ctx.createLinearGradient(0, 0, 0, VH); gr.addColorStop(0, '#080706'); gr.addColorStop(1, '#17110c'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH);
+  // cave walls & hanging stalactites (parallax layers)
+  for (let layer = 0; layer < 2; layer++) { ctx.fillStyle = layer ? '#0d0a08' : '#14100c'; const sp = layer ? 9 : 14;
+    for (let i = 0; i < Math.ceil(VW / sp) + 2; i++) { const x = i * sp - 6; const h = (layer ? 18 : 34) + NE.hash(i, 11 + layer) * (layer ? 38 : 60); const w = sp * (0.6 + NE.hash(i, 5 + layer) * 0.5); for (let k = 0; k < h; k++) { const ww = Math.max(1, Math.round(w * (1 - k / h))); ctx.fillRect(Math.round(x + (w - ww) / 2), k, ww, 1); } }
+    for (let i = 0; i < Math.ceil(VW / sp) + 2; i++) { const x = i * sp - 4; const h = 6 + NE.hash(i, 21 + layer) * (layer ? 22 : 40); const w = sp * (0.7 + NE.hash(i, 25) * 0.5); for (let k = 0; k < h; k++) { const ww = Math.max(1, Math.round(w * (1 - k / h))); ctx.fillRect(Math.round(x + (w - ww) / 2), VH - 40 - k, ww, 1); } } }
+  // distant glowing crystals & mushrooms in the dark
+  for (let i = 0; i < 14; i++) { const x = NE.hash(i, 31) * VW, y = 60 + NE.hash(i, 32) * 110; const c = ['#5affc8', '#90a0ff', '#ffb050', '#c090ff'][i % 4]; ctx.globalAlpha = 0.25 + 0.2 * Math.sin(G.t * (0.6 + NE.hash(i, 33)) + i); ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 1, 2); ctx.globalAlpha = 1; }
   const ox = Math.round((VW - 400) / 2); ctx.save(); ctx.translate(ox, 0);
-  // shaft frame
-  ctx.fillStyle = '#0a0807'; ctx.fillRect(150, 108, 100, VH - 108); ctx.fillStyle = '#2a2420'; ctx.fillRect(148, 108, 2, VH); ctx.fillRect(250, 108, 2, VH); for (let y = 112; y < VH; y += 12) { ctx.fillRect(150, y, 100, 1); NE.pline(ctx, 150, y, 250, y + 12, 1, '#1c1814'); }
-  ctx.fillStyle = '#444'; ctx.fillRect(198, 108, 1, 82 + Math.sin(G.t * 0.3) * 4); ctx.fillRect(202, 108, 1, 82 + Math.sin(G.t * 0.3) * 4);
-  const cy = 190 + Math.sin(G.t * 0.3) * 4; ctx.fillStyle = '#1e1b18'; ctx.fillRect(184, cy, 34, 30); ctx.fillStyle = '#3a342e'; ctx.fillRect(184, cy, 34, 2);
-  const fl = Math.random() < 0.05 ? 0.2 : 1; ctx.fillStyle = 'rgba(255,170,80,' + 0.9 * fl + ')'; ctx.fillRect(199, cy + 3, 3, 1);
+  // the pit & the winch lift dangling into it
+  ctx.fillStyle = '#050403'; for (let k = 0; k < VH - 108; k++) { const w = 70 + Math.sin(k * 0.21) * 4 + k * 0.25; ctx.fillRect(Math.round(200 - w / 2), 108 + k, Math.round(w), 1); }
+  ctx.fillStyle = '#4a3420'; ctx.fillRect(160, 104, 80, 4); ctx.fillRect(166, 104, 3, 14); ctx.fillRect(231, 104, 3, 14); ctx.fillStyle = '#6a5038'; ctx.fillRect(196, 100, 8, 6);
+  ctx.fillStyle = '#5a4a30'; ctx.fillRect(198, 106, 1, 84 + Math.sin(G.t * 0.3) * 4); ctx.fillRect(202, 106, 1, 84 + Math.sin(G.t * 0.3) * 4);
+  const cy = 190 + Math.sin(G.t * 0.3) * 4; ctx.fillStyle = '#1e1b18'; ctx.fillRect(184, cy, 34, 30); ctx.fillStyle = '#3a342e'; ctx.fillRect(184, cy, 34, 2); for (let i = 0; i < 5; i++) ctx.fillRect(186 + i * 7, cy + 2, 1, 28);
+  const fl = Math.random() < 0.05 ? 0.2 : 1; ctx.fillStyle = 'rgba(255,170,80,' + 0.9 * fl + ')'; ctx.fillRect(199, cy + 3, 3, 2);
   const lg = ctx.createRadialGradient(200, cy + 4, 0, 200, cy + 4, 60); lg.addColorStop(0, 'rgba(255,160,70,' + 0.25 * fl + ')'); lg.addColorStop(1, 'rgba(255,160,70,0)'); ctx.fillStyle = lg; ctx.fillRect(140, cy - 56, 120, 120);
   ctx.restore(); ctx.fillStyle = '#0c0a09'; ctx.fillRect(0, VH - 40, VW, 40);
-  // rain + dust
-  if (G.titleRain.length < 140) for (let i = 0; i < 4; i++) G.titleRain.push({ x: rf(0, VW + 60), y: rf(-20, 0), v: rf(160, 260), d: chance(0.25) });
-  for (const r of G.titleRain) { r.y += r.v * dt * (r.d ? 0.05 : 1); r.x -= r.v * dt * (r.d ? 0.02 : 0.25); if (r.d) { ctx.fillStyle = 'rgba(220,200,170,0.35)'; ctx.fillRect(Math.round(r.x), Math.round(r.y), 1, 1); } else NE.pline(ctx, r.x, r.y, r.x + 1, r.y - 4, 1, 'rgba(160,170,190,0.25)'); }
-  G.titleRain = G.titleRain.filter(r => r.y < VH);
+  // water drips from the ceiling + floating dust
+  if (G.titleRain.length < 60) for (let i = 0; i < 2; i++) G.titleRain.push({ x: rf(0, VW), y: rf(10, 40), v: chance(0.7) ? rf(120, 200) : 0, d: chance(0.5), t: 0 });
+  for (const r of G.titleRain) { if (r.d) { r.y += 6 * dt; r.x += Math.sin(G.t + r.x) * 3 * dt; ctx.fillStyle = 'rgba(220,200,170,0.3)'; ctx.fillRect(Math.round(r.x), Math.round(r.y), 1, 1); r.y += r.d && r.y > VH ? 0 : 0; if (Math.random() < dt * 0.1) r.y = VH + 1; } else { r.t += dt; if (r.t > 0.8) r.y += r.v * dt; ctx.fillStyle = 'rgba(150,190,210,0.55)'; ctx.fillRect(Math.round(r.x), Math.round(r.y), 1, r.t > 0.8 ? 2 : 1); } }
+  G.titleRain = G.titleRain.filter(r => r.y < VH - 40);
   if (!G.titleImg || (!G.titleImg.logo && NE.logoImg.complete && NE.logoImg.naturalWidth)) G.titleImg = NE.makeNectarTitle();
   const TI = G.titleImg; G.honeyDrops = G.honeyDrops || [];
   const bob = Math.round(Math.sin(G.t * 1.2) * 1.5);
@@ -633,9 +651,9 @@ G.drawDescent = function (dt) {
   ctx.fillStyle = '#100d0b'; ctx.fillRect(160, 60, 80, 110); ctx.fillStyle = '#3a342e'; ctx.fillRect(160, 60, 80, 2); ctx.fillRect(160, 168, 80, 2); for (let i = 0; i < 9; i++) ctx.fillRect(162 + i * 9, 62, 1, 106);
   const sw = Math.sin(G.descT * 3) * 3; ctx.fillStyle = '#ffb050'; ctx.fillRect(199 + Math.round(sw), 66, 3, 1);
   const s = G.meta.survivor; if (s) { ctx.fillStyle = NE.SKIN[s.look.skin]; ctx.fillRect(198, 140, 5, 5); ctx.fillStyle = s.look.shirt; ctx.fillRect(198, 146, 5, 10); ctx.fillStyle = s.look.pants; ctx.fillRect(198, 156, 2, 12); ctx.fillRect(201, 156, 2, 12); ctx.fillStyle = NE.HAIRC[s.look.hairCol]; if (s.look.hair !== 'bald') ctx.fillRect(198, 139, 5, 2); }
-  const depth = Math.min(0, -0) + Math.round(G.descT * 3); ctx.fillStyle = '#e8e2d0'; ctx.font = '8px monospace'; ctx.fillText('DESCENDING...', 165, 190); ctx.fillStyle = '#e0c050'; ctx.fillText('[' + '▮'.repeat(Math.min(10, Math.floor(G.descT * 2.5))) + ' '.repeat(Math.max(0, 10 - Math.floor(G.descT * 2.5))) + ']', 160, 202);
+  const depth = Math.min(0, -0) + Math.round(G.descT * 3); ctx.fillStyle = '#e8e2d0'; ctx.font = '8px monospace'; ctx.fillText('LOWERING...', 165, 190); ctx.fillStyle = '#e0c050'; ctx.fillText('[' + '▮'.repeat(Math.min(10, Math.floor(G.descT * 2.5))) + ' '.repeat(Math.max(0, 10 - Math.floor(G.descT * 2.5))) + ']', 160, 202);
   G.cam.shake = 1.5 * sp; if (G.descT > 4.2) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, (G.descT - 4.2) * 3) + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (G.descT > 4.6) G.startRun();
 };
-if (document.readyState === 'complete') G.init(); else window.addEventListener('load', () => G.init());
+const boot = () => NE.atlasReady.then(() => G.init()); if (document.readyState === 'complete') boot(); else window.addEventListener('load', boot);
 })(window.NE);

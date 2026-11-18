@@ -1,6 +1,20 @@
 {
   "log": [
     {
+      "version": "0.2.0",
+      "date": "2026-11-18",
+      "title": "Into the Caves",
+      "changes": [
+        "Nectar's End is now a cave-diving game: organic caves with uneven floors, stalactites, rock ledges, ropes down, risky open pits and crawlspaces.",
+        "Five cave biomes, each with a perk and a challenge: Mossy Grotto (forage mushrooms & herbs / spores, damp wounds), Sunscorched Sandstone (dry air, ruins & prickly pears / heat & sinking sand), Frozen Hollows (cold slows bleeding, fresh water / hypothermia, slippery ice, falling icicles), Crystal Depths (glowing crystals, Crystal Shards / crystal radiation, shard floors) and Magma Abyss (no cold, richest caches / heat, lava, steam vents).",
+        "Walk up small cave steps automatically.",
+        "New items: Cave Mushroom, Healing Herb, Prickly Pear, Glowcap (throwable light), Rock; cave-themed weapons and gear.",
+        "All item, menu and skill icons replaced with CC0 Pixel Atlas sprites.",
+        "Base Camp lobby, winch lifts, expedition camps, triage tents, mine storerooms and research outposts.",
+        "New cave title screen."
+      ]
+    },
+    {
       "version": "0.1.1",
       "date": "2026-11-18",
       "title": "Update notifications & update log",

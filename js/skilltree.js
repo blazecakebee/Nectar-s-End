@@ -31,8 +31,8 @@ class SkillTree {
       const a = c.ang * Math.PI / 180; const cx = Math.cos(a) * CD, cy = Math.sin(a) * CD; this.nodes.push({ kind: 'cat', cat: c, x: cx, y: cy, r: R * 0.92 });
       const n = c.perks.length; const ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
       c.perks.forEach((pid, i) => {
-        const P = NE.PERKS.find(p => p.id === pid); const lat = (i - (n - 1) / 2) * 40; const sx = cx + ux * (R + 24) + vx * lat, sy = cy + uy * (R + 24) + vy * lat;
-        for (let k = 0; k < P.max; k++) { const d = k * 31; this.nodes.push({ kind: 'perk', perk: P, rank: k, x: sx + ux * d, y: sy + uy * d, r: k === 0 ? NR + 2 : NR, cat: c, last: k === P.max - 1, ux, uy }); }
+        const P = NE.PERKS.find(p => p.id === pid); const lat = (i - (n - 1) / 2) * 56; const sx = cx + ux * (R + 24) + vx * lat, sy = cy + uy * (R + 24) + vy * lat;
+        for (let k = 0; k < P.max; k++) { const d = k * 31; this.nodes.push({ kind: 'perk', perk: P, rank: k, x: sx + ux * d, y: sy + uy * d, r: k === 0 ? NR + 2 : NR, cat: c, last: k === P.max - 1, ux, uy, li: i }); }
       });
     }
   }
@@ -78,7 +78,7 @@ class SkillTree {
       if (own || next) { c.shadowColor = n.cat.col; c.shadowBlur = own ? 10 : 6 + 6 * Math.sin(t * 4); }
       c.strokeStyle = own ? n.cat.col : next ? this.alpha(n.cat.col, 0.6 + 0.4 * Math.sin(t * 4)) : 'rgba(255,255,255,0.18)'; c.lineWidth = own ? 2.5 : 2; c.stroke(); c.restore();
       c.imageSmoothingEnabled = false; const ic = NE.icon(P.icon, null, 2); const s = n.r * 1.05; c.globalAlpha = own || next ? 1 : 0.35; c.drawImage(ic, n.x - s / 2, n.y - s / 2, s, s); c.globalAlpha = 1;
-      if (n.last) { c.font = 'bold 11px "Pixelify Sans", monospace'; c.textAlign = 'center'; const lx = n.x + n.ux * 30, ly = n.y + n.uy * 30; c.fillStyle = '#e8e2d0'; c.fillText(P.name, lx, ly); c.fillStyle = n.cat.col; c.font = '10px "Pixelify Sans", monospace'; c.fillText(r + ' / ' + P.max, lx, ly + 11); }
+      if (n.last) { c.font = 'bold 11px "Pixelify Sans", monospace'; c.textAlign = 'center'; const off = 30 + (n.li % 2) * 26; const lx = n.x + n.ux * off, ly = n.y + n.uy * off; c.fillStyle = '#e8e2d0'; c.fillText(P.name, lx, ly); c.fillStyle = n.cat.col; c.font = '10px "Pixelify Sans", monospace'; c.fillText(r + ' / ' + P.max, lx, ly + 11); }
     }
     // category hexes
     for (const n of this.nodes) {

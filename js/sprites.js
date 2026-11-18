@@ -72,9 +72,20 @@ const I = NE.ICONS = {
   elevator: ['dddddddd', 'dgggggd.', 'dg.y..gd', 'dg.yy.gd', 'dg.y..gd', 'dgggggd.', 'dddddddd', '........'],
 };
 const cache = {};
-NE.icon = function (key, col, scale) {
-  scale = scale || 1; const ck = key + '|' + (col || '') + '|' + scale;
+// CC0 sprite atlas (Pixel Atlas). Icon keys map onto atlas cells; anything unmapped falls back to the hand-made 8x8 icons.
+const ALIAS = { ecg: 'ui_status', backpack: 'ui_inv', body: 'ui_health', hammer: 'ui_craft', map: 'ui_map', book: 'ui_journal', star: 'ui_skills', gear: 'ui_settings', door: 'ui_quit', heart: 'p_heart', boot: 'p_boot', bolt: 'p_bolt', lungs: 'p_lungs', eye: 'p_eye', shield: 'p_shield', drop: 'p_drop', dumbbell: 'p_fist', fist: 'ui_fist', pick: 'p_pick', mind: 'p_mind', skull: 'p_skull', coin: 'p_coin', flashlight: 'ui_light', pills: 'painkillers', syringe: 'morphine', can: 'ration', ammo: 'ammo9', splint: 'splint' };
+NE.atlasImg = new Image();
+NE.atlasReady = new Promise(res => { NE.atlasImg.onload = res; NE.atlasImg.onerror = res; setTimeout(res, 4000); });
+NE.atlasImg.src = 'assets/icons.png' + (window.NE_BOOT_VERSION ? '?v=' + window.NE_BOOT_VERSION : '');
+NE.atlasKey = function (key) { const A = NE.ATLAS || {}; if (A[key] != null) return key; if (ALIAS[key] && A[ALIAS[key]] != null) return ALIAS[key]; return null; };
+NE.icon = function (key, col, scale, itemId) {
+  scale = scale || 1; const ck = (itemId || key) + '|' + (col || '') + '|' + scale;
   if (cache[ck]) return cache[ck];
+  const ak = NE.atlasKey(itemId || key) || (itemId ? NE.atlasKey(key) : null); const im = NE.atlasImg;
+  if (ak && im.complete && im.naturalWidth) {
+    const n = NE.ATLAS[ak]; const sz = 16 * Math.max(1, Math.round(scale / 2)); const c = document.createElement('canvas'); c.width = sz; c.height = sz; const x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+    x.drawImage(im, (n % 12) * 16, Math.floor(n / 12) * 16, 16, 16, 0, 0, sz, sz); cache[ck] = c; return c;
+  }
   const rows = I[key] || I.scrap; const c = document.createElement('canvas'); c.width = 8 * scale; c.height = 8 * scale;
   const x = c.getContext('2d');
   for (let j = 0; j < 8; j++) { const r = rows[j] || ''; for (let i = 0; i < 8; i++) { const ch = r[i]; if (!ch || ch === '.') continue; x.fillStyle = ch === 'X' ? (col || '#c0c0c0') : (NE.PAL[ch] || '#f0f'); x.fillRect(i * scale, j * scale, scale, scale); } }
@@ -82,7 +93,7 @@ NE.icon = function (key, col, scale) {
 };
 const urlc = {};
 NE.iconURL = function (key, col, scale) { const ck = key + '|' + (col || '') + '|' + (scale || 4); if (!urlc[ck]) urlc[ck] = NE.icon(key, col, scale || 4).toDataURL(); return urlc[ck]; };
-NE.itemIconURL = function (id, scale) { const it = NE.ITEMS[id]; if (!it) return NE.iconURL('scrap'); return NE.iconURL(it.icon, it.col, scale || 4); };
+NE.itemIconURL = function (id, scale) { const it = NE.ITEMS[id]; if (!it) return NE.iconURL('scrap'); const ck = 'item:' + id + '|' + (scale || 4); if (urlc[ck]) return urlc[ck]; const u = NE.icon(it.icon, it.col, scale || 4, id).toDataURL(); if (NE.atlasKey(id) && NE.atlasImg.complete && NE.atlasImg.naturalWidth) urlc[ck] = u; return u; };
 
 // pixel line with thickness
 NE.pline = function (ctx, x1, y1, x2, y2, w, col) {

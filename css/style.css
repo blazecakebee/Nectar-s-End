@@ -82,7 +82,7 @@ button { font-family: inherit; }
 #banner { position: absolute; left: 0; right: 0; top: 22%; text-align: center; opacity: 0; transition: opacity 1s; }
 #banner.show { opacity: 1; } #banner.fadeout { opacity: 0; transition: opacity 1.6s; }
 #banner b { display: block; font-family: 'Pixelify Sans', monospace; font-size: 1.8em; letter-spacing: .2em; color: #f0d8a0; text-shadow: 0 0 1em #000, 0 3px 0 #000; }
-#banner span { color: var(--honey); letter-spacing: .3em; }
+#banner span { color: var(--honey); letter-spacing: .06em; font-size: .8em; display: block; max-width: 80%; margin: .2em auto 0; }
 #slowmo { position: absolute; top: .6em; left: 50%; transform: translateX(-50%); font-size: .65em; letter-spacing: .3em; color: var(--dim); }
 
 /* ---------- hex menu ---------- */

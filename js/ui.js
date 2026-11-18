@@ -15,7 +15,7 @@ UI.init = function () {
   const root = $('#ui');
   root.innerHTML = `
   <div id="title-ui" class="hide">
-    <div class="t-sub">a descent into the dark, one survivor at a time</div>
+    <div class="t-sub">a descent into the deep caves, one diver at a time</div>
     <div class="t-menu">
       <button class="t-btn" data-a="play">PLAY</button>
       <button class="t-btn" data-a="settings">SETTINGS</button>
@@ -68,7 +68,7 @@ UI.tick = function (dt) {
   const s = $('#say'); if (UI.sayT > 0) { UI.sayT -= dt; const sp = UI.toScreen(p.x, p.y - p.h - 16); s.style.left = sp.x + 'px'; s.style.top = sp.y + 'px'; s.style.opacity = Math.min(1, UI.sayT); if (UI.sayT <= 0) s.classList.add('hide'); }
   // interaction prompt
   const pr = $('#prompt'); const tgt = !UI.panel && !UI.hexOpen && p.alive && !p.search && !p.treating ? g.interactTarget() : null;
-  if (tgt) { const sp = UI.toScreen(tgt.x, (tgt.y || p.y) - (tgt.type === 'elevator' ? 40 : 20)); let lab = tgt.label || 'Interact'; if (tgt.type === 'container') lab = (tgt.searched ? 'Open ' : tgt.locked ? 'Breach ' : 'Search ') + lab + (tgt.locked ? ' 🔒' : ''); else if (tgt.isNPC) lab = (tgt.kind === 'trader' ? 'Trade with ' : 'Talk to ') + tgt.label; else if (tgt.type === 'elevator') lab = tgt.kind === 'descent' ? 'Enter Descent Elevator' : tgt.label; pr.innerHTML = '<b>[E]</b> ' + esc(lab); pr.style.left = sp.x + 'px'; pr.style.top = sp.y + 'px'; pr.classList.remove('hide'); } else pr.classList.add('hide');
+  if (tgt) { const sp = UI.toScreen(tgt.x, (tgt.y || p.y) - (tgt.type === 'elevator' ? 40 : 20)); let lab = tgt.label || 'Interact'; if (tgt.type === 'container') lab = (tgt.searched ? 'Open ' : tgt.locked ? 'Breach ' : 'Search ') + lab + (tgt.locked ? ' 🔒' : ''); else if (tgt.isNPC) lab = (tgt.kind === 'trader' ? 'Trade with ' : 'Talk to ') + tgt.label; else if (tgt.type === 'elevator') lab = tgt.kind === 'descent' ? 'Ride the Descent Lift' : tgt.label; pr.innerHTML = '<b>[E]</b> ' + esc(lab); pr.style.left = sp.x + 'px'; pr.style.top = sp.y + 'px'; pr.classList.remove('hide'); } else pr.classList.add('hide');
   // progress bar
   const pg = $('#prog'); const act = p.treating || p.search; if (act) { const sp = UI.toScreen(p.x, p.y - p.h - 4); pg.style.left = sp.x + 'px'; pg.style.top = sp.y + 'px'; pg.firstChild.style.width = (act.t / act.dur * 100) + '%'; pg.dataset.l = p.treating ? (p.treating.op === 'removeTq' ? 'Loosening' : 'Treating ' + NE.PART_NAMES[p.treating.part]) : 'Searching'; pg.classList.remove('hide'); } else pg.classList.add('hide');
   $('#slowmo').classList.toggle('hide', !(UI.panel || UI.hexOpen) || g.state !== 'run');
@@ -78,10 +78,10 @@ UI.tick = function (dt) {
 };
 UI.hudUpdate = function () {
   const g = G(), p = g.player, A = p.anat;
-  if (g.state === 'lobby') { const M = g.meta; $('#lobbybar').innerHTML = '<b>STAGING LOBBY</b><span>' + icn('coin', null, 2) + ' ' + M.scrap + ' scrap</span><span>' + icn('star', null, 2) + ' ' + M.points + ' skill pts</span><span>Lv ' + M.level + '</span><span class="dim">[E] use station • [M] menu • RMB drag objects</span>'; }
+  if (g.state === 'lobby') { const M = g.meta; $('#lobbybar').innerHTML = '<b>BASE CAMP</b><span>' + icn('coin', null, 2) + ' ' + M.scrap + ' scrap</span><span>' + icn('star', null, 2) + ' ' + M.points + ' skill pts</span><span>Lv ' + M.level + '</span><span class="dim">[E] use station • [M] menu • RMB drag objects</span>'; }
   const d = NE.depthOfY(p.y); const fl = g.world.lobby ? null : g.curFloor();
   $('.d-num').innerHTML = (g.world.lobby ? '0000' : String(Math.round(d)).padStart(4, '0')) + '<small>m</small>';
-  $('.d-bio').textContent = fl ? fl.biome.name : 'Staging Lobby';
+  $('.d-bio').textContent = fl ? fl.biome.name : 'Base Camp';
   const next = (Math.floor(d / 250) + 1) * 250; $('.d-fill').style.width = ((d % 250) / 250 * 100) + '%'; $('.d-ticks').textContent = fl ? '▸ ' + next + 'm extraction' : '';
   if (fl) { let thr = 1 + Math.floor(fl.depth / 300); if (g.env.threat) thr += 1; if (g.blackout > 0) thr += 1; thr = Math.min(5, thr); $('.d-threat').innerHTML = 'THREAT ' + '<i class="on">☠</i>'.repeat(thr) + '<i>☠</i>'.repeat(5 - thr); } else $('.d-threat').innerHTML = '';
   // portrait conditions (top 3)
@@ -128,12 +128,12 @@ UI.openHex = function () { if (UI.panel) UI.close(); UI.hexOpen = true; $('#hex'
 UI.closeHex = function () { UI.hexOpen = false; $('#hex').classList.add('hide'); };
 UI.quitPrompt = function () {
   const g = G(); UI.closeHex();
-  if (g.state === 'run') UI.dialog('Abandon this run?', 'Your survivor will be left for dead down here. You keep 40% of earned Survival Data.', [{ label: 'Abandon run', fn: () => { g.player.anat.cause = 'Abandoned'; g.endRun(false, 'Abandoned in the dark'); } }, { label: 'Quit to title (abandons run)', fn: () => { g.endRun(false, 'Abandoned in the dark'); setTimeout(() => { UI.closeAll(); g.toTitle(); }, 50); } }, { label: 'Keep going' }]);
+  if (g.state === 'run') UI.dialog('Abandon this run?', 'Your diver will be left for dead down here. You keep 40% of earned Survival Data.', [{ label: 'Abandon run', fn: () => { g.player.anat.cause = 'Abandoned'; g.endRun(false, 'Abandoned in the dark'); } }, { label: 'Quit to title (abandons run)', fn: () => { g.endRun(false, 'Abandoned in the dark'); setTimeout(() => { UI.closeAll(); g.toTitle(); }, 50); } }, { label: 'Keep going' }]);
   else UI.dialog('Leave the lobby?', 'Return to the title screen.', [{ label: 'Title screen', fn: () => UI.fade(() => g.toTitle()) }, { label: 'Stay' }]);
 };
 
 // ---------------- panels ----------------
-const TITLES = { changelog: 'UPDATE LOG', status: 'STATUS', inventory: 'INVENTORY', health: 'ANATOMY & TRIAGE', craft: 'CRAFTING', map: 'MAP', journal: 'JOURNAL', skills: 'SKILL WEB', settings: 'SETTINGS', wardrobe: 'GEAR LOCKER & BACKPACK RACK', shop: 'QUARTERMASTER', dossier: 'SURVIVOR DOSSIER', loot: 'LOOT', trade: 'MASKED TRADER', cemetery: 'RUN ARCHIVE — CEMETERY' };
+const TITLES = { changelog: 'UPDATE LOG', status: 'STATUS', inventory: 'INVENTORY', health: 'ANATOMY & TRIAGE', craft: 'CRAFTING', map: 'MAP', journal: 'JOURNAL', skills: 'SKILL WEB', settings: 'SETTINGS', wardrobe: 'GEAR RACK & BACKPACKS', shop: 'QUARTERMASTER', dossier: 'DIVER DOSSIER', loot: 'LOOT', trade: 'WANDERING TRADER', cemetery: 'RUN ARCHIVE — CEMETERY' };
 UI.open = function (name, arg) {
   const g = G(); if (UI.hexOpen) UI.closeHex(); if (UI.tree) { UI.tree.destroy(); UI.tree = null; } UI.ecg = null;
   const runOnly = ['status', 'inventory', 'health', 'craft', 'map', 'journal']; if (runOnly.includes(name) && !g.player) return;

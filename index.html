@@ -17,7 +17,7 @@
 // Boot loader: reads version.json (never cached) and loads every file with ?v=<version>,
 // so a new release always pulls fresh code instead of stale cached copies.
 (function () {
-  var files = ['data', 'sprites', 'audio', 'physics', 'survivor', 'world', 'entities', 'skilltree', 'ui', 'game', 'update'];
+  var files = ['data', 'atlas', 'sprites', 'audio', 'physics', 'survivor', 'world', 'entities', 'skilltree', 'ui', 'game', 'update'];
   function boot(v) {
     var top = v.log && v.log[0]; v.version = v.version || (top && top.version); window.NE_BOOT_VERSION = v.version || null; window.NE_VERSION_INFO = v;
     var q = '?v=' + encodeURIComponent(v.version || Date.now());

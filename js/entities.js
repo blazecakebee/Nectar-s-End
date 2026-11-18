@@ -41,7 +41,8 @@ class Actor {
       const lx = this.ladderX(); if (lx != null) this.x = lerp(this.x, lx, 0.3); if (this.vy) this.climbPh += dt * 8;
       this.y += this.vy * dt; this.collideY(this.y - this.vy * dt, true); this.onGround = false; return { landed: 0 };
     }
-    const tgt = c.mx * spd; const acc = this.onGround ? 520 : 170;
+    const under = W.get(Math.floor(this.x / T), Math.floor((this.y + 1) / T)); this.onIce = this.onGround && under === 10;
+    const tgt = c.mx * spd * (this.onIce ? 1.1 : 1); const acc = this.onIce ? 70 : this.onGround ? 520 : 170;
     if (this.vx < tgt) this.vx = Math.min(tgt, this.vx + acc * dt); else if (this.vx > tgt) this.vx = Math.max(tgt, this.vx - acc * dt);
     if (c.mx) this.facing = c.mx > 0 ? 1 : -1;
     if (c.jump && this.onGround && !this.crawl && legs.broken < 2 && A.stam > 4) { this.vy = -192 * (legs.broken ? 0.7 : 1) * (inWater ? 0.8 : 1); this.onGround = false; A.stam -= 6; if (c.down) { this.vy = 0; this.dropT = 0.25; } }
@@ -59,8 +60,15 @@ class Actor {
   blockedAbove(h) { const W = this.g.world; const l = this.x - this.w / 2 + 0.5, r = this.x + this.w / 2 - 0.5; const ty = Math.floor((this.y - h) / T); for (const xx of [l, r]) if (W.solid(W.get(Math.floor(xx / T), ty))) return true; return false; }
   collideX() {
     const W = this.g.world; const t = this.y - this.h + 0.5, b = this.y - 0.5; const ty0 = Math.floor(t / T), ty1 = Math.floor(b / T);
-    if (this.vx > 0) { const tx = Math.floor((this.x + this.w / 2) / T); for (let ty = ty0; ty <= ty1; ty++) if (W.solid(W.get(tx, ty))) { this.x = tx * T - this.w / 2 - 0.01; this.vx = 0; this.bumped = 1; break; } }
-    else if (this.vx < 0) { const tx = Math.floor((this.x - this.w / 2) / T); for (let ty = ty0; ty <= ty1; ty++) if (W.solid(W.get(tx, ty))) { this.x = (tx + 1) * T + this.w / 2 + 0.01; this.vx = 0; this.bumped = -1; break; } }
+    if (this.vx > 0) { const tx = Math.floor((this.x + this.w / 2) / T); for (let ty = ty0; ty <= ty1; ty++) if (W.solid(W.get(tx, ty))) { if (ty === ty1 && this.tryStep(tx)) break; this.x = tx * T - this.w / 2 - 0.01; this.vx = 0; this.bumped = 1; break; } }
+    else if (this.vx < 0) { const tx = Math.floor((this.x - this.w / 2) / T); for (let ty = ty0; ty <= ty1; ty++) if (W.solid(W.get(tx, ty))) { if (ty === ty1 && this.tryStep(tx)) break; this.x = (tx + 1) * T + this.w / 2 + 0.01; this.vx = 0; this.bumped = -1; break; } }
+  }
+  // walk up 1-tile cave steps automatically
+  tryStep(tx) {
+    const W = this.g.world; if (!this.onGround || this.climbing) return false; const ty = Math.floor((this.y - 0.5) / T); if (!W.solid(W.get(tx, ty))) return false;
+    const ny = ty * T; const r0 = Math.floor((ny - this.h + 0.5) / T);
+    for (let r = r0; r < ty; r++) { if (W.solid(W.get(tx, r))) return false; for (const xx of [this.x - this.w / 2 + 0.2, this.x + this.w / 2 - 0.2]) if (W.solid(W.get(Math.floor(xx / T), r))) return false; }
+    this.y = ny; this.stepped = 0.1; return true;
   }
   collideY(prevY, climbing) {
     const W = this.g.world; const tx0 = Math.floor((this.x - this.w / 2 + 0.2) / T), tx1 = Math.floor((this.x + this.w / 2 - 0.2) / T); let landed = false;
@@ -346,7 +354,7 @@ NE.applyTreatment = function (pl, entry, part, op) {
     case 'drug': {
       const d = it.drug; A.drugs[d] = 1; use();
       if (d === 'adrenaline') { A.stam = A.stamMax; A.cons = Math.max(A.cons, 40); if (A.uncon) A.uncon = false; }
-      g.toast({ painkiller: 'Swallowed painkillers.', morphine: 'Morphine. Warm and distant.', antibiotic: 'Took antibiotics.', antirad: 'Took anti-rad.', adrenaline: 'ADRENALINE.', blood: 'Transfusing...' }[d]); break;
+      g.toast({ painkiller: 'Swallowed painkillers.', morphine: 'Morphine. Warm and distant.', antibiotic: 'Took antibiotics.', antirad: 'Took anti-rad.', adrenaline: 'ADRENALINE.', blood: 'Transfusing...', herb: 'Chewed a bitter herb. The pain dulls.' }[d]); break;
     }
   }
   if (chance(0.3)) g.say(pick(NE.MONO.treat), 0.3);
