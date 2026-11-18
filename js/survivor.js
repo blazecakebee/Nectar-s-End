@@ -442,24 +442,44 @@ NE.drawHuman = function (ctx, rag, look, o) {
   limb(1, 5, 6, shirt, skin, fr + 'arm', false); if (sv[fr + 'arm']) { stump(p[1], f); return; } hand(p[6], false);
   if ((o.arch === 'stalker' || o.arch === 'trog') && !o.dead) { const q = p[6], L = o.arch === 'stalker' ? 4 : 2; for (let k = -1; k <= 1; k++) NE.pline(ctx, q.x, q.y, q.x + f * L, q.y + k * 1.5 + 1, 1, '#e8e2d0'); }
   if (o.arch === 'burrower' && !o.dead) { const hx2 = Math.round(p[0].x), hy2 = Math.round(p[0].y); R(hx2 + f * 3, hy2 + 2, 2, 1, '#2a1a0a'); R(hx2 + f * 4, hy2 + 3, 1, 1, '#2a1a0a'); }
-  // weapon
+  // weapon: a little pixel model per item, rotated pixel-perfect around the hand
   if (o.weapon) {
     const it = NE.ITEMS[o.weapon]; const hxw = p[6].x, hyw = p[6].y;
-    if (it && it.gun) { const d = o.aimDir || { x: f, y: 0 }; const L = { rifle: 11, hunting: 13, shotgun: 11, smg: 8, revolver: 7 }[it.id] || 6; const gc = it.id === 'revolver' ? '#8a8e94' : '#24242a'; NE.pline(ctx, hxw, hyw, hxw + d.x * L, hyw + d.y * L, it.id === 'hunting' || it.id === 'shotgun' ? 2 : 2, gc); NE.pline(ctx, hxw, hyw - 1, hxw + d.x * L, hyw + d.y * L - 1, 1, '#3c3c46'); if (it.twoHand) NE.pline(ctx, hxw - d.x * 3, hyw - d.y * 3 + 1, hxw, hyw, 2, it.col && it.id !== 'rifle' ? it.col : '#5a3a20'); if (it.id === 'smg') R(hxw + d.x * 3, hyw + 1, 1, 3, '#24242a'); else R(hxw - 1, hyw + 1, 1, 2, '#24242a'); }
-    else if (it && it.melee) {
-      let dx = p[6].x - p[5].x, dy = p[6].y - p[5].y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; if (o.wdir) { dx = o.wdir.x; dy = o.wdir.y; }
-      const len = (NE.Combat && NE.Combat.WLEN[it.id]) || 7; const col = { pipe: '#8a8f94', knife: '#d0d0d0', shiv: '#a0a0a0', crowbar: '#a0302a', axe: '#6a4a2a', pickaxe: '#6a4a2a', machete: '#3a2a1a', fireaxe: '#a02820', sledge: '#6a4a2a', spear: '#8a6a40', leadpipe: '#7a8088', baton: '#1e2024', cleaver: '#3a2a1a' }[it.id] || '#888';
-      NE.pline(ctx, hxw, hyw, hxw + dx * len, hyw + dy * len, it.id === 'knife' || it.id === 'shiv' ? 1 : 2, col);
-      const tx = hxw + dx * len, ty = hyw + dy * len;
-      if (it.id === 'axe') { R(tx - 1, ty - 1, 3, 3, '#c0c4c8'); }
-      if (it.id === 'pickaxe') { NE.pline(ctx, tx - dy * 3, ty + dx * 3, tx + dy * 3, ty - dx * 3, 1, '#b0b4b8'); }
-      if (it.id === 'pipe') R(tx - 1, ty - 1, 3, 3, '#6a6f74');
-      if (it.id === 'machete' || it.id === 'cleaver') { NE.pline(ctx, hxw + dx * 2, hyw + dy * 2, tx, ty, it.id === 'cleaver' ? 2 : 1, '#d8dce0'); }
-      if (it.id === 'fireaxe') { R(tx - 2, ty - 2, 4, 4, '#c8ccd0'); R(tx - 1, ty - 1, 2, 2, '#e0e4e8'); }
-      if (it.id === 'sledge') { NE.pline(ctx, tx - dy * 3, ty + dx * 3, tx + dy * 3, ty - dx * 3, 3, '#4a4e52'); NE.pline(ctx, tx - dy * 3, ty + dx * 3, tx + dy * 3, ty - dx * 3, 2, '#6a6e72'); }
-      if (it.id === 'spear') { NE.pline(ctx, tx, ty, tx + dx * 3, ty + dy * 3, 1, '#d0d0d0'); R(tx - 1, ty - 1, 2, 2, '#b0b4b8'); }
-    }
+    if (it && it.gun) { const d = o.aimDir || { x: f, y: 0 }; NE.drawWeapon(ctx, it.id, hxw, hyw, d.x, d.y, f); }
+    else if (it && it.melee) { let dx = p[6].x - p[5].x, dy = p[6].y - p[5].y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; if (o.wdir) { dx = o.wdir.x; dy = o.wdir.y; } NE.drawWeapon(ctx, it.id, hxw, hyw, dx, dy, f); }
   }
+};
+// ---- weapon models: rows run across the weapon (middle row = the handle line), columns run from the butt to the tip.
+// g = column the hand grips. Palette: w/W wood, m/M metal, h shine, b edge, k black, r red, g grip tape, f/F flint, y brass
+const WPAL = { w: '#8a6038', W: '#5a3a1e', m: '#b0b4ba', M: '#6e737a', h: '#f2f6fa', b: '#dde2e8', k: '#3a3d44', r: '#a02820', g: '#3a3028', f: '#8a8070', F: '#5a5248', y: '#c09040', s: '#7a8088', S: '#4a5058' };
+NE.WMODELS = {
+  pipe: { g: 1, r: ['         mM ', '        mmhm', '        mmMm', 'WwwwwwwwwMmm', '        mMm ', '         mM ', '          M '] },
+  knife: { g: 1, r: ['    hbbb  ', 'kkkMmmmmmh', '   M      '] },
+  shiv: { g: 1, r: ['   fff  ', 'ggWffffF', '   ff   '] },
+  crowbar: { g: 1, r: ['k           ', 'rrrrrrrrrrrk', '          kk', '         k  '] },
+  axe: { g: 1, r: ['           mm  ', '          mhmmm', 'WwwwwwwwwwwMm  ', '          mM   ', '          m    '] },
+  pickaxe: { g: 1, r: ['        mm   ', '         mm  ', 'WwwwwwwwwwMM ', '         mm  ', '        mm   '] },
+  machete: { g: 1, r: ['    hbbbbbbb ', 'kkkMmmmmmmmmh', '    mmmmmmmm '] },
+  fireaxe: { g: 1, r: ['          mmmm', '          mhmm', 'rrrrrrrrrrrMm ', '          Mm  ', '           M  '] },
+  sledge: { g: 1, r: ['          MMMM', '          mmmm', 'WwwwwwwwwwmhmM', '          mmmm', '          MMMM'] },
+  spear: { g: 5, r: ['                    hm  ', 'WwwwwwwwwwwwwwwwwwwyMmmmh', '                    mm  '] },
+  leadpipe: { g: 1, r: ['         SS ', 'ssssshsssSSs', '         SS '] },
+  baton: { g: 2, r: ['  k       ', 'kkkkkkkkkkk', '          '] },
+  cleaver: { g: 1, r: ['    hbbbbb', 'WWWMmmmmmb', '    mmmmmb', '    MMMMMb'] },
+  pistol: { g: 1, c: 1, r: ['kkkkkkk', 'kMMMMMh', 'kk     ', 'k      '] },
+  revolver: { g: 1, c: 1, r: [' mmmmmmmm', 'mmMMmmmmh', 'WW       ', 'W        '] },
+  smg: { g: 4, c: 1, r: ['   kkkkkkk  ', 'kkkkMMMMMMMh', 'k   kk k    ', '     k k    '] },
+  rifle: { g: 5, c: 1, r: ['     kkkkkkkkk    ', 'wwwwwkMMMMMMMMMMMh', 'ww   kk  kk       ', '         k        '] },
+  shotgun: { g: 5, c: 1, r: ['       kkkkkkkkkk  ', 'wwwwwkkMMMMMMMMMMMh', 'ww    k  wwwww     '] },
+  hunting: { g: 6, c: 2, r: ['       MkkM          ', '     kkkkkkkkkkkk     ', 'wwwwwwMMMMMMMMMMMMMMh', 'ww    kk             '] },
+};
+NE.drawWeapon = function (ctx, id, hx, hy, dx, dy, f) {
+  const W = NE.WMODELS[id]; if (!W) { NE.pline(ctx, hx, hy, hx + dx * 7, hy + dy * 7, 2, '#888'); return; }
+  const rows = W.r, c = W.c != null ? W.c : Math.floor(rows.length / 2), cols = Math.max(...rows.map(r => r.length));
+  const nx = -dy * f, ny = dx * f; // across the weapon; flipped with facing so the 'top' rows stay on top
+  const reach = Math.max(cols - W.g, W.g) + rows.length; const x0 = Math.floor(hx - reach), x1 = Math.ceil(hx + reach), y0 = Math.floor(hy - reach), y1 = Math.ceil(hy + reach);
+  for (let py = y0; py <= y1; py++) for (let px = x0; px <= x1; px++) { const ox = px + 0.5 - hx, oy = py + 0.5 - hy; const u = Math.round(ox * dx + oy * dy) + W.g, v = Math.round(ox * nx + oy * ny) + c;
+    if (v < 0 || v >= rows.length || u < 0) continue; const ch = rows[v][u]; if (!ch || ch === ' ') continue; ctx.fillStyle = WPAL[ch] || '#888'; ctx.fillRect(px, py, 1, 1); }
 };
 // hair on the 6x6 in-world head (X0,Y0 = top-left), from the same recipes as the portraits
 NE.drawHair6 = function (ctx, hs, X0, Y0, f, c, d) {

@@ -1,6 +1,16 @@
 {
  "log": [
   {
+   "version": "0.6.8",
+   "date": "2026-11-18",
+   "title": "Real weapon models",
+   "changes": [
+    "Every weapon now has its own pixel model in your hands. These are drawn pixel-by-pixel and turn with your aim without blurring.",
+    "Melee weapons: the Rock Hammer has a hammer face and pick, the Ice Axe and Fire Axe have proper heads, the pickaxe has a curved double pick, and the sledgehammer has a big block head. The crowbar has a hooked claw, the spear has a leaf-shaped tip, and the knife, machete, cleaver, lead pipe, riot baton and flint dagger each have their own look.",
+    "Guns get their own shapes too: pistol, revolver, SMG, battle rifle, pump shotgun, and a scoped .50 hunting rifle, with wooden stocks behind the hand."
+   ]
+  },
+  {
    "version": "0.6.7",
    "date": "2026-11-18",
    "title": "Fairer depths, rewarding fights",
