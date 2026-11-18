@@ -1,6 +1,22 @@
 {
  "log": [
   {
+   "version": "0.4.3",
+   "date": "2026-11-18",
+   "title": "Clean faces & full hair",
+   "changes": [
+    "Portraits: faces are now just clean skin. Scars, freckles, stubble specks, age lines, jaw stripes, earrings and the random neck pixels are gone.",
+    "Blush only shows on women now.",
+    "Every hairstyle now covers the whole scalp and both sides of the head, in portraits and in-game, so nobody has the 'hood' look anymore. Side hair sits outside the face edge instead of stepping in over the cheeks.",
+    "Hair has strand shading instead of flat color.",
+    "20 new hairstyles: pompadour, side part, crop, mullet, topknot, emo, tall spikes, slick-back, lob, shag, layered, half-up, side braid, bangs bob, long curls, pigtails, locs, bowl cut, tousled, and an ahoge cut.",
+    "Women have a more feminine in-game silhouette (bust, waist and hips) that every shirt and armor follows.",
+    "Swimming: you can stroke upward from any depth and haul yourself out of flooded pits onto a ledge.",
+    "Wall climbing: hold W against a rock face to latch on and climb for up to 2 seconds, then pull yourself over the edge.",
+    "New arm-over-arm crawl animation, with legs dragging limp when they're broken or gone."
+   ]
+  },
+  {
    "version": "0.4.2",
    "date": "2026-11-18",
    "title": "Honey cursor & new Status tab",

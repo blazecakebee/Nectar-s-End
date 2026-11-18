@@ -285,7 +285,13 @@ NE.ragPose = function (a) {
   const f = a.facing; const P = BASE.map(p => [p[0], p[1]]); const ph = a.walkPh || 0; const s = Math.sin(ph), c = Math.cos(ph);
   const mv = Math.min(1, Math.abs(a.vx) / 55);
   if (a.crawl) {
-    const o = [[6, -2.5], [3, -2.6], [-2, -2], [4.5, -1], [6 + s * 1.5, 0], [3, -1], [5 - s * 1.5, 0], [-4, -1.2], [-7 + s, -1.6], [-4, -1.2], [-7 - s, -1.6]];
+    // continuous arm-over-arm drag: each hand reaches forward (lifted), plants, then hauls the body past it
+    const arm = q => { const t = ((q % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI * 2); const reach = t < 0.35; const k = reach ? t / 0.35 : (t - 0.35) / 0.65;
+      const hx = reach ? lerp(1.5, 8.5, k) : lerp(8.5, 1.5, k); const hy = reach ? -Math.sin(k * Math.PI) * 2.2 : 0; return [[(hx + 3) * 0.5 + 1.5, -1.6 + hy * 0.4], [hx, hy]]; };
+    const idle = mv < 0.05; const A1 = arm(ph), A2 = arm(ph + Math.PI); const heave = idle ? 0 : Math.sin(ph * 2) * 0.35;
+    const dead = a.legsOut; // broken / severed legs trail limp behind
+    const o = [[6.2 + heave, -2.6], [3 + heave, -2.4], [-2, -1.7], A2[0], idle ? [6, 0] : A2[1], A1[0], idle ? [5, 0] : A1[1],
+      [-4.2, -1.1], dead ? [-8.2, -0.6] : [-7.4 + s * 0.8, -1.4 - Math.max(0, s) * 0.6], [-4, -1.2], dead ? [-8, -0.4] : [-7.4 - s * 0.8, -1.4 - Math.max(0, -s) * 0.6]];
     for (let i = 0; i < 11; i++) { P[i][0] = o[i][0]; P[i][1] = o[i][1]; }
   } else if (a.climbing) {
     const al = Math.sin((a.climbPh || 0));
@@ -295,6 +301,11 @@ NE.ragPose = function (a) {
     P[0] = [1.2, -10]; P[1] = [0.6, -7.5]; P[2] = [-0.5, -4]; P[7] = [1.5, -3]; P[8] = [-1, 0]; P[9] = [2.5, -2.6]; P[10] = [1.5, 0];
     P[3] = [0, -5]; P[4] = [1, -3]; P[5] = [1.5, -5]; P[6] = [2.5, -3];
     if (mv > 0.1) { P[8][0] += s * 1.5; P[10][0] -= s * 1.5; }
+  } else if (a.wallClimb) {
+    const al = Math.sin((a.climbPh || 0)); // hands claw up the rock face alternately, knees push
+    P[0] = [1.2, -14]; P[1] = [0.8, -11]; P[2] = [0.4, -6.5];
+    P[5] = [2.4, -12 + al]; P[6] = [3, -15 + al * 2]; P[3] = [2, -11 - al]; P[4] = [2.8, -14 - al * 2];
+    P[9] = [2.4, -4.5 - al]; P[10] = [2.6, -1.5 - al * 1.5]; P[7] = [1.8, -4 + al]; P[8] = [2.2, -1 + al * 1.5];
   } else if (a.wallSliding) {
     P[3] = [1.5, -12]; P[4] = [2.5, -14]; P[5] = [2, -11]; P[6] = [3, -13.5]; P[7] = [1.5, -4.5]; P[8] = [2.5, -2]; P[9] = [0.5, -4]; P[10] = [0, -1]; P[0] = [-0.5, -14];
   } else if (!a.onGround) {
@@ -363,7 +374,14 @@ NE.drawHuman = function (ctx, rag, look, o) {
   if (o.pack) { const dx = p[2].x - p[1].x, dy = p[2].y - p[1].y; const L = Math.hypot(dx, dy) || 1; const nx = dy / L * f, ny = -dx / L * f; const bx = p[1].x - f * 3 + nx * 0, by = p[1].y + 1;
     NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 5, OL(o.pack[0])); NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 4, N(o.pack[0])); R(bx - 1 + (f > 0 ? 0 : 1), by + dy * 0.35, 2, 1, N(o.pack[1])); R(bx - (f > 0 ? 2 : -1), by + 1, 1, Math.round(dy * 0.5), NE.shade(o.pack[0], 0.8)); }
   // torso: 5px with outline, belt, collar
-  const tc = o.vest ? '#3a3e36' : shirt; NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 6, OL(tc)); NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 5, N(tc));
+  const tc = o.vest ? '#3a3e36' : shirt, FEM = look.sex === 'f';
+  if (FEM) { // feminine silhouette: bust, cinched waist, wider hips — follows the torso so every shirt/armour inherits it
+    const lx = (t) => p[1].x + (p[2].x - p[1].x) * t, ly = (t) => p[1].y + (p[2].y - p[1].y) * t;
+    NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 5, OL(tc)); NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 4, N(tc));
+    NE.pline(ctx, lx(0.12), ly(0.12), lx(0.4), ly(0.4), 6, OL(tc)); NE.pline(ctx, lx(0.12), ly(0.12), lx(0.38), ly(0.38), 5, N(tc));
+    R(lx(0.3) + f * 2, ly(0.3), 1, 2, OL(tc)); R(lx(0.28) + (f > 0 ? 1 : -1), ly(0.26), 1, 2, N(tc)); R(lx(0.3) + f * 1, ly(0.42), 1, 1, NE.shade(tc, 0.75 * dark));
+    NE.pline(ctx, lx(0.82), ly(0.82), p[2].x, p[2].y + 1, 7, OL(pants)); NE.pline(ctx, lx(0.84), ly(0.84), p[2].x, p[2].y + 1, 6, N(pants));
+  } else { NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 6, OL(tc)); NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 5, N(tc)); }
   NE.pline(ctx, p[1].x + f * 1.5, p[1].y + 1, p[2].x + f * 1.5, p[2].y - 1, 1, NE.shade(tc, 1.12 * dark));
   R(p[2].x - 2, p[2].y - 1, 5, 2, N(pants)); R(p[2].x - 2, p[2].y - 2, 5, 1, '#2a2018');
   if (o.vest) { R(p[1].x - 2, p[1].y + 2, 5, 1, '#5a6050'); R(p[1].x - 2, p[1].y + 5, 5, 1, '#5a6050'); }
@@ -416,11 +434,12 @@ NE.drawHair6 = function (ctx, hs, X0, Y0, f, c, d) {
   const H = (NE.HAIRSTYLES || {})[hs] || {}; const R = (x, y, w, h, col) => { ctx.fillStyle = col || c; ctx.fillRect(x, y, w, h); };
   const bx = f > 0 ? X0 : X0 + 5, out = f > 0 ? X0 - 1 : X0 + 6, front = f > 0 ? X0 + 5 : X0;
   if (H.cap === 0) return;
-  if (H.cap === 'buzz') { R(X0, Y0, 6, 1, d); R(X0, Y0 - 1, 6, 1, d); return; }
+  if (H.cap === 'buzz') { R(X0, Y0, 6, 1, d); R(X0, Y0 - 1, 6, 1, d); R(bx, Y0 + 1, 1, 2, d); return; }
   if (H.cap === 'mohawk') { R(X0 + 2, Y0 - 3, 2, 3); R(X0, Y0, 6, 1, d); return; }
   const v = H.vol || 0;
   if (v > 4) { R(X0 - 1, Y0 - 3, 8, 4); R(X0 - 2, Y0 - 2, 10, 2); R(out, Y0 + 1, 1, 3); R(X0, Y0 - 3, 6, 1, NE.shade(c, 1.3)); return; }
-  R(X0, Y0 - 1, 6, 2); R(X0 + 1, Y0 - 2, 4, 1); R(bx, Y0 + 1, 1, 2); R(X0 + 1, Y0 - 2, 2, 1, NE.shade(c, 1.35));
+  R(X0, Y0 - 1, 6, 2); R(X0 + 1, Y0 - 2, 4, 1); R(X0 - 1, Y0 - 1, 1, 3); R(X0 + 6, Y0 - 1, 1, 3); R(bx, Y0 + 1, 1, 3); R(front, Y0 + 1, 1, 1);
+  R(X0 + 1, Y0 - 2, 2, 1, NE.shade(c, 1.35)); R(X0 + (f > 0 ? 1 : 4), Y0, 1, 1, d); R(X0 + 3, Y0 - 1, 1, 1, NE.shade(c, 0.8));
   if (H.shave) R(front - (f > 0 ? 2 : 0), Y0, 3, 1, d);
   if (v >= 2 || H.spikes) { for (let i = 0; i < 6; i += 2) R(X0 + i, Y0 - 3, 1, 1); R(out, Y0 - 1, 1, 2); }
   if (H.bang === 'up') { R(front - f, Y0 - 3, 2, 1); R(front, Y0 - 2, 1, 1); }
@@ -475,9 +494,17 @@ const HP = NE.HAIRSTYLES = {
   pixie: { bang: 'swept', vol: 1 }, bob: { bang: 'blunt', vol: 2, side: 1, back: 36, flat: 1 }, wavy: { bang: 'parted', vol: 2, side: 1, back: 48, wave: 1 }, hime: { bang: 'blunt', vol: 1, side: 2, back: 48, flat: 1 },
   longbangs: { bang: 'long', vol: 1, side: 1, back: 42 }, pony: { bang: 'jag', vol: 1, side: 1, tail: 'pony' }, ponyhigh: { bang: 'parted', vol: 1, side: 1, tail: 'high' }, twintails: { bang: 'blunt', vol: 1, side: 1, tail: 'twin' },
   bun: { bang: 'jag', vol: 1, side: 1, bun: 'top' }, spacebuns: { bang: 'blunt', vol: 1, side: 1, bun: 'double' }, braid: { bang: 'parted', vol: 1, side: 1, tail: 'braid' }, shaved: { bang: 'swept', vol: 1, shave: 1, back: 30 },
+  // v0.5 additions — male
+  pompadour: { bang: 'up', vol: 2 }, sidepart: { bang: 'parted', vol: 1 }, crop: { bang: 'blunt', vol: 0 }, mullet: { bang: 'jag', vol: 1, side: 1, back: 40 },
+  topknot: { bang: 'short', vol: 0, bun: 'top', shave: 1 }, emo: { bang: 'swept', vol: 2, side: 2 }, spikytall: { bang: 'jag', vol: 3, spikes: 1.6 }, slickback: { bang: 'none', vol: 1, ahoge: 1 },
+  // female
+  lob: { bang: 'parted', vol: 2, side: 2, back: 40 }, shag: { bang: 'curtain', vol: 2, side: 1, back: 42 }, layered: { bang: 'swept', vol: 2, side: 2, back: 50 }, halfup: { bang: 'parted', vol: 1, side: 1, back: 44, bun: 'top' },
+  sidebraid: { bang: 'swept', vol: 1, side: 1, tail: 'braid' }, bangsbob: { bang: 'blunt', vol: 2, side: 2, back: 34, flat: 1 }, longcurl: { bang: 'curl', vol: 3, side: 1, back: 50, wave: 1 }, pigtails: { bang: 'jag', vol: 1, side: 1, tail: 'twin' },
+  // unisex
+  locs: { bang: 'jag', vol: 2, back: 46, dread: 1, side: 1 }, bowl: { bang: 'blunt', vol: 2 }, tousled: { bang: 'jag', vol: 2, side: 1 }, ahoge: { bang: 'parted', vol: 1, side: 1, ahoge: 1 },
 };
-NE.HAIR_M = ['bald', 'buzz', 'fade', 'crew', 'short', 'quiff', 'slick', 'messy', 'spiky', 'curly', 'afro', 'mohawk', 'undercut', 'side', 'curtain', 'shaggy', 'wolf', 'lowtail', 'manbun', 'dreads', 'long'];
-NE.HAIR_F = ['pixie', 'bob', 'long', 'wavy', 'hime', 'longbangs', 'pony', 'ponyhigh', 'twintails', 'bun', 'spacebuns', 'braid', 'side', 'curtain', 'curly', 'afro', 'wolf', 'shaggy', 'shaved', 'dreads', 'buzz'];
+NE.HAIR_M = ['bald', 'buzz', 'fade', 'crew', 'short', 'quiff', 'slick', 'messy', 'spiky', 'curly', 'afro', 'mohawk', 'undercut', 'side', 'curtain', 'shaggy', 'wolf', 'lowtail', 'manbun', 'dreads', 'long', 'pompadour', 'sidepart', 'crop', 'mullet', 'topknot', 'emo', 'spikytall', 'slickback', 'locs', 'bowl', 'tousled', 'ahoge'];
+NE.HAIR_F = ['pixie', 'bob', 'long', 'wavy', 'hime', 'longbangs', 'pony', 'ponyhigh', 'twintails', 'bun', 'spacebuns', 'braid', 'side', 'curtain', 'curly', 'afro', 'wolf', 'shaggy', 'shaved', 'dreads', 'buzz', 'lob', 'shag', 'layered', 'halfup', 'sidebraid', 'bangsbob', 'longcurl', 'pigtails', 'locs', 'bowl', 'tousled', 'ahoge'];
 function buildPortrait(look, o) {
   const c = document.createElement('canvas'); c.width = PW; c.height = PH; const x = c.getContext('2d');
   const sk = NE.SKIN[look.skin] || '#d0a080', skS = NE.shade(sk, 0.84), skD = NE.shade(sk, 0.7), skH = NE.shade(sk, 1.07);
@@ -502,12 +529,12 @@ function buildPortrait(look, o) {
   for (let j = 46; j < PH; j++) { R(Math.round(cx - sw - (j - 46) * 0.6), j, 3, 1, shS); R(Math.round(cx + sw + (j - 46) * 0.6) - 3, j, 3, 1, shH); }
   R(cx - 4, 38, 8, 9, skS); R(cx - 4, 39, 8, 2, skD);
   for (let i = -6; i <= 6; i++) R(cx + i, 46 + Math.round((6 - Math.abs(i)) * 0.4), 1, 1, shH);
-  const acc = Math.floor(rnd(3, 3) * 4); if (acc === 1) { R(cx - 2, 47, 2, 2, '#a070d0'); R(cx + 1, 47, 2, 2, '#a070d0'); R(cx, 47, 1, 2, '#c8a0f0'); } else if (acc === 2) { R(cx, 47, 1, 2, '#e8d080'); } 
+  // (no random neck accessories — they read as stray pixels)
   // ---- face
   for (let j = 13; j <= 40; j++) { const w = headW(j); if (w <= 0) continue; const a = Math.round(cx - w), b = Math.round(cx + w); for (let i = a; i <= b; i++) R(i, j, 1, 1, i > b - 2 ? skS : sk); }
   for (const sd of [-1, 1]) ell(cx + sd * (wide + 0.3), 29, 1.6, 2.8, sd > 0 ? skS : sk);
-  if (look.earring) R(Math.round(cx - wide - 1), 32, 1, 2, '#f0d060');
-  for (let j = 33; j < 39; j++) R(Math.round(cx + headW(j)) - 2, j, 2, 1, skD);
+  // (no earring pixel)
+  // (clean face: no jaw stripe)
   // ---- eyes (gold = the Vespa)
   const eyeY = 26, gold = o.vespa; const iris = gold ? '#ffcc2a' : NE.EYEC[look.eyeCol || 0], irisD = gold ? '#b86a00' : NE.shade(iris, 0.55), irisL = gold ? '#fff2a0' : NE.shade(iris, 1.5);
   const closed = o.blink || o.expr === 'uncon' || o.expr === 'dead'; const eh = look.eyes === 2 ? 5 : 6;
@@ -527,25 +554,36 @@ function buildPortrait(look, o) {
   const bc = NE.shade(hc, 0.85), by = eyeY - 3 - (look.brow === 2 ? 1 : 0);
   for (const sd of [-1, 1]) { const ex = sd < 0 ? cx - 9 : cx + 3; const pain = o.expr === 'pain'; for (let k = 0; k < 5; k++) { const yy = by + (pain ? (sd < 0 ? (k > 2 ? -1 : 0) : (k < 2 ? -1 : 0)) : ((sd < 0 ? k === 0 : k === 4) ? 1 : 0)); R(ex + k + (sd < 0 ? 1 : 0), yy, 1, look.brow === 1 && !F ? 2 : 1, bc); } }
   // blush, nose, mouth
-  if (F || look.blush || o.expr === 'pain') { x.globalAlpha = 0.6; R(cx - 10, 33, 3, 2, '#ff8a9a'); R(cx + 7, 33, 3, 2, '#ff8a9a'); x.globalAlpha = 1; }
+  if (F && o.expr !== 'dead') { x.globalAlpha = 0.6; R(cx - 10, 33, 3, 2, '#ff8a9a'); R(cx + 7, 33, 3, 2, '#ff8a9a'); x.globalAlpha = 1; }
   R(cx, 33, 1, 1, skD);
   const my = 36;
   if (o.expr === 'pain') { R(cx - 3, my, 6, 2, '#5a1a1a'); R(cx - 2, my, 4, 1, '#f0ece0'); }
   else if (o.expr === 'dead') R(cx - 2, my + 1, 4, 1, '#5a3030');
   else { R(cx - 2, my, 4, 1, F ? '#b4505a' : NE.shade(sk, 0.55)); if (F) R(cx - 1, my + 1, 2, 1, '#e07888'); }
-  if (look.facial === 'stubble') for (let j = 33; j <= 40; j++) for (let i = cx - 9; i <= cx + 9; i++) if (Math.abs(i - cx) <= headW(j) - 1 && rnd(i, j) < 0.35 && j !== my) R(i, j, 1, 1, NE.shade(sk, 0.6));
-  if (look.facial === 'beard') for (let j = 32; j <= 42; j++) for (let i = cx - 11; i <= cx + 11; i++) { if (Math.abs(i - cx) > headW(j) + (j > 39 ? 1 : 0)) continue; if (j === my && Math.abs(i - cx) < 3) continue; if (j < 34 && Math.abs(i - cx) < 7) continue; R(i, j, 1, 1, (i + j) % 4 ? hc : hS); }
+  // (no stubble speckle — reads as dirt)
+  if (look.facial === 'beard') for (let j = 32; j <= 42; j++) for (let i = cx - 11; i <= cx + 11; i++) { if (Math.abs(i - cx) > headW(j) + (j > 39 ? 1 : 0)) continue; if (j === my && Math.abs(i - cx) < 3) continue; if (j < 34 && Math.abs(i - cx) < 7) continue; R(i, j, 1, 1, Math.abs(i - cx) > headW(j) - 1.5 ? hS : hc); }
   if (look.facial === 'mustache' || look.facial === 'goatee') { R(cx - 3, my - 1, 6, 1, hc); if (look.facial === 'goatee') R(cx - 1, my + 2, 2, 3, hc); }
-  if (look.freckles) for (let k = 0; k < 9; k++) R(cx - 8 + Math.floor(rnd(k, 1) * 16), 31 + Math.floor(rnd(1, k) * 3), 1, 1, NE.shade(sk, 0.75));
-  if (look.scar) for (let k = 0; k < 6; k++) R(cx + 5 + k, 22 + k, 1, 1, '#c87a7a');
-  if (o.age > 48) { R(cx - 10, eyeY + 6, 2, 1, skS); R(cx + 8, eyeY + 6, 2, 1, skS); }
+  // (no freckles)
+  // (no scar lines)
+  // (no age lines)
   // ---- hair cap, highlight, bangs, side locks
-  if (H.cap === 'buzz') for (let j = 11; j < 21; j++) for (let i = cx - 12; i <= cx + 12; i++) if (((i - cx) / 12) ** 2 + ((j - 21) / 10) ** 2 <= 1 && rnd(i, j) < 0.65) R(i, j, 1, 1, hS);
+  if (H.cap === 'buzz') for (let j = 11; j < 29; j++) for (let i = cx - 12; i <= cx + 12; i++) if (((i - cx) / 12) ** 2 + ((j - 21) / 10) ** 2 <= 1 && (j < 21 || Math.abs(i - cx) > headW(j) - 2.5) && rnd(i, j) < 0.82) R(i, j, 1, 1, rnd(j, i) < 0.3 ? hD : hS);
   if (H.cap === 'mohawk') { for (let j = 3; j < 19; j++) R(cx - 3, j, 6, 1, j < 6 ? hH : hc); for (let j = 13; j < 23; j++) for (let i = cx - 12; i <= cx + 12; i++) if (Math.abs(i - cx) > 3 && ((i - cx) / 12) ** 2 + ((j - 22) / 9) ** 2 <= 1 && rnd(i, j) < 0.4) R(i, j, 1, 1, hS); }
   if (H.cap === 0) R(cx - 6, 15, 4, 1, skH);
   if (H.cap === undefined) {
     const rx = wide + 2 + vol * 0.6, ry = 11.5 + vol * 0.4;
-    ell(cx, 23, rx, ry, hc, (i, j) => j <= 21 + (Math.abs(i - cx) > 8 ? 3 : 0) && !(H.shave && i > cx + 3 && j > 16));
+    // full scalp + temples down past the ears, so no style ever reads as a hood
+    const capClip = (i, j) => { const ax = Math.abs(i - cx); const lim = ax > 7 ? 29 + (H.side ? 2 : 0) : ax > 4 ? 22 : 20; if (j > 21 && ax < headW(j) + 0.5) return false; return j <= lim && !(H.shave && i > cx + 3 && j > 16); };
+    ell(cx, 23, rx, ry + 1, hc, capClip);
+    // strand texture: darker strand grooves following the scalp curve + lighter strands, so hair never looks flat
+    for (let j = Math.floor(23 - ry - 1); j <= 31; j++) for (let i = Math.floor(cx - rx); i <= Math.ceil(cx + rx); i++) {
+      const d = ((i + 0.5 - cx) / rx) ** 2 + ((j + 0.5 - 23) / (ry + 1)) ** 2; if (d > 1 || !capClip(i, j)) continue;
+      const lane = Math.round((i - cx) * (1 + (23 - j) * 0.03)); const k = ((lane % 4) + 4) % 4;
+      if (d > 0.82) R(i, j, 1, 1, hS); else if (k === 0 && rnd(i, j) < 0.75) R(i, j, 1, 1, NE.shade(hc, 0.8)); else if (k === 2 && rnd(j, i) < 0.3) R(i, j, 1, 1, NE.shade(hc, 1.12));
+    }
+    // temple / sideburn locks (cover the side of the head down to the ear on both sides)
+    // temple locks sit on the OUTSIDE of the face edge only — smooth, never stepping inward over the cheeks
+    for (const sd of [-1, 1]) for (let j = 20; j <= (F ? 31 : 28); j++) { const ex = Math.round(cx + sd * (headW(j) + 1)); R(ex, j, 1, 1, hc); R(ex + sd, j, 1, 1, hS); }
     if (H.shave) for (let j = 15; j < 27; j++) for (let i = cx + 5; i <= cx + 12; i++) if (rnd(i, j) < 0.45 && Math.abs(i - cx) <= headW(j) + 1) R(i, j, 1, 1, hS);
     if (H.spikes) for (let k = 0; k < 7; k++) { const sx = cx - 13 + k * 4.3; const sh = 3 + Math.round(rnd(k, 2) * 3) * H.spikes; for (let q = 0; q < sh; q++) R(Math.round(sx + q * 0.3), 12 - q + Math.round(Math.abs(k - 3) * 0.6), 2, 1, q === sh - 1 ? hH : hc); }
     if (H.bang === 'up') { ell(cx + 2, 10, 8, 5, hc); for (let i = cx - 3; i < cx + 7; i++) R(i, 7 + Math.round(rnd(i, 1)), 1, 1, hH); }
@@ -565,7 +603,7 @@ function buildPortrait(look, o) {
     }
     if (H.side) for (const sd of [-1, 1]) { const len = H.side > 1 ? 41 : 33 + Math.round(rnd(sd, 6) * 3); for (let j = 17; j < len; j++) { const xx = Math.round(cx + sd * (headW(Math.min(j, 30)) + 0.5)) - (sd > 0 ? 2 : 0); const w = j > len - 4 ? 2 : 3; R(xx + (sd > 0 ? 0 : 3 - w), j, w, 1, j % 5 === 0 ? hS : hc); } }
     if (H.tail === 'braid') for (let j = 27; j < 52; j++) { const px = cx + 12 + Math.round(Math.sin(j * 0.55) * 1.2); R(px, j, 3, 1, (j % 3) ? hc : hS); }
-    if (rnd(5, 5) < 0.3 && vol < 4) { R(cx + 1, 8, 1, 3, hc); R(cx + 2, 7, 1, 2, hc); R(cx + 3, 6, 1, 1, hH); } // ahoge
+    if (H.ahoge) { R(cx + 1, 8, 1, 3, hc); R(cx + 2, 7, 1, 2, hc); R(cx + 3, 6, 1, 1, hH); }
   }
   // ---- two-tone outline (dark rim + soft coloured halo), like a sticker
   const id = x.getImageData(0, 0, PW, PH), d = id.data; const ring = (from, col, alpha) => { const out = new Uint8Array(PW * PH); for (let j = 0; j < PH; j++) for (let i = 0; i < PW; i++) { if (d[(j * PW + i) * 4 + 3] > 40) continue; for (const [a2, b2] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + a2, jj = j + b2; if (ii >= 0 && jj >= 0 && ii < PW && jj < PH && d[(jj * PW + ii) * 4 + 3] >= from) { out[j * PW + i] = 1; break; } } } for (let k = 0; k < PW * PH; k++) if (out[k]) { d[k * 4] = col[0]; d[k * 4 + 1] = col[1]; d[k * 4 + 2] = col[2]; d[k * 4 + 3] = alpha; } };

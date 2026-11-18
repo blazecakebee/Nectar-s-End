@@ -49,13 +49,33 @@ class Actor {
       this.y += this.vy * dt; this.collideY(this.y - this.vy * dt, true); this.onGround = false; return { landed: 0 };
     }
     this.sliding = false;
+    this.legsOut = legs.crawl;
+    // ---- swimming: stroke upward from any depth, kick toward a ledge and haul out of flooded pits
+    this.swimCD = Math.max(0, (this.swimCD || 0) - dt);
+    if (inWater && (c.jump || c.up) && this.swimCD <= 0 && !A.uncon) {
+      this.vy = Math.min(this.vy, -150 * (legs.f > 0.3 ? 1 : 0.75)); this.swimCD = 0.32; this.onGround = false; A.stam -= 1.5;
+      if (this.isPlayer) NE.Audio.play('splash', 0.35); this.g.dust && this.g.dust(this.x, this.y - 6, 1);
+      const ed = this.wallAt(); if (ed && !W.solid(W.get(Math.floor((this.x + ed * (this.w / 2 + 2)) / T), Math.floor((this.y - this.h - 4) / T)))) { this.vy = -205; this.vx = ed * 70; }
+    }
+    // ---- wall climb: hold W/up against rock to latch on and claw upward for up to 2s, then mantle a ledge
+    if (this.onGround) this.climbBudget = 2.0 * (st.parkour || 1);
+    this.wallClimb = false;
+    if (this.isPlayer && c.up && !inWater && !this.crawl && !A.uncon && (this.climbBudget || 0) > 0 && A.armFactor() > 0.4 && A.stam > 2) {
+      const wdc = this.wallAt(); if (wdc && (c.mx === wdc || !c.mx || this.onGround)) {
+        this.wallClimb = true; this.facing = wdc; this.climbBudget -= dt; A.stam -= dt * 4; this.vy = -52 * (st.climb || 1) * A.armFactor(); this.vx = wdc * 10; this.onGround = false; this.climbPh += dt * 10;
+        if (Math.random() < dt * 6) this.g.dust(this.x + wdc * 3, this.y - this.h * 0.7, 1);
+        // top of the wall reached: mantle over the edge
+        const hx = Math.floor((this.x + wdc * (this.w / 2 + 2)) / T), hy = Math.floor((this.y - this.h + 1) / T);
+        if (!W.solid(W.get(hx, hy)) && !W.solid(W.get(hx, hy - 1))) { this.vy = -150; this.vx = wdc * 80; this.climbBudget = Math.max(this.climbBudget, 0.2); }
+      }
+    }
     const under = W.get(Math.floor(this.x / T), Math.floor((this.y + 1) / T)); this.onIce = this.onGround && under === 10;
     // ---- wall parkour (player): slide down walls, kick off them, sprint-boost up them
     this.wallLock = Math.max(0, (this.wallLock || 0) - dt); this.wallCoy = Math.max(0, (this.wallCoy || 0) - dt);
     if (this.onGround) { this.wallBoosts = 0; this.lastWall = 0; }
     const wd = this.isPlayer && !this.onGround && !this.climbing && !this.crawl && !A.uncon ? this.wallAt() : 0; if (wd) { this.wallDir = wd; this.wallCoy = 0.12; }
     this.wallSliding = false;
-    if (wd && c.mx === wd && this.vy > 40 && A.armFactor() > 0.4) { this.vy = Math.min(this.vy, 70 / (st.parkour || 1)); this.wallSliding = true; if (Math.random() < dt * 12) this.g.dust(this.x + wd * 3, this.y - 6, 1); }
+    if (wd && !this.wallClimb && c.mx === wd && this.vy > 40 && A.armFactor() > 0.4) { this.vy = Math.min(this.vy, 70 / (st.parkour || 1)); this.wallSliding = true; if (Math.random() < dt * 12) this.g.dust(this.x + wd * 3, this.y - 6, 1); }
     if (this.isPlayer && jumpPress && !this.onGround && !this.climbing && this.wallCoy > 0 && A.stam > 4 && legs.broken < 2) {
       const d = this.wallDir; const boost = c.sprint && c.mx === d && (this.wallBoosts || 0) < 2 && this.lastWall !== -d;
       if (boost) { this.vy = -230 * (st.parkour || 1); this.vx = -d * 40; this.wallBoosts = (this.wallBoosts || 0) + 1; this.wallLock = 0.12; A.stam -= 7; NE.Audio.play('land', 0.35); }
