@@ -269,9 +269,10 @@ NE.Anatomy = Anatomy;
 // 0 head,1 chest,2 pelvis,3 bElbow,4 bHand,5 fElbow,6 fHand,7 bKnee,8 bFoot,9 fKnee,10 fFoot
 const BASE = [[0.5, -14], [0, -11], [0, -6.5], [-1, -8.5], [-1.5, -5.5], [1, -8.5], [1.5, -5.5], [-0.5, -3.3], [-1, 0], [0.5, -3.3], [1, 0]];
 const LINKS = [[0, 1], [1, 2], [1, 3], [3, 4], [1, 5], [5, 6], [2, 7], [7, 8], [2, 9], [9, 10], [0, 2, 0.4], [1, 7, 0.15], [1, 9, 0.15]];
+NE.RKX = 1.15; NE.RKY = 1.45; NE.HSTAND = 23; NE.HCROUCH = 17; NE.HCRAWL = 7;
 NE.makeRag = function (phys, x, y) {
   const b = new NE.PBody('rag'); b.tiles = false; b.collide = false; b.noActor = true; b.damp = 0.97; b.fric = 0.6; b.bounce = 0.1;
-  for (let i = 0; i < BASE.length; i++) b.point(x + BASE[i][0], y + BASE[i][1], i === 0 ? 2.2 : 1.4, i < 3 ? 1.6 : 1);
+  for (let i = 0; i < BASE.length; i++) b.point(x + BASE[i][0] * NE.RKX, y + BASE[i][1] * NE.RKY, i === 0 ? 3 : 1.6, i < 3 ? 1.6 : 1);
   for (const l of LINKS) b.link(l[0], l[1], l[2] == null ? 1 : l[2]);
   phys.add(b); return b;
 };
@@ -303,13 +304,13 @@ NE.ragPose = function (a) {
   } else { const br = Math.sin(performance.now() / 600) * 0.3; P[0][1] += br; P[1][1] += br * 0.6; }
   if (a.limp) { P[2][1] += 0.6; P[0][0] -= 0.4; }
   // convert to world with facing
-  const out = P.map(p => [a.x + p[0] * f, a.y + p[1]]);
+  const out = P.map(p => [a.x + p[0] * f * NE.RKX, a.y + p[1] * NE.RKY]);
   // arms: aim / swing / treat
   const ch = out[1];
   if (!a.crawl && !a.climbing) {
-    if (a.aimDir && a.gunOut) { const d = a.aimDir; out[6] = [ch[0] + d.x * 6, ch[1] + d.y * 6]; out[5] = [ch[0] + d.x * 3, ch[1] + d.y * 3 + 1]; if (a.twoHand) { out[4] = [ch[0] + d.x * 4.5, ch[1] + d.y * 4.5 + 0.5]; out[3] = [ch[0] + d.x * 2, ch[1] + 1.5]; } }
-    else if (a.swingT > 0) { const t = 1 - a.swingT / a.swingDur; const ang = lerp(-1.9, 0.8, Math.min(1, t * 1.6)); const dx = Math.cos(ang) * f, dy = Math.sin(ang); out[6] = [ch[0] + dx * 6, ch[1] + dy * 6]; out[5] = [ch[0] + dx * 3, ch[1] + dy * 3]; }
-    else if (a.treating) { const k = Math.sin(performance.now() / 120); out[6] = [ch[0] + f * 2, ch[1] + 3 + k]; out[4] = [ch[0] + f * 1, ch[1] + 3 - k]; }
+    if (a.aimDir && a.gunOut) { const d = a.aimDir; out[6] = [ch[0] + d.x * 8, ch[1] + 1 + d.y * 8]; out[5] = [ch[0] + d.x * 4, ch[1] + d.y * 4 + 2]; if (a.twoHand) { out[4] = [ch[0] + d.x * 6, ch[1] + d.y * 6 + 1.5]; out[3] = [ch[0] + d.x * 2.5, ch[1] + 2.5]; } }
+    else if (a.swingT > 0) { const t = 1 - a.swingT / a.swingDur; const ang = lerp(-1.9, 0.8, Math.min(1, t * 1.6)); const dx = Math.cos(ang) * f, dy = Math.sin(ang); out[6] = [ch[0] + dx * 8.5, ch[1] + 1 + dy * 8.5]; out[5] = [ch[0] + dx * 4.2, ch[1] + 1 + dy * 4.2]; }
+    else if (a.treating) { const k = Math.sin(performance.now() / 120); out[6] = [ch[0] + f * 3, ch[1] + 5 + k]; out[4] = [ch[0] + f * 1.5, ch[1] + 5 - k]; }
     else if (a.holdT > 0) { out[6] = [ch[0] + f * 4, ch[1] - 1]; }
   }
   return out;
@@ -323,68 +324,99 @@ NE.ragLimp = function (rag) { rag.tiles = true; rag.collide = true; rag.noActor 
 
 // waist lantern: hangs from the front hip, sways with movement
 NE.hasLantern = a => !!a && (a.isPlayer || a.isRemote || a.town || (a.D && a.type !== 'feral') || a.kind === 'trader' || a.kind === 'survivor');
-NE.lanternPos = function (a) { const p = a.rag.pts; const f = a.facing || 1; const sw = Math.sin((a.walkPh || 0) * 1.0) * (Math.abs(a.vx) > 5 ? 1.2 : 0.3) - (a.vx || 0) * 0.012; return { x: p[2].x + f * 2 + sw, y: p[2].y + 3.5 }; };
+NE.lanternPos = function (a) { const p = a.rag.pts; const f = a.facing || 1; const sw = Math.sin((a.walkPh || 0) * 1.0) * (Math.abs(a.vx) > 5 ? 1.2 : 0.3) - (a.vx || 0) * 0.012; return { x: p[2].x + f * 3 + sw, y: p[2].y + 4.5 }; };
 // draw a humanoid from ragdoll points
 NE.drawHuman = function (ctx, rag, look, o) {
   o = o || {}; const p = rag.pts; const f = o.facing || 1;
   const skin = o.skinCol || NE.SKIN[look.skin] || '#d0a080'; const hair = NE.HAIRC[look.hairCol] || '#222';
   const shirt = o.shirt || look.shirt, pants = o.pants || look.pants; const dark = o.dim ? 0.6 : 1;
-  const sh = c => NE.shade(c, 0.7 * dark), N = c => dark < 1 ? NE.shade(c, dark) : c;
-  const anat = o.anat; const fr = f > 0 ? 'r' : 'l', bk = f > 0 ? 'l' : 'r';
+  const N = c => dark < 1 ? NE.shade(c, dark) : c, OL = c => NE.shade(c, 0.55 * dark), BK = c => NE.shade(c, 0.72 * dark);
+  const anat = o.anat; const fr = f > 0 ? 'r' : 'l', bk = f > 0 ? 'l' : 'r'; const R = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
   const partMark = (part, x1, y1, x2, y2) => {
     if (!anat) return; const P = anat.parts[part]; const mx = Math.round((x1 + x2) / 2), my = Math.round((y1 + y2) / 2);
-    if (P.wounds.some(w => !w.closed) || P.hp < P.max * 0.5) { ctx.fillStyle = '#8a1010'; ctx.fillRect(mx, my, 1, 1); if (P.hp < P.max * 0.5) ctx.fillRect(Math.round(x2), Math.round(y2) - 1, 1, 1); }
-    if (P.bandage) { ctx.fillStyle = P.bandage.soak > 0.5 ? '#c08080' : '#e8e2d0'; ctx.fillRect(mx - 1, my, 2, 1); }
-    if (P.splint) { ctx.fillStyle = '#8a7a5a'; ctx.fillRect(mx, my - 1, 1, 2); }
-    if (P.tq) { ctx.fillStyle = '#111'; ctx.fillRect(Math.round(x1 + (x2 - x1) * 0.3), Math.round(y1 + (y2 - y1) * 0.3), 2, 1); }
+    if (P.wounds.some(w => !w.closed) || P.hp < P.max * 0.5) { R(mx, my, 1, 2, '#8a1010'); if (P.hp < P.max * 0.5) R(x2, y2 - 1, 1, 1, '#6a0c0c'); }
+    if (P.bandage) R(mx - 1, my, 3, 1, P.bandage.soak > 0.5 ? '#c08080' : '#ece6d6');
+    if (P.splint) R(mx, my - 2, 1, 4, '#8a7a5a');
+    if (P.tq) R(x1 + (x2 - x1) * 0.3 - 1, y1 + (y2 - y1) * 0.3, 3, 1, '#111');
   };
-  const limbDraw = (a, b, c, col1, col2, part, back) => { NE.pline(ctx, p[a].x, p[a].y, p[b].x, p[b].y, 2, back ? sh(col1) : N(col1)); NE.pline(ctx, p[b].x, p[b].y, p[c].x, p[c].y, 2, back ? sh(col2) : N(col2)); partMark(part, p[a].x, p[a].y, p[c].x, p[c].y); };
-  // back limbs
-  limbDraw(2, 7, 8, pants, pants, bk + 'leg', true);
-  ctx.fillStyle = '#1a1612'; ctx.fillRect(Math.round(p[8].x) - 1, Math.round(p[8].y) - 1, 2, 1);
-  limbDraw(1, 3, 4, shirt, skin, bk + 'arm', true);
-  // backpack
-  if (o.pack) { const dx = p[2].x - p[1].x, dy = p[2].y - p[1].y; const L = Math.hypot(dx, dy) || 1; const nx = -dy / L * -f, ny = dx / L * -f; const bx = p[1].x + dx * 0.15 + nx * 2.2, by = p[1].y + dy * 0.15 + ny * 2.2; NE.pline(ctx, bx, by, bx + dx * 0.6, by + dy * 0.6, 3, N(o.pack[0])); ctx.fillStyle = N(o.pack[1]); ctx.fillRect(Math.round(bx + dx * 0.3) - 1, Math.round(by + dy * 0.3), 2, 1); }
-  // torso
-  NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 3, N(o.vest ? '#3a3e36' : shirt));
-  if (o.vest) { ctx.fillStyle = '#5a6050'; ctx.fillRect(Math.round(p[1].x) - 1, Math.round(p[1].y) + 1, 3, 1); }
+  // limb = 1px dark outline edge + 2px fill (People Playground-ish slim segments)
+  const seg = (a, b, col, back) => { NE.pline(ctx, a.x, a.y, b.x, b.y, 3, OL(back ? BK(col) : col)); NE.pline(ctx, a.x, a.y, b.x, b.y, 2, back ? BK(col) : N(col)); };
+  const limb = (i0, i1, i2, c1, c2, part, back) => { seg(p[i0], p[i1], c1, back); seg(p[i1], p[i2], c2, back); partMark(part, p[i0].x, p[i0].y, p[i2].x, p[i2].y); };
+  const foot = (q, back) => { const c = back ? '#141210' : '#221c18'; R(q.x - (f > 0 ? 1 : 2), q.y - 1, 4, 2, c); R(q.x + (f > 0 ? 2 : -3), q.y, 1, 1, c); };
+  const hand = (q, back) => R(q.x - 1, q.y - 1, 2, 2, back ? BK(skin) : N(skin));
+  // back leg + back arm
+  limb(2, 7, 8, pants, pants, bk + 'leg', true); foot(p[8], true);
+  limb(1, 3, 4, shirt, skin, bk + 'arm', true); hand(p[4], true);
+  // backpack (on the back side of the torso)
+  if (o.pack) { const dx = p[2].x - p[1].x, dy = p[2].y - p[1].y; const L = Math.hypot(dx, dy) || 1; const nx = dy / L * f, ny = -dx / L * f; const bx = p[1].x - f * 3 + nx * 0, by = p[1].y + 1;
+    NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 5, OL(o.pack[0])); NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 4, N(o.pack[0])); R(bx - 1 + (f > 0 ? 0 : 1), by + dy * 0.35, 2, 1, N(o.pack[1])); R(bx - (f > 0 ? 2 : -1), by + 1, 1, Math.round(dy * 0.5), NE.shade(o.pack[0], 0.8)); }
+  // torso: 5px with outline, belt, collar
+  const tc = o.vest ? '#3a3e36' : shirt; NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 6, OL(tc)); NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 5, N(tc));
+  NE.pline(ctx, p[1].x + f * 1.5, p[1].y + 1, p[2].x + f * 1.5, p[2].y - 1, 1, NE.shade(tc, 1.12 * dark));
+  R(p[2].x - 2, p[2].y - 1, 5, 2, N(pants)); R(p[2].x - 2, p[2].y - 2, 5, 1, '#2a2018');
+  if (o.vest) { R(p[1].x - 2, p[1].y + 2, 5, 1, '#5a6050'); R(p[1].x - 2, p[1].y + 5, 5, 1, '#5a6050'); }
   partMark('torso', p[1].x, p[1].y, p[2].x, p[2].y);
   // front leg
-  limbDraw(2, 9, 10, pants, pants, fr + 'leg', false);
-  ctx.fillStyle = '#1a1612'; ctx.fillRect(Math.round(p[10].x) - 1, Math.round(p[10].y) - 1, 2, 1);
-  // head
-  const hx = Math.round(p[0].x), hy = Math.round(p[0].y);
-  ctx.fillStyle = N(skin); ctx.fillRect(hx - 2, hy - 2, 5, 5); ctx.fillRect(hx - 1, hy + 3, 3, 1);
-  NE.drawTinyHair(ctx, look.hair, hx, hy, f, N(hair), NE.shade(hair, 0.7));
-  if (look.facial === 'beard' || look.facial === 'goatee') { ctx.fillStyle = N(hair); ctx.fillRect(hx - (look.facial === 'beard' ? 1 : 0), hy + 2, look.facial === 'beard' ? 3 : 1, look.facial === 'beard' ? 2 : 1); }
-  if (o.helmet) { ctx.fillStyle = N(o.helmet); ctx.fillRect(hx - 3, hy - 3, 7, 2); }
-  const ex = hx + (f > 0 ? 1 : -1);
-  if (o.vespa && !o.dead) { const ink = o.infest || 0; ctx.fillStyle = '#ffd23a'; ctx.fillRect(ex, hy, 1, 1); if (ink > 0.5) { ctx.fillStyle = 'rgba(255,210,58,0.45)'; ctx.fillRect(ex - 1, hy - 1, 3, 3); } }
-  else { ctx.fillStyle = o.dead ? '#3a2a2a' : '#111'; ctx.fillRect(ex, hy, 1, 1); }
-  if ((o.glasses || look.glasses) && !o.vespa) { ctx.fillStyle = '#9ad'; ctx.fillRect(hx + (f > 0 ? 1 : -1), hy, 1, 1); }
-  if (o.mask) { ctx.fillStyle = '#2a2e30'; ctx.fillRect(hx + (f > 0 ? 0 : -2), hy + 1, 3, 2); }
+  limb(2, 9, 10, pants, pants, fr + 'leg', false); foot(p[10], false);
+  // head: 6x6 with a dark rim, neck, nose, mouth
+  const hx = Math.round(p[0].x), hy = Math.round(p[0].y); const X0 = hx - 3, Y0 = hy - 3;
+  R(hx - 1, hy + 3, 2, 2, BK(skin));
+  R(X0 - 1, Y0, 8, 6, OL(skin)); R(X0, Y0 - 1, 6, 8, OL(skin)); R(X0, Y0, 6, 6, N(skin)); R(f > 0 ? X0 : X0 + 5, Y0 + 1, 1, 4, BK(skin));
+  R(f > 0 ? X0 + 6 : X0 - 1, hy, 1, 1, N(skin)); // nose
+  if (!o.mask) R(f > 0 ? X0 + 4 : X0 + 1, hy + 2, 1, 1, NE.shade(skin, 0.6 * dark));
+  if (look.facial === 'beard') { R(f > 0 ? X0 + 1 : X0, hy + 1, 5, 2, N(hair)); } else if (look.facial === 'goatee') R(f > 0 ? X0 + 4 : X0 + 1, hy + 2, 1, 2, N(hair)); else if (look.facial === 'mustache') R(f > 0 ? X0 + 3 : X0 + 1, hy + 1, 2, 1, N(hair));
+  NE.drawHair6(ctx, look.hair, X0, Y0, f, N(hair), OL(hair));
+  if (o.helmet) { R(X0 - 1, Y0 - 2, 8, 3, N(o.helmet)); R(X0 - 1, Y0 - 2, 8, 1, NE.shade(o.helmet, 1.25)); R(f > 0 ? X0 + 5 : X0 - 2, Y0, 3, 1, OL(o.helmet)); }
+  const ex = f > 0 ? X0 + 4 : X0 + 1, ey = hy - 1;
+  if (o.vespa && !o.dead) { ctx.fillStyle = 'rgba(255,210,58,0.35)'; ctx.fillRect(ex - 1, ey - 1, 3, 3); R(ex, ey, 1, 1, '#ffd23a'); if ((o.infest || 0) > 0.5) R(ex, ey + 1, 1, 1, 'rgba(255,200,40,0.7)'); }
+  else { R(ex, ey, 1, 1, o.dead ? '#3a2a2a' : '#141010'); if ((o.glasses || look.glasses)) R(ex - (f > 0 ? 1 : 0), ey, 2, 1, '#9ad'); }
+  R(ex - (f > 0 ? 1 : 0), ey - 1, 2, 1, NE.shade(hair, 0.85 * dark)); // brow
+  if (o.mask) { R(f > 0 ? X0 + 2 : X0 - 1, hy + 1, 5, 2, '#2a2e30'); R(f > 0 ? X0 + 5 : X0 - 1, hy + 1, 1, 2, '#4a5054'); }
   partMark('head', p[0].x, p[0].y - 1, p[0].x, p[0].y + 1);
-  if (anat && anat.parts.head.bandage) { ctx.fillStyle = '#e8e2d0'; ctx.fillRect(hx - 2, hy - 2, 5, 1); }
+  if (anat && anat.parts.head.bandage) R(X0, Y0 + 1, 6, 1, '#ece6d6');
   // waist lantern
-  if (o.lantern) { const f2 = f; const sw = Math.sin((o.walkPh || 0)) * 0.6; const lx = Math.round(p[2].x + f2 * 2 + sw), ly = Math.round(p[2].y + 1); const lit = o.lantern > 0.5 && !o.dead;
-    ctx.fillStyle = '#3a2a1a'; ctx.fillRect(lx, ly, 1, 1); ctx.fillStyle = '#2a1e14'; ctx.fillRect(lx - 1, ly + 1, 3, 1); ctx.fillRect(lx - 1, ly + 4, 3, 1);
-    ctx.fillStyle = lit ? (Math.random() < 0.08 ? '#ffd890' : '#ffb84a') : '#4a3e30'; ctx.fillRect(lx - 1, ly + 2, 3, 2); if (lit) { ctx.fillStyle = '#fff4c8'; ctx.fillRect(lx, ly + 2, 1, 1); } }
+  if (o.lantern) { const sw = Math.sin((o.walkPh || 0)) * 0.7; const lx = Math.round(p[2].x + f * 3 + sw), ly = Math.round(p[2].y + 1); const lit = o.lantern > 0.5 && !o.dead;
+    R(lx, ly, 1, 1, '#3a2a1a'); R(lx - 1, ly + 1, 3, 1, '#2a1e14'); R(lx - 1, ly + 5, 3, 1, '#2a1e14'); R(lx - 1, ly + 2, 3, 3, lit ? (Math.random() < 0.08 ? '#ffd890' : '#ffb84a') : '#4a3e30'); if (lit) R(lx, ly + 3, 1, 1, '#fff4c8'); }
   // front arm
-  limbDraw(1, 5, 6, shirt, skin, fr + 'arm', false);
+  limb(1, 5, 6, shirt, skin, fr + 'arm', false); hand(p[6], false);
   // weapon
   if (o.weapon) {
     const it = NE.ITEMS[o.weapon]; const hxw = p[6].x, hyw = p[6].y;
-    if (it && it.gun) { const d = o.aimDir || { x: f, y: 0 }; const L = it.id === 'rifle' ? 8 : 4; NE.pline(ctx, hxw, hyw, hxw + d.x * L, hyw + d.y * L, 1, '#2a2a2e'); if (it.id === 'rifle') NE.pline(ctx, hxw - d.x * 2, hyw - d.y * 2 + 1, hxw, hyw, 1, '#5a3a20'); }
+    if (it && it.gun) { const d = o.aimDir || { x: f, y: 0 }; const L = it.id === 'rifle' ? 11 : 6; NE.pline(ctx, hxw, hyw, hxw + d.x * L, hyw + d.y * L, 2, '#24242a'); NE.pline(ctx, hxw, hyw - 1, hxw + d.x * L, hyw + d.y * L - 1, 1, '#3c3c46'); if (it.id === 'rifle') NE.pline(ctx, hxw - d.x * 3, hyw - d.y * 3 + 1, hxw, hyw, 2, '#5a3a20'); else R(hxw - 1, hyw + 1, 1, 2, '#24242a'); }
     else if (it && it.melee) {
       let dx = p[6].x - p[5].x, dy = p[6].y - p[5].y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
-      const len = { pipe: 7, knife: 3, shiv: 3, crowbar: 7, axe: 8 }[it.id] || 5; const col = { pipe: '#8a8f94', knife: '#d0d0d0', shiv: '#a0a0a0', crowbar: '#a0302a', axe: '#6a4a2a' }[it.id];
-      NE.pline(ctx, hxw, hyw, hxw + dx * len, hyw + dy * len, 1, col);
-      if (it.id === 'axe') { ctx.fillStyle = '#c0c4c8'; ctx.fillRect(Math.round(hxw + dx * len) - 1, Math.round(hyw + dy * len) - 1, 2, 3); }
+      const len = { pipe: 9, knife: 4, shiv: 4, crowbar: 10, axe: 11, pickaxe: 10 }[it.id] || 7; const col = { pipe: '#8a8f94', knife: '#d0d0d0', shiv: '#a0a0a0', crowbar: '#a0302a', axe: '#6a4a2a', pickaxe: '#6a4a2a' }[it.id] || '#888';
+      NE.pline(ctx, hxw, hyw, hxw + dx * len, hyw + dy * len, it.id === 'knife' || it.id === 'shiv' ? 1 : 2, col);
+      const tx = hxw + dx * len, ty = hyw + dy * len;
+      if (it.id === 'axe') { R(tx - 1, ty - 1, 3, 3, '#c0c4c8'); }
+      if (it.id === 'pickaxe') { NE.pline(ctx, tx - dy * 3, ty + dx * 3, tx + dy * 3, ty - dx * 3, 1, '#b0b4b8'); }
+      if (it.id === 'pipe') R(tx - 1, ty - 1, 3, 3, '#6a6f74');
     }
   }
 };
-
-// tiny in-world hair (head is a 5x5 block centred on hx,hy)
+// hair on the 6x6 in-world head (X0,Y0 = top-left), from the same recipes as the portraits
+NE.drawHair6 = function (ctx, hs, X0, Y0, f, c, d) {
+  const H = (NE.HAIRSTYLES || {})[hs] || {}; const R = (x, y, w, h, col) => { ctx.fillStyle = col || c; ctx.fillRect(x, y, w, h); };
+  const bx = f > 0 ? X0 : X0 + 5, out = f > 0 ? X0 - 1 : X0 + 6, front = f > 0 ? X0 + 5 : X0;
+  if (H.cap === 0) return;
+  if (H.cap === 'buzz') { R(X0, Y0, 6, 1, d); R(X0, Y0 - 1, 6, 1, d); return; }
+  if (H.cap === 'mohawk') { R(X0 + 2, Y0 - 3, 2, 3); R(X0, Y0, 6, 1, d); return; }
+  const v = H.vol || 0;
+  if (v > 4) { R(X0 - 1, Y0 - 3, 8, 4); R(X0 - 2, Y0 - 2, 10, 2); R(out, Y0 + 1, 1, 3); R(X0, Y0 - 3, 6, 1, NE.shade(c, 1.3)); return; }
+  R(X0, Y0 - 1, 6, 2); R(X0 + 1, Y0 - 2, 4, 1); R(bx, Y0 + 1, 1, 2); R(X0 + 1, Y0 - 2, 2, 1, NE.shade(c, 1.35));
+  if (H.shave) R(front - (f > 0 ? 2 : 0), Y0, 3, 1, d);
+  if (v >= 2 || H.spikes) { for (let i = 0; i < 6; i += 2) R(X0 + i, Y0 - 3, 1, 1); R(out, Y0 - 1, 1, 2); }
+  if (H.bang === 'up') { R(front - f, Y0 - 3, 2, 1); R(front, Y0 - 2, 1, 1); }
+  if (H.bang === 'blunt' || H.bang === 'long' || H.bang === 'swept' || H.bang === 'jag' || H.bang === 'parted') R(front - (f > 0 ? 1 : 0), Y0 + 1, 2, H.bang === 'long' ? 2 : 1);
+  if (H.bang === 'curl') { R(X0 - 1, Y0 - 1, 1, 3); R(X0 + 6, Y0 - 1, 1, 3); R(X0, Y0 - 3, 6, 1); }
+  if (H.side) R(out + (f > 0 ? 1 : -1), Y0 + 1, 1, H.side > 1 ? 6 : 4);
+  if (H.back) { const L = Math.max(2, Math.round((H.back - 18) / 3.2)); R(out, Y0, 1, L, H.dread ? d : c); R(bx, Y0 + 1, 1, Math.min(L, 5)); if (H.dread) for (let k = 1; k < L; k += 2) R(out, Y0 + k, 1, 1, c); }
+  if (H.tail === 'pony' || H.tail === 'low' || H.tail === 'high') { const ty = H.tail === 'high' ? Y0 - 1 : H.tail === 'low' ? Y0 + 3 : Y0 + 1; R(out, ty, 1, 2); R(out - f, ty + 1, 1, 5); R(out - f, ty + 1, 1, 1, '#c05070'); }
+  if (H.tail === 'twin') { R(X0 - 1, Y0 + 1, 1, 6); R(X0 + 6, Y0 + 1, 1, 6); R(X0 - 2, Y0 + 3, 1, 3); R(X0 + 7, Y0 + 3, 1, 3); }
+  if (H.tail === 'braid') { R(out, Y0 + 1, 1, 3); for (let k = 0; k < 5; k++) R(out - (k % 2 ? f : 0), Y0 + 4 + k, 1, 1, k % 2 ? d : c); }
+  if (H.bun === 'top') { if (hs === 'manbun') R(bx - f, Y0 - 3, 2, 2); else R(X0 + 2, Y0 - 4, 3, 2); }
+  if (H.bun === 'double') { R(X0 - 1, Y0 - 3, 2, 2); R(X0 + 5, Y0 - 3, 2, 2); }
+};
 NE.drawTinyHair = function (ctx, hs, hx, hy, f, c, d) {
   const R = (x, y, w, h, col) => { ctx.fillStyle = col || c; ctx.fillRect(x, y, w, h); }; const bk = f > 0 ? hx - 3 : hx + 3; const H = (NE.HAIRSTYLES || {})[hs] || {};
   if (H.cap === 0) return; if (H.cap === 'buzz') { R(hx - 2, hy - 2, 5, 1, d); return; } if (H.cap === 'mohawk') { R(hx - 1, hy - 4, 3, 2); R(hx - 2, hy - 2, 5, 1, d); return; }

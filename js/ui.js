@@ -469,11 +469,11 @@ UI.render.trade = function (b, npc) {
 // ----- LOBBY: WARDROBE / SHOP / DOSSIER -----
 UI.previewHuman = function (canvas, surv, bpId, ofId) {
   const c = canvas.getContext('2d'); c.imageSmoothingEnabled = false; c.clearRect(0, 0, canvas.width, canvas.height);
-  const sc = 6; const off = document.createElement('canvas'); off.width = 24; off.height = 22; const ox = off.getContext('2d');
-  const fake = { x: 12, y: 20, facing: 1, vx: 0, onGround: true, walkPh: 0 }; const pts = NE.ragPose(fake).map(q => ({ x: q[0], y: q[1] }));
+  const sc = 4; const off = document.createElement('canvas'); off.width = 30; off.height = 30; const ox = off.getContext('2d');
+  const fake = { x: 15, y: 28, facing: 1, vx: 0, onGround: true, walkPh: 0 }; const pts = NE.ragPose(fake).map(q => ({ x: q[0], y: q[1] }));
   const of = NE.OUTFITS.find(o => o.id === ofId) || NE.OUTFITS[0]; const bp = NE.BACKPACKS.find(o => o.id === bpId) || NE.BACKPACKS[0];
   NE.drawHuman(ox, { pts }, surv.look, { facing: 1, pack: bp.col, shirt: of.random ? surv.look.shirt : of.shirt, pants: of.random ? surv.look.pants : of.pants });
-  c.drawImage(off, 0, 0, 24 * sc, 22 * sc);
+  c.drawImage(off, Math.round((canvas.width - 30 * sc) / 2), Math.round((canvas.height - 30 * sc) / 2), 30 * sc, 30 * sc);
 };
 UI.render.wardrobe = function (b) {
   const g = G(), M = g.meta; const surv = M.survivor;

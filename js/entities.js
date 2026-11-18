@@ -9,7 +9,7 @@ const JAWS = { id: 'fists', name: 'Fists & Mandibles', melee: { dmg: 9, kind: 'b
 
 class Actor {
   constructor(g, x, y, o) {
-    o = o || {}; this.g = g; this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.w = 6; this.h = 15; this.facing = 1;
+    o = o || {}; this.g = g; this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.w = 6; this.h = NE.HSTAND; this.facing = 1;
     this.onGround = false; this.crouch = false; this.crawl = false; this.climbing = false; this.sprint = false; this.walkPh = 0; this.climbPh = 0;
     this.swingT = 0; this.swingDur = 0.4; this.cd = 0; this.dropT = 0; this.alive = true; this.faction = o.faction || 'neutral';
     this.look = o.look; this.anat = new NE.Anatomy({ npc: !!o.npc, stats: o.stats, hpMul: o.hpMul }); this.rag = NE.makeRag(g.phys, x, y); this.rag.owner = this;
@@ -22,13 +22,13 @@ class Actor {
     const W = this.g.world, A = this.anat; const st = this.stats || { speed: 1, climb: 1 };
     const legs = A.legFactor(); this.limp = legs.broken > 0 || legs.f < 0.7;
     // stance
-    let wantH = 15; const lowCeil = this.blockedAbove(10);
-    if (legs.crawl || A.uncon) { this.crawl = true; this.crouch = true; wantH = 7; }
-    else if (c.crouch || lowCeil) { this.crouch = true; this.crawl = lowCeil || this.blockedAbove(15) && this.crawl; wantH = this.crawl ? 7 : 10; }
-    else { if (this.blockedAbove(15)) { wantH = this.h; } else { this.crouch = false; this.crawl = false; } }
-    if (this.blockedAbove(10) && this.h <= 7) { wantH = 7; this.crawl = true; }
+    const HS = NE.HSTAND, HC = NE.HCROUCH, HK = NE.HCRAWL; let wantH = HS; const lowCeil = this.blockedAbove(HC);
+    if (legs.crawl || A.uncon) { this.crawl = true; this.crouch = true; wantH = HK; }
+    else if (c.crouch || lowCeil) { this.crouch = true; this.crawl = lowCeil || this.blockedAbove(HS) && this.crawl; wantH = this.crawl ? HK : HC; }
+    else { if (this.blockedAbove(HS)) { wantH = this.h; } else { this.crouch = false; this.crawl = false; } }
+    if (this.blockedAbove(HC) && this.h <= HK) { wantH = HK; this.crawl = true; }
     this.autoCrawl = Math.max(0, (this.autoCrawl || 0) - dt); if (this.autoCrawl > 0 && !this.climbing) { this.crawl = true; this.crouch = true; }
-    this.h = this.crawl ? 7 : this.crouch ? Math.max(wantH, 10) : 15; if (this.crawl) this.h = 7;
+    this.h = this.crawl ? HK : this.crouch ? Math.max(wantH, HC) : HS; if (this.crawl) this.h = HK;
     const inWater = W.isWater(this.x, this.y - 2); this.inWater = inWater;
     // ropes / ladders: grab with W (or S from above), jump off any time, Shift+S slides down fast
     const onLadder = this.ladderAt(); this.ladderCD = Math.max(0, (this.ladderCD || 0) - dt);
@@ -285,7 +285,7 @@ class Enemy extends Actor {
         const dx = t.x - this.x, dy = t.y - this.y, d = Math.abs(dx); this.facing = dx >= 0 ? 1 : -1;
         const L = Math.hypot(dx, t.cy - this.cy) || 1; this.aimDir = { x: dx / L, y: (t.cy - this.cy) / L };
         if (isGun) {
-          const see = g.world.los(this.x, this.y - 12, t.x, t.y - t.h + 4);
+          const see = g.world.los(this.x, this.y - this.h * 0.8, t.x, t.y - t.h + 4);
           if (this.state === 'aim') { this.atkT -= dt; if (!see) this.state = 'chase'; else if (this.atkT <= 0) { this.fireGun(t); this.state = 'chase'; this.atkT = 0; } }
           else { if (see && d < 190 && this.cd <= 0 && this.ammo > 0) { this.state = 'aim'; this.atkT = rf(0.7, 1.1) * (this.type === 'specops' ? 0.75 : 1); } else if (this.ammo <= 0) { c.mx = Math.sign(dx); } else if (d > 120 || !see) c.mx = Math.sign(dx) * 0.8; else if (d < 50) c.mx = -Math.sign(dx) * 0.6; }
         } else {
@@ -313,7 +313,7 @@ class Enemy extends Actor {
   fireGun(t) {
     const g = this.g; if (this.ammo <= 0) return; this.ammo--; const w = NE.ITEMS[this.weapon];
     const d = NE.dist(this.x, this.y, t.x, t.y); let acc = 0.11 + d / 2200 + (t.crouch ? 0.04 : 0) + Math.abs(t.vx) / 1500 + (this.anat.armFactor() < 0.8 ? 0.08 : 0); if (this.type === 'specops') acc *= 0.6;
-    const ang = Math.atan2(t.cy - (this.y - 12), t.x - this.x) + rf(-acc, acc);
+    const ang = Math.atan2(t.cy - this.rag.pts[6].y, t.x - this.rag.pts[6].x) + rf(-acc, acc);
     g.fireRay(this, this.rag.pts[6].x, this.rag.pts[6].y, Math.cos(ang), Math.sin(ang), w.gun.range, w.gun.dmg * rf(0.55, 0.75), this.weapon === 'rifle' ? 'rifle' : 'gun');
     this.cd = w.gun.cd + rf(0.6, 1.2);
   }

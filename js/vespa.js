@@ -6,7 +6,7 @@ const G = NE.G;
 const GOLD = '#ffd23a';
 
 // ---------- glowing eyes + fading trail ----------
-G.eyePos = function (a) { const h = a.rag.pts[0]; return { x: Math.round(h.x) + (a.facing > 0 ? 1 : -1), y: Math.round(h.y) }; };
+G.eyePos = function (a) { const h = a.rag.pts[0]; const hx = Math.round(h.x), hy = Math.round(h.y); return { x: a.facing > 0 ? hx + 1 : hx - 2, y: hy - 1 }; };
 G.trail = function (a, dt) {
   if (!a.alive || !a.vespa) return; const e = G.eyePos(a); const ink = a.infest || 0.2;
   if (!a._le) a._le = e; const moved = Math.hypot(e.x - a._le.x, e.y - a._le.y);

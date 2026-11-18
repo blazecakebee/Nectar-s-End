@@ -1,6 +1,14 @@
 {
  "log": [
   {
+   "version": "0.3.3",
+   "date": "2026-11-18",
+   "title": "Taller, more detailed characters",
+   "changes": [
+    "Every human is now drawn taller with more pixels, closer to People Playground proportions: a square head with nose, eye and brow, a longer torso with a belt, slim outlined arms and legs, hands and boots. Hair, beards, helmets, masks, backpacks and weapons were redrawn to match."
+   ]
+  },
+  {
    "version": "0.3.2",
    "date": "2026-11-18",
    "title": "Wall parkour, lanterns & rebindable keys",
