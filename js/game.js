@@ -58,7 +58,7 @@ G.bindInput = function () {
 // ---------------- rebindable keys ----------------
 NE.BIND_DEFS = [
   ['left', 'Move left', ['KeyA', 'ArrowLeft']], ['right', 'Move right', ['KeyD', 'ArrowRight']], ['up', 'Climb up / grab rope', ['KeyW', 'ArrowUp']], ['down', 'Climb down / crouch', ['KeyS', 'ArrowDown']],
-  ['jump', 'Jump (also off ropes & walls)', ['Space', null]], ['sprint', 'Sprint (+ down: slide a rope)', ['ShiftLeft', 'ShiftRight']], ['crouch', 'Crouch / crawl', ['ControlLeft', 'KeyC']],
+  ['jump', 'Jump (also off ropes & walls)', ['Space', null]], ['sprint', 'Run (or double-tap a direction)', ['ShiftLeft', 'ShiftRight']], ['crouch', 'Crouch / crawl', ['ControlLeft', 'KeyC']],
   ['interact', 'Interact / search', ['KeyE', null]], ['light', 'Lantern on / off', ['KeyF', null]], ['reload', 'Reload / clear jam', ['KeyR', null]], ['throw', 'Throw', ['KeyG', null]], ['cycleThrow', 'Cycle throwable', ['KeyQ', null]],
   ['weapon', 'Cycle weapon', ['Digit1', null]], ['bandage', 'Quick-bandage worst bleed', ['KeyB', null]], ['pulse', 'Hive Pulse (once awakened)', ['KeyX', null]],
   ['menu', 'Hex menu', ['KeyM', null]], ['inventory', 'Inventory', ['Tab', 'KeyI']], ['health', 'Health & triage', ['KeyH', null]], ['status', 'Status', ['KeyV', null]], ['craft', 'Crafting', ['KeyK', null]], ['map', 'Map', ['KeyN', null]], ['journal', 'Journal', ['KeyJ', null]],
@@ -78,6 +78,7 @@ G.onKey = function (code) {
   if (!G.playing()) return;
   if (UI.modalOpen()) return;
   const act = G.actionOf(code); if (!act) return;
+  if (act === 'left' || act === 'right') { const d = act === 'left' ? -1 : 1; const now = performance.now(); if (G._tap && G._tap.d === d && now - G._tap.t < 280) G.autoRun = d; G._tap = { d, t: now }; }
   if (act === 'menu') { if (UI.hexOpen) UI.closeHex(); else UI.openHex(); return; }
   const panels = { inventory: 'inventory', health: 'health', journal: 'journal', craft: 'craft', map: 'map', status: 'status' }; if (panels[act]) return UI.toggle(panels[act]);
   if (UI.panel) return;
@@ -106,7 +107,8 @@ G.ctl = function () {
   const K = G.keys; const p = G.player; const block = NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen();
   if (block) return { mx: 0 };
   const L = G.kd('left'), R = G.kd('right'), U = G.kd('up'), D = G.kd('down'), J = G.kd('jump');
-  return { mx: (R ? 1 : 0) - (L ? 1 : 0), up: U, down: D, jump: J, sprint: G.kd('sprint'), crouch: G.kd('crouch') || (D && !p.climbing && !p.ladderAt()), drop: D && J };
+  const mx = (R ? 1 : 0) - (L ? 1 : 0); if (G.autoRun && mx !== G.autoRun) G.autoRun = 0;
+  return { mx, up: U, down: D, jump: J, sprint: G.kd('sprint') || (!!G.autoRun && mx === G.autoRun), crouch: G.kd('crouch') || (D && !p.climbing && !p.ladderAt()), drop: D && J };
 };
 
 // ---------------- helpers ----------------
@@ -130,7 +132,7 @@ G.decal = function (x, y, col) {
 };
 
 // ---------------- states ----------------
-G.clearWorld = function () { G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
+G.clearWorld = function () { G.bullets = []; G.pools = []; G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
 G.toTitle = function () { G.autosave(); try { sessionStorage.removeItem('ne_live'); } catch (e) { } G.clearWorld(); G.state = 'title'; G.world = null; if (G.net) G.net.close(); NE.UI.showTitle(); NE.Audio.music('title'); };
 G.toLobby = function () {
   G.clearWorld(); G.state = 'lobby'; G.run = null; G.meta.started = true; G.meta.run = null; try { sessionStorage.setItem('ne_live', '1'); } catch (e) { }
@@ -262,6 +264,7 @@ G.update = function (dt, rdt) {
   }
   G.parts = G.parts.filter(q => q.life > 0);
   G.tracers = G.tracers.filter(t => (t.t -= rdt) > 0);
+  NE.Combat.updateBullets(dt); NE.Gore.tick(dt);
   G.noises = G.noises.filter(n => (n.t -= dt) > 0);
   // gas clouds
   for (const c of G.gas) { c.x += c.vx * dt; c.r = Math.min(c.max || 38, c.r + dt * 3); c.life -= dt; c.d = Math.min(c.d, c.life / 8); const fl = W.floors[G.floorIdx(c.y)]; if (fl) c.y = clamp(c.y + dt * 3, fl.y0 * T + 10, fl.feetY - 8); }
@@ -355,7 +358,12 @@ G.updateObjects = function (dt) {
 
 // ---------------- combat ray ----------------
 G.fireRay = function (sh, ox, oy, dx, dy, range, dmg, snd) {
-  NE.Audio.play(snd); G.noise(ox, oy, 260); G.muzzle = { x: ox, y: oy, t: 0.06 };
+  NE.Audio.play(snd); G.noise(ox, oy, 260); G.muzzle = { x: ox, y: oy, t: 0.06 }; G.shake(snd === 'rifle' ? 2 : 1);
+  for (let i = 0; i < 4; i++) G.addP(ox + dx * 3, oy + dy * 3, dx * rf(40, 120) + rf(-20, 20), dy * rf(40, 120) + rf(-20, 20), 0.12, pick(['#fff4c0', '#ffc050']), 'spark', 0);
+  G.addP(ox, oy, -dx * 30 + rf(-20, 20), -rf(40, 80), 0.8, '#d0a040', 'spark', 1); // casing
+  NE.Combat.fire(sh, ox, oy, dx, dy, range, dmg, snd);
+  if (G.net && G.net.on && !sh.isPuppet) G.net.send({ t: 'bul', x: ox, y: oy, dx, dy, range, snd });
+  return;
   const W = G.world; let ex = ox + dx * range, ey = oy + dy * range; const name = sh.isPlayer ? sh.surv.first : sh.D ? sh.D.name : 'Gunfire';
   for (let d = 2; d < range; d += 2) {
     const px = ox + dx * d, py = oy + dy * d;
@@ -372,7 +380,8 @@ G.explode = function (x, y, power, remote) {
   for (let i = 0; i < 14; i++) G.addP(x, y, rf(-60, 60), rf(-60, 20), rf(0.5, 1.2), pick(['#ffd060', '#ff8020', '#fff0b0']), 'spark', 0.3);
   // blow the rock apart (each side does this; the result is identical)
   const W = G.world; if (W && !W.lobby) { const R = 2.6 * power, tx0 = Math.floor(x / T), ty0 = Math.floor(y / T); for (let ty = Math.floor(ty0 - R); ty <= ty0 + R; ty++) for (let tx = Math.floor(tx0 - R); tx <= tx0 + R; tx++) { const d = Math.hypot(tx + 0.5 - x / T, ty + 0.5 - y / T); if (d > R) continue; const t = W.get(tx, ty); if (!W.diggable(tx, ty)) continue; if (W.damageTile(tx, ty, (R - d + 1) * 6) === 'broke' && chance(0.35)) { const db = G.phys.box('debris', tx * T + 4, ty * T + 4, rf(3, 5), rf(3, 4), 2.5, W.biomeAtY(ty * T).pal.tile); db.setVel((tx * T - x) * 4, (ty * T - y) * 4 - 60); db.noActor = true; setTimeout(() => db.noActor = false, 600); } } }
-  for (const a of G.actors) { if (!a.alive || a.isPuppet || a.isRemote) continue; const d = NE.dist(a.x, a.cy, x, y); const rr = 45 * power; if (d < rr) { const k = 1 - d / rr; for (let i = 0; i < 3; i++) a.hurt(pick(NE.PARTS), 14 * k + 4, 'frag', 'Explosion', { x: (a.x - x) / (d || 1), y: -0.5 }); a.vy -= 120 * k; a.vx += (a.x - x) / (d || 1) * 120 * k; } }
+  for (const a of G.actors) { if (!a.alive || a.isPuppet || a.isRemote) continue; const d = NE.dist(a.x, a.cy, x, y); const rr = 45 * power; if (d < rr) { const k = 1 - d / rr; for (let i = 0; i < 3; i++) a.hurt(pick(NE.PARTS), 14 * k + 4, 'frag', 'Explosion', { x: (a.x - x) / (d || 1), y: -0.5 }); a.vy -= 120 * k; a.vx += (a.x - x) / (d || 1) * 120 * k; NE.Gore.blast(a, k, x, y); } }
+  for (const a of G.actors) { if (a.alive || !a.rag || a.gone) continue; const d = NE.dist(a.x, a.y - 6, x, y); if (d < 45 * power) NE.Gore.blast(a, 1 - d / (45 * power), x, y); }
   if (G.goop && NE.dist(G.goop.x, G.goop.y, x, y) < 40) G.goop.vy -= 150;
 };
 // mining: pickaxe / ice axe / rock hammer chip at the rock under the cursor
@@ -573,6 +582,7 @@ G.render = function (dt) {
   ctx.translate(-cx, -cy);
   W.draw(ctx, cx, cy, G.t);
   for (const f of W.visibleFloors(cy)) if (f.dc) ctx.drawImage(f.dc, 0, f.y0 * T);
+  NE.Gore.drawPools(ctx);
   for (const o of G.nearObjs()) G.drawObj(ctx, o);
   for (const b of G.phys.bodies) if (b.kind !== 'rag') G.drawBody(ctx, b);
   for (const a of G.actors) if (!a.alive) a.draw(ctx);
@@ -585,6 +595,7 @@ G.render = function (dt) {
   for (const c of G.gas) { ctx.fillStyle = c.spore ? 'rgba(200,200,110,' + (c.d * 0.24) + ')' : 'rgba(150,190,70,' + (c.d * 0.22) + ')'; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 + G.t * 0.2; const rr = c.r * (0.4 + 0.6 * NE.hash(i, c.x | 0)); ctx.fillRect(Math.round(c.x + Math.cos(a) * rr * 0.6) - 3, Math.round(c.y + Math.sin(a) * rr * 0.3) - 2, 6, 4); } }
   for (const f of G.fires) { ctx.fillStyle = 'rgba(255,120,30,0.5)'; ctx.fillRect(Math.round(f.x - f.r), Math.round(f.y - 2), Math.round(f.r * 2), 2); }
   for (const t of G.tracers) NE.pline(ctx, t.x1, t.y1, t.x2, t.y2, 1, 'rgba(255,230,160,0.9)');
+  NE.Combat.drawBullets(ctx);
   // gunner laser telegraph
   for (const a of G.actors) if (a.alive && a.state === 'aim' && a.target) { ctx.globalAlpha = 0.25 + 0.25 * Math.sin(G.t * 30); NE.pline(ctx, a.rag.pts[6].x, a.rag.pts[6].y, a.target.x, a.target.cy, 1, '#ff2020'); ctx.globalAlpha = 1; }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -600,6 +611,7 @@ G.render = function (dt) {
   if ((p.alive || G.goop) && !NE.UI.panel) { const m = G.mouse; ctx.fillStyle = p.gunOut ? '#e8e2d0' : 'rgba(232,226,208,0.6)'; const g = p.gunOut ? 2 + Math.round(p.anat.tremor() * 4) : 1; ctx.fillRect(Math.round(m.x) - g - 2, Math.round(m.y), 2, 1); ctx.fillRect(Math.round(m.x) + g + 1, Math.round(m.y), 2, 1); ctx.fillRect(Math.round(m.x), Math.round(m.y) - g - 2, 1, 2); ctx.fillRect(Math.round(m.x), Math.round(m.y) + g + 1, 1, 2); }
 };
 G.drawBody = function (ctx, b) {
+  if (NE.Gore.drawBody(ctx, b)) return;
   const P = b.pts;
   if (P.length === 4) { ctx.fillStyle = b.color || '#666'; ctx.beginPath(); ctx.moveTo(P[0].x, P[0].y); for (let i = 1; i < 4; i++) ctx.lineTo(P[i].x, P[i].y); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 1; ctx.stroke(); if (b.kind === 'crate') NE.pline(ctx, P[0].x, P[0].y, P[2].x, P[2].y, 1, 'rgba(0,0,0,0.35)'); if (b.kind === 'barrel') NE.pline(ctx, (P[0].x + P[3].x) / 2, (P[0].y + P[3].y) / 2, (P[1].x + P[2].x) / 2, (P[1].y + P[2].y) / 2, 1, 'rgba(0,0,0,0.35)'); }
   else if (P.length === 2) { const col = b.color || { flare: '#d03020', glowstick: '#e0a040', bottle: '#6a9a8a', molotov: '#3a8a40', brick: '#8a8070' }[b.kind] || '#999'; NE.pline(ctx, P[0].x, P[0].y, P[1].x, P[1].y, 1, col); if (b.kind === 'flare' && b.life > 0) { ctx.fillStyle = '#ffe0a0'; ctx.fillRect(Math.round(P[1].x), Math.round(P[1].y), 1, 1); } if (b.kind === 'molotov') { ctx.fillStyle = '#ffa040'; ctx.fillRect(Math.round(P[1].x), Math.round(P[1].y) - 1, 1, 1); } }

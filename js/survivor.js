@@ -144,10 +144,10 @@ class Anatomy {
   fracture(part) { const P = this.parts[part]; if (P.frac) return; P.frac = true; P.splint = false; P.fracT = 0; this.painSpike += 22; this.ev.push('fracture'); if (NE.Audio) NE.Audio.play('crack'); }
   legFactor() {
     let f = 1; let broken = 0;
-    for (const p of ['lleg', 'rleg']) { const P = this.parts[p]; if (P.frac) { broken++; f *= P.splint ? 0.85 : 0.55; } f *= 0.6 + 0.4 * P.hp / P.max; }
-    return { f, broken, crawl: broken === 2 && !(this.parts.lleg.splint && this.parts.rleg.splint) };
+    let gone = 0; for (const p of ['lleg', 'rleg']) { const P = this.parts[p]; if (P.severed) { gone++; broken++; f *= 0.4; continue; } if (P.frac) { broken++; f *= P.splint ? 0.85 : 0.55; } f *= 0.6 + 0.4 * P.hp / P.max; }
+    return { f, broken, crawl: gone > 0 || (broken === 2 && !(this.parts.lleg.splint && this.parts.rleg.splint)) };
   }
-  armFactor() { let f = 1; for (const p of ['larm', 'rarm']) { const P = this.parts[p]; if (P.frac) f *= P.splint ? 0.8 : 0.5; f *= 0.6 + 0.4 * P.hp / P.max; } return f; }
+  armFactor() { let f = 1; for (const p of ['larm', 'rarm']) { const P = this.parts[p]; if (P.severed) { f *= 0.45; continue; } if (P.frac) f *= P.splint ? 0.8 : 0.5; f *= 0.6 + 0.4 * P.hp / P.max; } return f; }
   tremor() { let t = Math.max(0, this.pain - this.threshold * 0.6) / 60 + Math.max(0, 35.5 - this.temp) * 0.4 + (this.s.coldblood ? 0 : Math.max(0, this.stress - 55) / 80) + this.drugs.adrenaline * 0.2; return clamp(t, 0, 1.6); }
   update(dt, env) {
     if (this.dead) return; const s = this.s; env = env || {};
@@ -278,7 +278,7 @@ NE.makeRag = function (phys, x, y) {
 };
 NE.ragPose = function (a) {
   const f = a.facing; const P = BASE.map(p => [p[0], p[1]]); const ph = a.walkPh || 0; const s = Math.sin(ph), c = Math.cos(ph);
-  const mv = Math.min(1, Math.abs(a.vx) / 40);
+  const mv = Math.min(1, Math.abs(a.vx) / 55);
   if (a.crawl) {
     const o = [[6, -2.5], [3, -2.6], [-2, -2], [4.5, -1], [6 + s * 1.5, 0], [3, -1], [5 - s * 1.5, 0], [-4, -1.2], [-7 + s, -1.6], [-4, -1.2], [-7 - s, -1.6]];
     for (let i = 0; i < 11; i++) { P[i][0] = o[i][0]; P[i][1] = o[i][1]; }
@@ -294,13 +294,18 @@ NE.ragPose = function (a) {
     P[3] = [1.5, -12]; P[4] = [2.5, -14]; P[5] = [2, -11]; P[6] = [3, -13.5]; P[7] = [1.5, -4.5]; P[8] = [2.5, -2]; P[9] = [0.5, -4]; P[10] = [0, -1]; P[0] = [-0.5, -14];
   } else if (!a.onGround) {
     P[7] = [0.5, -4.5]; P[8] = [-0.5, -1.5]; P[9] = [1.5, -4]; P[10] = [1, -1]; P[3] = [-2, -10]; P[4] = [-3, -11.5]; P[5] = [2, -10]; P[6] = [3, -11.5];
+  } else if (a.landT > 0) {
+    const k = Math.min(1, a.landT / 0.14); P[0] = [0.8, -14 + 3 * k]; P[1] = [0.4, -11 + 2.6 * k]; P[2] = [-0.3, -6.5 + 2 * k]; P[7] = [0.8, -3.5 + k]; P[9] = [2, -3.3 + k]; P[8] = [-1.4, 0]; P[10] = [1.6, 0]; P[3] = [-1.5, -8]; P[4] = [-2.2, -5.5 + k]; P[5] = [1.6, -8]; P[6] = [2.4, -5.5 + k];
   } else if (mv > 0.05) {
-    const amp = a.sprint ? 1.5 : 1;
-    P[10][0] += s * 3 * amp; P[10][1] -= Math.max(0, c) * 1.6 * amp; P[8][0] -= s * 3 * amp; P[8][1] -= Math.max(0, -c) * 1.6 * amp;
-    P[9][0] += s * 1.5 * amp + 0.6; P[7][0] -= s * 1.5 * amp - 0.6;
-    P[6][0] -= s * 2 * amp; P[4][0] += s * 2 * amp; P[5][0] -= s * amp; P[3][0] += s * amp;
-    if (a.sprint) { P[0][0] += 1.5; P[1][0] += 1; }
-    P[0][1] += Math.abs(c) * 0.4; P[1][1] += Math.abs(c) * 0.4; P[2][1] += Math.abs(c) * 0.3;
+    // walk / run cycle: feet plant & lift, knees bend forward, arms counter-swing, body bobs; running leans in and pumps the arms
+    const run = a.sprint && mv > 0.55; const amp = Math.min(1, mv * 1.4); const S = (run ? 5.2 : 3.8) * amp, Lf = (run ? 3 : 1.7) * amp;
+    const leg = q => { const fx = Math.sin(q) * S; const sw = Math.max(0, Math.cos(q)); const fy = -sw * Lf; return [[fx * 0.45 + 0.7 + sw * (run ? 2 : 1.1), -3.5 + sw * Lf * 0.3], [fx, fy]]; };
+    const F = leg(ph), B = leg(ph + Math.PI); P[9] = F[0]; P[10] = F[1]; P[7] = B[0]; P[8] = B[1];
+    const bob = -Math.abs(Math.cos(ph)) * (run ? 0.8 : 0.5) + (run ? 0.5 : 0); const lean = run ? 2 : 0.45;
+    P[0] = [0.5 + lean, -14 + bob]; P[1] = [lean * 0.7, -11 + bob]; P[2] = [0, -6.5 + bob * 0.6];
+    const as = Math.sin(ph) * (run ? 2.8 : 2) * amp; const sx = lean * 0.7;
+    if (run) { P[5] = [sx - as * 0.6 + 0.4, -9 + bob]; P[6] = [sx - as + 1.6, -7.8 + bob - Math.max(0, -as) * 0.6]; P[3] = [sx + as * 0.6 + 0.4, -9 + bob]; P[4] = [sx + as + 1.6, -7.8 + bob - Math.max(0, as) * 0.6]; }
+    else { P[5] = [-as * 0.45 + 0.3, -8.5 + bob]; P[6] = [-as + 0.4, -5.6 + bob]; P[3] = [as * 0.45 - 0.3, -8.5 + bob]; P[4] = [as - 0.4, -5.6 + bob]; }
   } else { const br = Math.sin(performance.now() / 600) * 0.3; P[0][1] += br; P[1][1] += br * 0.6; }
   if (a.limp) { P[2][1] += 0.6; P[0][0] -= 0.4; }
   // convert to world with facing
@@ -309,6 +314,7 @@ NE.ragPose = function (a) {
   const ch = out[1];
   if (!a.crawl && !a.climbing) {
     if (a.aimDir && a.gunOut) { const d = a.aimDir; out[6] = [ch[0] + d.x * 8, ch[1] + 1 + d.y * 8]; out[5] = [ch[0] + d.x * 4, ch[1] + d.y * 4 + 2]; if (a.twoHand) { out[4] = [ch[0] + d.x * 6, ch[1] + d.y * 6 + 1.5]; out[3] = [ch[0] + d.x * 2.5, ch[1] + 2.5]; } }
+    else if (a.wdir) { const d = a.wdir, e = a.wext || 0; out[6] = [ch[0] + d.x * (7.5 + e), ch[1] + 1 + d.y * (7.5 + e)]; out[5] = [ch[0] + d.x * (3.8 + e * 0.5) - f * 0.3, ch[1] + 2 + d.y * (3.8 + e * 0.5)]; if (a.twoHand) { out[4] = [ch[0] + d.x * (5.8 + e), ch[1] + 1.5 + d.y * (5.8 + e)]; out[3] = [ch[0] + d.x * 2.6, ch[1] + 2.5 + d.y * 2.6]; } }
     else if (a.swingT > 0) { const t = 1 - a.swingT / a.swingDur; const ang = lerp(-1.9, 0.8, Math.min(1, t * 1.6)); const dx = Math.cos(ang) * f, dy = Math.sin(ang); out[6] = [ch[0] + dx * 8.5, ch[1] + 1 + dy * 8.5]; out[5] = [ch[0] + dx * 4.2, ch[1] + 1 + dy * 4.2]; }
     else if (a.treating) { const k = Math.sin(performance.now() / 120); out[6] = [ch[0] + f * 3, ch[1] + 5 + k]; out[4] = [ch[0] + f * 1.5, ch[1] + 5 - k]; }
     else if (a.holdT > 0) { out[6] = [ch[0] + f * 4, ch[1] - 1]; }
@@ -341,12 +347,13 @@ NE.drawHuman = function (ctx, rag, look, o) {
   };
   // limb = 1px dark outline edge + 2px fill (People Playground-ish slim segments)
   const seg = (a, b, col, back) => { NE.pline(ctx, a.x, a.y, b.x, b.y, 3, OL(back ? BK(col) : col)); NE.pline(ctx, a.x, a.y, b.x, b.y, 2, back ? BK(col) : N(col)); };
-  const limb = (i0, i1, i2, c1, c2, part, back) => { seg(p[i0], p[i1], c1, back); seg(p[i1], p[i2], c2, back); partMark(part, p[i0].x, p[i0].y, p[i2].x, p[i2].y); };
+  const sv = o.sev || {}; const stump = (q, dx) => { R(q.x - 1 + (dx || 0), q.y - 1, 3, 3, '#6a0808'); R(q.x + (dx || 0), q.y, 1, 1, '#ece6d6'); };
+  const limb = (i0, i1, i2, c1, c2, part, back) => { if (sv[part]) return; seg(p[i0], p[i1], c1, back); seg(p[i1], p[i2], c2, back); partMark(part, p[i0].x, p[i0].y, p[i2].x, p[i2].y); };
   const foot = (q, back) => { const c = back ? '#141210' : '#221c18'; R(q.x - (f > 0 ? 1 : 2), q.y - 1, 4, 2, c); R(q.x + (f > 0 ? 2 : -3), q.y, 1, 1, c); };
   const hand = (q, back) => R(q.x - 1, q.y - 1, 2, 2, back ? BK(skin) : N(skin));
   // back leg + back arm
-  limb(2, 7, 8, pants, pants, bk + 'leg', true); foot(p[8], true);
-  limb(1, 3, 4, shirt, skin, bk + 'arm', true); hand(p[4], true);
+  limb(2, 7, 8, pants, pants, bk + 'leg', true); if (!sv[bk + 'leg']) foot(p[8], true);
+  limb(1, 3, 4, shirt, skin, bk + 'arm', true); if (!sv[bk + 'arm']) hand(p[4], true);
   // backpack (on the back side of the torso)
   if (o.pack) { const dx = p[2].x - p[1].x, dy = p[2].y - p[1].y; const L = Math.hypot(dx, dy) || 1; const nx = dy / L * f, ny = -dx / L * f; const bx = p[1].x - f * 3 + nx * 0, by = p[1].y + 1;
     NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 5, OL(o.pack[0])); NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 4, N(o.pack[0])); R(bx - 1 + (f > 0 ? 0 : 1), by + dy * 0.35, 2, 1, N(o.pack[1])); R(bx - (f > 0 ? 2 : -1), by + 1, 1, Math.round(dy * 0.5), NE.shade(o.pack[0], 0.8)); }
@@ -356,10 +363,13 @@ NE.drawHuman = function (ctx, rag, look, o) {
   R(p[2].x - 2, p[2].y - 1, 5, 2, N(pants)); R(p[2].x - 2, p[2].y - 2, 5, 1, '#2a2018');
   if (o.vest) { R(p[1].x - 2, p[1].y + 2, 5, 1, '#5a6050'); R(p[1].x - 2, p[1].y + 5, 5, 1, '#5a6050'); }
   partMark('torso', p[1].x, p[1].y, p[2].x, p[2].y);
+  if (sv[bk + 'leg'] || sv[fr + 'leg']) stump(p[2], 0); if (sv[bk + 'arm']) stump(p[1], -f);
   // front leg
-  limb(2, 9, 10, pants, pants, fr + 'leg', false); foot(p[10], false);
+  limb(2, 9, 10, pants, pants, fr + 'leg', false); if (!sv[fr + 'leg']) foot(p[10], false);
   // head: 6x6 with a dark rim, neck, nose, mouth
   const hx = Math.round(p[0].x), hy = Math.round(p[0].y); const X0 = hx - 3, Y0 = hy - 3;
+  if (sv.head) { const n = p[1]; R(n.x - 2, n.y - 3, 4, 3, '#6a0808'); R(n.x, n.y - 3, 1, 1, '#ece6d6'); }
+  if (!sv.head) {
   R(hx - 1, hy + 3, 2, 2, BK(skin));
   R(X0 - 1, Y0, 8, 6, OL(skin)); R(X0, Y0 - 1, 6, 8, OL(skin)); R(X0, Y0, 6, 6, N(skin)); R(f > 0 ? X0 : X0 + 5, Y0 + 1, 1, 4, BK(skin));
   R(f > 0 ? X0 + 6 : X0 - 1, hy, 1, 1, N(skin)); // nose
@@ -374,18 +384,20 @@ NE.drawHuman = function (ctx, rag, look, o) {
   if (o.mask) { R(f > 0 ? X0 + 2 : X0 - 1, hy + 1, 5, 2, '#2a2e30'); R(f > 0 ? X0 + 5 : X0 - 1, hy + 1, 1, 2, '#4a5054'); }
   partMark('head', p[0].x, p[0].y - 1, p[0].x, p[0].y + 1);
   if (anat && anat.parts.head.bandage) R(X0, Y0 + 1, 6, 1, '#ece6d6');
+  }
+  if (NE.Gore) NE.Gore.drawOn(ctx, rag, o);
   // waist lantern
   if (o.lantern) { const sw = Math.sin((o.walkPh || 0)) * 0.7; const lx = Math.round(p[2].x + f * 3 + sw), ly = Math.round(p[2].y + 1); const lit = o.lantern > 0.5 && !o.dead;
     R(lx, ly, 1, 1, '#3a2a1a'); R(lx - 1, ly + 1, 3, 1, '#2a1e14'); R(lx - 1, ly + 5, 3, 1, '#2a1e14'); R(lx - 1, ly + 2, 3, 3, lit ? (Math.random() < 0.08 ? '#ffd890' : '#ffb84a') : '#4a3e30'); if (lit) R(lx, ly + 3, 1, 1, '#fff4c8'); }
   // front arm
-  limb(1, 5, 6, shirt, skin, fr + 'arm', false); hand(p[6], false);
+  limb(1, 5, 6, shirt, skin, fr + 'arm', false); if (sv[fr + 'arm']) { stump(p[1], f); return; } hand(p[6], false);
   // weapon
   if (o.weapon) {
     const it = NE.ITEMS[o.weapon]; const hxw = p[6].x, hyw = p[6].y;
     if (it && it.gun) { const d = o.aimDir || { x: f, y: 0 }; const L = it.id === 'rifle' ? 11 : 6; NE.pline(ctx, hxw, hyw, hxw + d.x * L, hyw + d.y * L, 2, '#24242a'); NE.pline(ctx, hxw, hyw - 1, hxw + d.x * L, hyw + d.y * L - 1, 1, '#3c3c46'); if (it.id === 'rifle') NE.pline(ctx, hxw - d.x * 3, hyw - d.y * 3 + 1, hxw, hyw, 2, '#5a3a20'); else R(hxw - 1, hyw + 1, 1, 2, '#24242a'); }
     else if (it && it.melee) {
-      let dx = p[6].x - p[5].x, dy = p[6].y - p[5].y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
-      const len = { pipe: 9, knife: 4, shiv: 4, crowbar: 10, axe: 11, pickaxe: 10 }[it.id] || 7; const col = { pipe: '#8a8f94', knife: '#d0d0d0', shiv: '#a0a0a0', crowbar: '#a0302a', axe: '#6a4a2a', pickaxe: '#6a4a2a' }[it.id] || '#888';
+      let dx = p[6].x - p[5].x, dy = p[6].y - p[5].y; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; if (o.wdir) { dx = o.wdir.x; dy = o.wdir.y; }
+      const len = { pipe: 9, knife: 4.5, shiv: 4, crowbar: 10, axe: 11, pickaxe: 10 }[it.id] || 7; const col = { pipe: '#8a8f94', knife: '#d0d0d0', shiv: '#a0a0a0', crowbar: '#a0302a', axe: '#6a4a2a', pickaxe: '#6a4a2a' }[it.id] || '#888';
       NE.pline(ctx, hxw, hyw, hxw + dx * len, hyw + dy * len, it.id === 'knife' || it.id === 'shiv' ? 1 : 2, col);
       const tx = hxw + dx * len, ty = hyw + dy * len;
       if (it.id === 'axe') { R(tx - 1, ty - 1, 3, 3, '#c0c4c8'); }

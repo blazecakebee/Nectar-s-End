@@ -1,6 +1,19 @@
 {
  "log": [
   {
+   "version": "0.4.0",
+   "date": "2026-11-18",
+   "title": "Blood & Physics",
+   "changes": [
+    "Physics melee: your melee weapon (or fists) is held toward your cursor all the time. Damage comes from how fast the blade or head is actually moving, so whipping the mouse across someone hurts. Click to strike: knives, shivs and fists thrust, heavier weapons do a big overhead swing. Heavy weapons swing slower but hit harder, and blunt ones bounce off on impact. Enemies fight the same way.",
+    "Bullets are real projectiles: they travel, drop a little, punch through bodies, ricochet off rock at shallow angles, shove ragdolls and loose objects, and spray blood out the exit side. Muzzle flashes and ejected casings too.",
+    "Gore (scales with the Gore setting): limbs get cut, blown or shot off and fly around as physics objects with bone stumps, heads can come off, torsos spill intestines and organs (heart, lungs, liver, kidneys, stomach) that flop and bleed, bodies get stained where they were hit, and corpses keep bleeding into growing pools. Losing a leg puts you on the ground, losing an arm cripples your swing. Explosions tear people apart, and you can hack at or shoot corpses.",
+    "Faster combat: shorter melee cooldowns, faster gun fire and reloads, and enemies aim and fire sooner.",
+    "Movement: walking is about 50% faster and running is a real feature (about 2x walking speed). Hold Shift or double-tap a direction to run, and running drains stamina more slowly.",
+    "New animations: proper walk and run cycles with planted steps, bending knees and counter-swinging arms. Running leans forward with pumping arms and kicks up dust, and landings squash."
+   ]
+  },
+  {
    "version": "0.3.4",
    "date": "2026-11-18",
    "title": "Honeycomb skill web",
