@@ -249,7 +249,7 @@ NE.RECIPES = [
   { id: 'vest', name: 'Leather Jacket', out: ['vest', 1], need: [['scrap', 2], ['tape', 2], ['cloth', 4]], station: 'workbench' },
   { id: 'scrapplate', name: 'Scrap Plate Armor', out: ['scrapplate', 1], need: [['scrap', 8], ['tape', 3]], station: 'workbench' },
   { id: 'scraphelm', name: 'Bucket Helm', out: ['scraphelm', 1], need: [['scrap', 3], ['tape', 1]], station: 'workbench' },
-  { id: 'spear', name: 'Cave Spear', out: ['spear', 1], need: [['shiv', 1], ['pipe', 1], ['tape', 1]] },
+  { id: 'spear', name: 'Cave Spear', out: ['spear', 1], need: [['shiv', 1], ['scrap', 2], ['tape', 2]], desc: 'A flint blade lashed to a scrap pole.' },
   { id: 'dynamite', name: 'Blasting Charge', out: ['dynamite', 1], need: [['alcohol', 1], ['scrap', 2], ['tape', 1]], station: 'workbench' },
   { id: 'boil', name: 'Boil Water', out: ['water', 1], need: [['dirtywater', 1]], station: 'fire' },
 ];

@@ -326,6 +326,7 @@ NE.ragPose = function (a) {
     else { P[5] = [-as * 0.45 + 0.3, -8.5 + bob]; P[6] = [-as + 0.4, -5.6 + bob]; P[3] = [as * 0.45 - 0.3, -8.5 + bob]; P[4] = [as - 0.4, -5.6 + bob]; }
   } else { const br = Math.sin(performance.now() / 600) * 0.3; P[0][1] += br; P[1][1] += br * 0.6; }
   if (a.limp) { P[2][1] += 0.6; P[0][0] -= 0.4; }
+  if (a.hunch && !a.crawl && !a.climbing) { P[0][0] += 2.2; P[0][1] += 2.2; P[1][0] += 1.3; P[1][1] += 1.2; P[3][0] += 1; P[5][0] += 1.5; P[4][1] += 1.5; P[6][1] += 1.5; }
   // convert to world with facing
   const out = P.map(p => [a.x + p[0] * f * NE.RKX, a.y + p[1] * NE.RKY]);
   // arms: aim / swing / treat
@@ -416,8 +417,15 @@ NE.drawHuman = function (ctx, rag, look, o) {
   // waist lantern
   if (o.lantern) { const sw = Math.sin((o.walkPh || 0)) * 0.7; const lx = Math.round(p[2].x + f * 3 + sw), ly = Math.round(p[2].y + 1); const lit = o.lantern > 0.5 && !o.dead;
     R(lx, ly, 1, 1, '#3a2a1a'); R(lx - 1, ly + 1, 3, 1, '#2a1e14'); R(lx - 1, ly + 5, 3, 1, '#2a1e14'); R(lx - 1, ly + 2, 3, 3, lit ? (Math.random() < 0.08 ? '#ffd890' : '#ffb84a') : '#4a3e30'); if (lit) R(lx, ly + 3, 1, 1, '#fff4c8'); }
+  // archetype features: chitin shells, claws, fungus, nectar veins
+  if (o.arch && !o.dead) { const ar = o.arch, ch = p[1], pe = p[2];
+    if (ar === 'burrower') { for (let k = 0; k < 3; k++) { const t = 0.15 + k * 0.3, sx = ch.x + (pe.x - ch.x) * t - f * 2.5, sy = ch.y + (pe.y - ch.y) * t; R(sx - 2, sy - 1, 4, 2, '#3a2a14'); R(sx - 2, sy - 1, 4, 1, '#7a5a2a'); } }
+    if (ar === 'husk') { R(ch.x - f * 2, ch.y - 1, 2, 1, '#d8d0a0'); R(ch.x - f * 1, ch.y - 2, 1, 1, '#f0e8c0'); R(pe.x + f, pe.y - 2, 1, 1, '#d8d0a0'); }
+    if (ar === 'feral') { R(p[3].x, p[3].y, 1, 1, '#ffb020'); R(p[5].x, p[5].y + 1, 1, 1, '#ffb020'); } }
   // front arm
   limb(1, 5, 6, shirt, skin, fr + 'arm', false); if (sv[fr + 'arm']) { stump(p[1], f); return; } hand(p[6], false);
+  if ((o.arch === 'stalker' || o.arch === 'trog') && !o.dead) { const q = p[6], L = o.arch === 'stalker' ? 4 : 2; for (let k = -1; k <= 1; k++) NE.pline(ctx, q.x, q.y, q.x + f * L, q.y + k * 1.5 + 1, 1, '#e8e2d0'); }
+  if (o.arch === 'burrower' && !o.dead) { const hx2 = Math.round(p[0].x), hy2 = Math.round(p[0].y); R(hx2 + f * 3, hy2 + 2, 2, 1, '#2a1a0a'); R(hx2 + f * 4, hy2 + 3, 1, 1, '#2a1a0a'); }
   // weapon
   if (o.weapon) {
     const it = NE.ITEMS[o.weapon]; const hxw = p[6].x, hyw = p[6].y;

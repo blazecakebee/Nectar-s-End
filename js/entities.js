@@ -163,7 +163,7 @@ class Actor {
   }
   draw(ctx) {
     const o = { facing: this.facing, anat: this.anat, dead: !this.alive, pack: this.packCol, weapon: this.weaponId(), aimDir: this.aimDir, shirt: this.shirt, pants: this.pants, skinCol: this.skinCol,
-      vcol: this.vglow, vest: this.gear.body ? (NE.ITEMS[this.gear.body.id].col || '#3a3e36') : null, eyeGlow: this.D ? this.D.eyeGlow : null, blind: this.D && this.D.blind, helmet: this.gear.head ? (NE.ITEMS[this.gear.head.id].col || '#888') : null, mask: !!this.gear.face || this.masked, walkPh: this.walkPh, sev: this.sev, stains: this.stains, gutted: this.gutted, wdir: this.alive ? this.wdir : null, lantern: NE.hasLantern(this) ? (this.isPlayer ? (this.light.on ? 1 : 0.01) : this.isRemote ? (this.lightOn ? 1 : 0.01) : 1) : 0, vespa: !!this.vespa, infest: this.infest || 0, muts: this.muts };
+      arch: this.D ? this.type : null, vcol: this.vglow, vest: this.gear.body ? (NE.ITEMS[this.gear.body.id].col || '#3a3e36') : null, eyeGlow: this.D ? this.D.eyeGlow : null, blind: this.D && this.D.blind, helmet: this.gear.head ? (NE.ITEMS[this.gear.head.id].col || '#888') : null, mask: !!this.gear.face || this.masked, walkPh: this.walkPh, sev: this.sev, stains: this.stains, gutted: this.gutted, wdir: this.alive ? this.wdir : null, lantern: NE.hasLantern(this) ? (this.isPlayer ? (this.light.on ? 1 : 0.01) : this.isRemote ? (this.lightOn ? 1 : 0.01) : 1) : 0, vespa: !!this.vespa, infest: this.infest || 0, muts: this.muts };
     NE.drawHuman(ctx, this.rag, this.look, o);
     if (this.flash > 0 && this.alive) { ctx.fillStyle = 'rgba(255,60,40,0.5)'; for (const p of this.rag.pts) ctx.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 1, 2, 2); }
   }
@@ -286,7 +286,7 @@ class Enemy extends Actor {
     const D = NE.ENEMIES[type]; const look = NE.makeSurvivor().look;
     super(g, x, y, { faction: D.faction, look, npc: true, hpMul: D.hpMul });
     this.type = type; this.D = D; this.state = 'idle'; this.target = null; this.thinkT = rf(0, 0.3); this.atkT = 0; this.wander = rf(-1, 1) > 0 ? 1 : -1; this.wanderT = rf(1, 4); this.homeX = x; this.lostT = 0; this.hostile = true;
-    this.shirt = D.shirt; this.pants = D.pants; if (D.skin) { this.skinCol = NE.shade(D.skin, rf(0.85, 1.1)); } if (type === 'feral' || type === 'husk') this.look.hair = pick(['bald', 'buzz', 'long', 'shaggy']); if (D.bare) { this.look.hair = type === 'trog' ? pick(['bald', 'long', 'shaggy']) : 'bald'; this.shirt = NE.shade(D.skin, 0.85); } if (type === 'husk') this.gear.head = { id: 'helmet', n: 1, dur: 30 };
+    this.shirt = D.shirt; this.pants = D.pants; if (D.skin) { this.skinCol = NE.shade(D.skin, rf(0.85, 1.1)); } if (type === 'feral' || type === 'husk') this.look.hair = pick(['bald', 'buzz', 'long', 'shaggy']); if (D.bare) { this.look.hair = type === 'trog' ? pick(['bald', 'long', 'shaggy']) : 'bald'; this.shirt = NE.shade(D.skin, 0.85); } if (type === 'husk') this.gear.head = { id: 'helmet', n: 1, dur: 30 }; this.hunch = type === 'trog' || type === 'stalker' || type === 'burrower' || type === 'feral';
     this.speedMul = rf(0.82, 0.95) * D.speed / 42;
     this.weapon = D.weapon ? pick(D.weapon) : null; if (this.weapon && depth > 400 && type === 'scav' && chance(0.3)) this.weapon = 'axe';
     if (type === 'scav' && depth > 200 && chance(0.15)) { this.weapon = 'pistol'; }
@@ -408,10 +408,10 @@ class NPC extends Actor {
     const A = this.anat; if (this.kind === 'survivor' && !this.treated) { for (const p of NE.PARTS) for (const w of A.parts[p].wounds) if (!w.closed) w.bleed = Math.max(w.bleed, 0.3); }
     A.update(dt, {}); if (A.dead) { this.g.onEnemyDeath(this, 'Bled out'); return; }
     const c = { mx: 0, crouch: this.sitting };
-    if (this.town) { this.wanderT -= dt; if (this.wanderT <= 0) { this.wanderT = rf(2, 6); this.wander = this.role === 'folk' && chance(0.6) ? (chance(0.5) ? 1 : -1) : 0; } if (Math.abs(this.x - this.homeX) > 40) this.wander = Math.sign(this.homeX - this.x); c.mx = this.wander * 0.4; if (this.bumped) { this.wander *= -1; this.bumped = 0; } this.physicsMove(dt, c); if (!c.mx && this.g.player) this.facing = this.g.player.x > this.x ? 1 : -1; else if (c.mx) this.facing = Math.sign(c.mx); return; }
+    if (this.town) { this.wanderT -= dt; if (this.wanderT <= 0) { this.wanderT = rf(2, 6); this.wander = this.role === 'folk' && chance(0.6) ? (chance(0.5) ? 1 : -1) : 0; } if (Math.abs(this.x - this.homeX) > 40) this.wander = Math.sign(this.homeX - this.x); c.mx = this.wander * 0.4; if (this.bumped) { this.wander *= -1; this.bumped = 0; } this.fallHurt(this.physicsMove(dt, c)); if (!c.mx && this.g.player) this.facing = this.g.player.x > this.x ? 1 : -1; else if (c.mx) this.facing = Math.sign(c.mx); return; }
     if (this.leaving) { c.mx = this.leaving; c.crouch = false; this.sitting = false; this.leaveT -= dt; if (this.leaveT <= 0) this.gone = true; }
     if (this.g.player) this.facing = this.g.player.x > this.x ? 1 : -1;
-    this.physicsMove(dt, c);
+    this.fallHurt(this.physicsMove(dt, c));
   }
 }
 NE.NPC = NPC;

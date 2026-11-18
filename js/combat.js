@@ -8,6 +8,8 @@ const { rf, pick, chance, clamp, lerp } = NE; const T = NE.T; const G = NE.G;
 const C = NE.Combat = {};
 const WLEN = C.WLEN = { fists: 1.5, claws: 2.5, knife: 4.5, shiv: 4, pipe: 9, crowbar: 10, axe: 11, pickaxe: 10, machete: 8, fireaxe: 12, sledge: 12, spear: 17, leadpipe: 10, baton: 8, cleaver: 5 };
 const STRIKE = { knife: 'thrust', shiv: 'thrust', fists: 'thrust', claws: 'thrust', spear: 'thrust' };
+// per-weapon swing feel: arc width, speed, thrust length
+const PROF = C.PROF = { baton: { arc: 0.8, dur: 0.75 }, machete: { arc: 1.25, dur: 0.9 }, sledge: { arc: 1.45, dur: 1.55, ext: 1.2 }, fireaxe: { arc: 1.35, dur: 1.3 }, axe: { arc: 1.2, dur: 1.15 }, spear: { ext: 1.6, dur: 1.15 }, leadpipe: { arc: 1.05 }, cleaver: { arc: 0.9, dur: 0.8 }, knife: { ext: 0.9, dur: 0.85 }, fists: { arc: 0.9, dur: 0.85 } };
 const gore = () => (G.meta && G.meta.settings ? G.meta.settings.gore : 1);
 const angDiff = (a, b) => { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; };
 
@@ -20,7 +22,7 @@ C.weaponOf = function (a) {
 C.strike = function (a, w, heavy) {
   w = w || C.weaponOf(a); if (!w || a.strk) return false; const id = w.id || 'fists';
   let kind = STRIKE[id] || (w.melee.kind === 'sharp' && (w.w || 1) < 0.6 ? 'thrust' : 'swing'); if (heavy && id !== 'spear') kind = 'overhead';
-  a.strk = { t: 0, dur: (kind === 'thrust' ? 0.16 : clamp(0.16 + (w.w || 1) * 0.06, 0.18, 0.4)) * (heavy ? 1.25 : 1), kind, heavy: heavy || 0 }; a.hitSet = new Set();
+  const pf = PROF[id] || {}; a.strk = { t: 0, dur: (kind === 'thrust' ? 0.16 : clamp(0.16 + (w.w || 1) * 0.06, 0.18, 0.4)) * (heavy ? 1.25 : 1) * (pf.dur || 1), kind, heavy: heavy || 0, arc: pf.arc || 1, ex: pf.ext || 1 }; a.hitSet = new Set();
   NE.Audio.play('swing', heavy ? 1.1 : 0.7); return true;
 };
 C.tick = function (a, dt, tx, ty, active) {
@@ -29,9 +31,9 @@ C.tick = function (a, dt, tx, ty, active) {
   let target = Math.atan2(ty - sy, tx - sx); if (a.wa == null) a.wa = target;
   let ext = 0, off = 0, boost = 1; const S = a.strk;
   if (S) { S.t += dt; const k = clamp(S.t / S.dur, 0, 1);
-    if (S.kind === 'thrust') { ext = Math.sin(k * Math.PI) * 6; boost = 2.2; }
-    else if (S.kind === 'overhead') { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(2.6, -1.1, Math.min(1, k * 1.15)); boost = 3.2; ext = Math.sin(k * Math.PI) * 2; }
-    else { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(1.9, -0.8, Math.min(1, k * 1.25)); boost = 2.6; }
+    if (S.kind === 'thrust') { ext = Math.sin(k * Math.PI) * 6 * S.ex; boost = 2.2; }
+    else if (S.kind === 'overhead') { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(2.6, -1.1, Math.min(1, k * 1.15)) * Math.min(1.25, S.arc); boost = 3.2 / Math.max(0.8, S.arc * 0.9); ext = Math.sin(k * Math.PI) * 2 * S.ex; }
+    else { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(1.9, -0.8, Math.min(1, k * 1.25)) * S.arc; boost = 2.6 * S.arc; }
     if (S.t >= S.dur) a.strk = null; }
   else if (a.charge) { const k = clamp(a.charge.t / 0.6, 0, 1); const up = Math.cos(target) >= 0 ? -1 : 1; const id2 = w.id || 'fists'; if (id2 === 'spear') ext = -3.5 * k; else { off = up * 2.6 * k; ext = -1.5 * k; } if (k >= 1 && Math.random() < 0.3) G.addP(a.wtip ? a.wtip.x : a.x, a.wtip ? a.wtip.y : a.y, rf(-10, 10), rf(-20, 0), 0.25, '#ffe8a0', 'spark', 0); }
   const maxRate = 30 / (1 + wt * 0.45) * boost * (a.isPlayer && a.stats.swing ? a.stats.swing : 1); const d = angDiff(a.wa, target + off); const step = clamp(d, -maxRate * dt, maxRate * dt);

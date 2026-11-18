@@ -1,6 +1,18 @@
 {
  "log": [
   {
+   "version": "0.5.1",
+   "date": "2026-11-18",
+   "title": "Deeper detail",
+   "changes": [
+    "New cave backgrounds: chunky shaded rock blocks that scroll slower than the foreground for depth. Each biome adds its own touches: hanging vines and moss in the Grotto, sediment bands in the desert, frost cracks in the ice, glowing crystal veins and glints, and molten cracks in the Magma Abyss.",
+    "Each weapon now swings differently. Batons and fists are quick and short; machetes sweep wide; fire axes and sledgehammers are slow and heavy; spears lunge far.",
+    "Enemy types are easier to tell apart at a glance. Troglodytes, Stalkers, Burrowers and Addicts crouch forward when they move. Stalkers have long bone claws and Troglodytes have short ones. Burrowers have armored shell plates and mandibles. Husks are covered in fungus. Addicts have glowing nectar veins.",
+    "Town folk and wounded survivors now take fall damage too.",
+    "The Cave Spear recipe no longer needs a Rock Hammer: Flint Dagger + 2 Scrap + 2 Duct Tape."
+   ]
+  },
+  {
    "version": "0.5.0",
    "date": "2026-11-18",
    "title": "Into the Deep — the big overhaul",

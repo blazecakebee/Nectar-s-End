@@ -231,19 +231,30 @@ function makeTex(pal, kind) {
   t.ice = mk((x, v) => { x.fillStyle = '#9fd4ec'; x.fillRect(0, 0, 8, 8); x.fillStyle = '#d8f4ff'; x.fillRect(1 + v, 1, 2, 1); x.fillRect(5, 3 + (v % 2), 1, 2); x.fillStyle = '#6aa8c8'; x.fillRect(0, 7, 8, 1); });
   t.metal = mk(x => { x.fillStyle = '#4a3a2a'; x.fillRect(0, 0, 8, 8); x.fillStyle = '#6a5038'; x.fillRect(0, 0, 8, 1); x.fillRect(3, 0, 1, 8); });
   t.vent = mk(x => { x.fillStyle = '#2a1a14'; x.fillRect(0, 0, 8, 8); x.fillStyle = '#ff6020'; x.fillRect(3, 0, 2, 3); x.fillStyle = '#5a2a1a'; x.fillRect(1, 3, 6, 1); });
-  // cave back wall 24x24
-  const b = document.createElement('canvas'); b.width = 24; b.height = 24; const bx = b.getContext('2d');
-  bx.fillStyle = pal.back; bx.fillRect(0, 0, 24, 24);
-  for (let i = 0; i < 26; i++) { const px = Math.floor(NE.hash(i, 9) * 24), py = Math.floor(NE.hash(9, i) * 24), s = 1 + Math.floor(NE.hash(i, i) * 3); bx.fillStyle = i % 3 ? pal.back2 : NE.shade(pal.back, 0.75); bx.fillRect(px, py, s, Math.max(1, s - 1)); }
-  if (kind === 'crystal') { bx.fillStyle = 'rgba(140,180,255,0.35)'; bx.fillRect(5, 6, 1, 2); bx.fillRect(17, 15, 1, 2); }
-  if (kind === 'ice') { bx.fillStyle = 'rgba(200,230,255,0.18)'; bx.fillRect(2, 2, 6, 1); bx.fillRect(13, 14, 7, 1); }
-  if (kind === 'desert') { bx.fillStyle = NE.shade(pal.back, 1.15); bx.fillRect(0, 8, 24, 1); bx.fillRect(0, 19, 24, 1); }
+  // cave back wall: 96x96 tile of chunky, shaded rock blocks + biome detail (parallax-scrolled behind the tiles)
+  const BS = 96; const b = document.createElement('canvas'); b.width = BS; b.height = BS; const bx = b.getContext('2d'); const h = (a, c) => NE.hash(a + kind.length * 31, c);
+  bx.fillStyle = NE.shade(pal.back, 0.8); bx.fillRect(0, 0, BS, BS);
+  const used = new Uint8Array(12 * 12);
+  for (let gy = 0; gy < 12; gy++) for (let gx = 0; gx < 12; gx++) { if (used[gy * 12 + gx]) continue; const big = h(gx, gy) < 0.35 && gx < 11 && gy < 11 && !used[gy * 12 + gx + 1] && !used[(gy + 1) * 12 + gx]; const sz = big ? 2 : 1;
+    for (let a = 0; a < sz; a++) for (let c = 0; c < sz; c++) used[(gy + c) * 12 + gx + a] = 1;
+    const x = gx * 8, y = gy * 8, w = sz * 8; const sh = 0.82 + h(gx * 3, gy * 7) * 0.32; const base = h(gy, gx) < 0.5 ? pal.back : pal.back2;
+    bx.fillStyle = NE.shade(base, sh); bx.fillRect(x, y, w - 1, w - 1);
+    bx.fillStyle = NE.shade(base, sh * 1.16); bx.fillRect(x, y, w - 1, 1); bx.fillRect(x, y, 1, w - 1); // lit top-left edge
+    bx.fillStyle = NE.shade(base, sh * 0.72); bx.fillRect(x + w - 1, y, 1, w); bx.fillRect(x, y + w - 1, w, 1); // shadowed seam
+    for (let k = 0; k < 3 * sz; k++) { bx.fillStyle = NE.shade(base, sh * (k % 2 ? 0.86 : 1.08)); bx.fillRect(x + 1 + Math.floor(h(k, gx + gy * 12) * (w - 3)), y + 1 + Math.floor(h(gx + gy * 12, k) * (w - 3)), 1, 1); } }
+  if (kind === 'grotto') { for (let k = 0; k < 7; k++) { const x = Math.floor(h(k, 1) * BS), L = 8 + Math.floor(h(1, k) * 30); for (let y = 0; y < L; y++) { bx.fillStyle = y % 5 === 0 ? '#3a5a2a' : '#2a4020'; bx.fillRect(x + Math.round(Math.sin(y * 0.4 + k) * 1.2), y, 1, 1); } }
+    for (let k = 0; k < 14; k++) { bx.fillStyle = 'rgba(80,130,50,0.35)'; bx.fillRect(Math.floor(h(k, 5) * BS), Math.floor(h(5, k) * BS), 2 + (k % 3), 1); } }
+  if (kind === 'desert') { for (const yy of [14, 15, 41, 66, 67, 88]) { bx.fillStyle = NE.shade(pal.back, yy % 2 ? 1.22 : 1.1); bx.fillRect(0, yy, BS, 1); } for (let k = 0; k < 6; k++) { bx.fillStyle = 'rgba(220,180,120,0.18)'; bx.fillRect(Math.floor(h(k, 8) * BS), Math.floor(h(8, k) * BS), 5, 2); } }
+  if (kind === 'ice') { for (let k = 0; k < 5; k++) { let x = Math.floor(h(k, 3) * BS), y = Math.floor(h(3, k) * BS); bx.fillStyle = 'rgba(200,235,255,0.28)'; for (let q = 0; q < 14; q++) { bx.fillRect(x, y, 1, 1); x += h(q, k) < 0.5 ? 1 : 0; y += 1; } } for (let k = 0; k < 10; k++) { bx.fillStyle = 'rgba(230,245,255,0.4)'; bx.fillRect(Math.floor(h(k, 11) * BS), Math.floor(h(11, k) * BS), 1, 1); } }
+  if (kind === 'crystal') { const vc = ['rgba(140,180,255,0.5)', 'rgba(190,140,255,0.5)', 'rgba(140,255,220,0.45)']; for (let k = 0; k < 6; k++) { let x = Math.floor(h(k, 4) * BS), y = Math.floor(h(4, k) * BS); bx.fillStyle = vc[k % 3]; for (let q = 0; q < 10; q++) { bx.fillRect(x, y, 1, 1); x += 1; y += h(q, k * 2) < 0.5 ? 1 : -1; } bx.fillStyle = '#ffffff'; bx.fillRect(x, y, 1, 1); } }
+  if (kind === 'magma') { for (let k = 0; k < 6; k++) { let x = Math.floor(h(k, 6) * BS), y = Math.floor(h(6, k) * BS); for (let q = 0; q < 12; q++) { bx.fillStyle = q % 4 === 0 ? 'rgba(255,140,40,0.55)' : 'rgba(200,60,20,0.4)'; bx.fillRect(x, y, 1, 1); x += h(q, k) < 0.5 ? 1 : -1; y += 1; } } }
+  if (kind === 'lobby') { for (let k = 0; k < 4; k++) { bx.fillStyle = 'rgba(255,200,120,0.08)'; bx.fillRect(0, k * 24 + 12, BS, 1); } }
   t.back = b; return t;
 }
 World.prototype.texFor = function (biome) { const k = biome.id; if (!this.tex[k]) this.tex[k] = makeTex(biome.pal, k); return this.tex[k]; };
 World.prototype.draw = function (ctx, cx, cy, time) {
   const VW = NE.VW, VH = NE.VH; const tx0 = Math.floor(cx / T) - 1, ty0 = Math.floor(cy / T) - 1, tx1 = tx0 + Math.ceil(VW / T) + 2, ty1 = ty0 + Math.ceil(VH / T) + 2;
-  for (let ty = ty0; ty <= ty1; ty++) { const fl = this.floorOf(Math.max(0, ty)); if (!fl) continue; const tex = this.texFor(fl.biome); const pat = tex._pat || (tex._pat = ctx.createPattern(tex.back, 'repeat')); ctx.fillStyle = pat; ctx.fillRect(tx0 * T, ty * T, (tx1 - tx0 + 1) * T, T); }
+  for (let ty = ty0; ty <= ty1; ty++) { const fl = this.floorOf(Math.max(0, ty)); if (!fl) continue; const tex = this.texFor(fl.biome); const pat = tex._pat || (tex._pat = ctx.createPattern(tex.back, 'repeat')); if (pat.setTransform) pat.setTransform(new DOMMatrix().translate(Math.round(cx * 0.3), Math.round(cy * 0.3))); ctx.fillStyle = pat; ctx.fillRect(tx0 * T, ty * T, (tx1 - tx0 + 1) * T, T); }
   for (const fl of this.visibleFloors(cy)) for (const d of fl.decor) NE.drawDecor(ctx, d, fl.biome.pal, time, fl);
   for (let ty = ty0; ty <= ty1; ty++) {
     const fl = this.floorOf(Math.max(0, ty)); if (!fl) continue; const tex = this.texFor(fl.biome); const pal = fl.biome.pal; const B = fl.biome.id;
