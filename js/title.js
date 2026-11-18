@@ -10,7 +10,7 @@ G.drawTitle = function (dt) {
   const ctx = G.ctx, VW = NE.VW, VH = NE.VH, t = G.t, F = G.titleFx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
   const gr = ctx.createLinearGradient(0, 0, 0, VH); gr.addColorStop(0, '#120c1e'); gr.addColorStop(0.45, '#1d1328'); gr.addColorStop(1, '#2c1810'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH);
   // the deep glows gold — from the pit on the right
-  const px = Math.round(VW * 0.72); const glow = ctx.createRadialGradient(px, VH + 10, 10, px, VH, 170); glow.addColorStop(0, 'rgba(255,170,50,0.55)'); glow.addColorStop(0.5, 'rgba(200,90,40,0.18)'); glow.addColorStop(1, 'rgba(120,40,60,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, VW, VH);
+  const px = Math.round(Math.max(VW * 0.8, VW / 2 + 120)); const glow = ctx.createRadialGradient(px, VH + 10, 10, px, VH, 170); glow.addColorStop(0, 'rgba(255,170,50,0.55)'); glow.addColorStop(0.5, 'rgba(200,90,40,0.18)'); glow.addColorStop(1, 'rgba(120,40,60,0)'); ctx.fillStyle = glow; ctx.fillRect(0, 0, VW, VH);
   // far cave layers (coloured rims), stalactites
   sil(ctx, '#1f1733', 26, 30, 1.3, VW, true); sil(ctx, '#150f22', 14, 46, 2.1, VW, true);
   for (let i = 0; i < 18; i++) { const x = NE.hash(i, 31) * VW, y = 18 + NE.hash(i, 32) * 40; const c = ['#7affd8', '#b090ff', '#ff90c8'][i % 3]; ctx.globalAlpha = 0.35 + 0.3 * Math.sin(t * (0.6 + NE.hash(i, 33)) + i); ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 1, 2); ctx.globalAlpha = 1; }
@@ -33,7 +33,7 @@ G.drawTitle = function (dt) {
   ctx.globalAlpha = 1;
   // logo + honey title (left third)
   if (!G.titleImg || (!G.titleImg.logo && NE.logoImg.complete && NE.logoImg.naturalWidth)) G.titleImg = NE.makeNectarTitle();
-  const TI = G.titleImg; const lx = Math.round(Math.max(VW * 0.3, 140)); G.honeyDrops = G.honeyDrops || [];
+  const TI = G.titleImg; const lx = Math.round(VW / 2); G.honeyDrops = G.honeyDrops || [];
   const lg = ctx.createRadialGradient(lx, 44, 4, lx, 44, 130); lg.addColorStop(0, 'rgba(255,180,50,0.22)'); lg.addColorStop(1, 'rgba(255,180,50,0)'); ctx.fillStyle = lg; ctx.fillRect(0, 0, VW, VH);
   const bob = Math.round(Math.sin(t * 1.2) * 1.5); const parts = [];
   if (TI.logo) parts.push({ h: TI.logo, x: Math.round(lx - TI.logo.img.width / 2), y: 4 + bob }); parts.push({ h: TI.title, x: Math.round(lx - TI.title.img.width / 2), y: TI.logo ? 54 : 26 });

@@ -1,5 +1,6 @@
 {
  "log": [
+  {"version": "0.3.1", "date": "2026-11-18", "title": "Centered title screen", "changes": ["The logo and main menu are now centered on every screen width, including ultrawide."]},
   {
    "version": "0.3.0",
    "date": "2026-11-18",

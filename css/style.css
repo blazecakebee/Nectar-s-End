@@ -224,7 +224,7 @@ button { font-family: inherit; }
 /* =================== v0.3 — Vespa update =================== */
 /* ---- title: clear hierarchy, left column under the logo ---- */
 #title-ui { display: block; padding: 0; }
-.t-col { position: absolute; left: max(30%, calc(var(--s) * 140px)); top: 49%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: stretch; gap: .45em; width: 15em; }
+.t-col { position: absolute; left: 50%; top: 49%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: stretch; gap: .45em; width: 15em; }
 .t-sub { position: static; text-align: center; font-family: 'IM Fell English', serif; font-style: italic; color: #e8c890; font-size: .95em; margin-bottom: .35em; text-shadow: 0 0 10px #000, 0 0 2px #000; }
 .t-btn { min-width: 0; padding: .3em .8em; font-size: .95em; letter-spacing: .18em; border-radius: .35em; background: rgba(14,10,20,.72); border: 2px solid rgba(240,180,80,.35); color: #f2dcac; backdrop-filter: blur(2px); }
 .t-btn.primary { font-size: 1.35em; padding: .4em .8em .35em; background: linear-gradient(#ffcf5a, #e8962a); color: #2a1404; border: 2px solid #ffe7a0; text-shadow: 0 1px 0 rgba(255,255,255,.4); box-shadow: 0 0 1.2em rgba(255,180,60,.45), inset 0 -3px 0 rgba(120,50,0,.35); }
