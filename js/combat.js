@@ -44,7 +44,8 @@ C.tick = function (a, dt, tx, ty, active) {
   if (a.isPlayer && Math.abs(a.wav) > 7 && !S) a.anat.stam -= dt * Math.abs(a.wav) * 0.12 * (0.6 + wt * 0.5);
   if (!prev || dt <= 0) return;
   const tv = Math.hypot(tipx - prev.x, tipy - prev.y) / dt; // tip speed, px/s
-  if (tv < 55) return;
+  if (tv < 55 || (a.charge && !S)) return; // raising the weapon for a wind-up never hurts anyone
+  if (!S && !a.isPlayer && a.target && a.target.anat && a.target.anat.uncon) return; // enemies only hit a downed body with the finisher
   C.sweep(a, w, prev, a.wtip, tv, dt, !!S);
 };
 C.sweep = function (a, w, p0, p1, tv, dt, striking) {
@@ -68,7 +69,8 @@ C.sweep = function (a, w, p0, p1, tv, dt, striking) {
       if (!t.isPlayer && dmg > 6) { t.stagger = Math.max(t.stagger || 0, clamp(dmg / 45, 0.12, 0.7) * (m.stun || 1) * (hv > 1 ? 1.4 : 1)); }
       else if (t.isPlayer && dmg > 14) { t.stagger = 0; t.hurtT = 0.5; }
       if (a.abil && a.abil.includes('sting') && t.alive && t.anat) t.anat.tox = (t.anat.tox || 0) + 15;
-      const push = Math.min(160 * hv, spd * 0.35 * hv) * (0.5 + (w.w || 0.5) * 0.4) * (a.isPlayer && a.stats.swing ? a.stats.swing : 1); t.vx += vd.x * push; t.vy += Math.min(0, vd.y * push * 0.4);
+      const push = Math.min(a.isPlayer ? 260 * hv : 160 * hv, spd * (a.isPlayer ? 0.6 : 0.35) * hv) * (0.55 + (w.w || 0.5) * 0.4) * (a.isPlayer && a.stats.swing ? a.stats.swing : 1) * (m.stun ? 1.2 : 1);
+      const dirx = Math.sign(t.x - a.x) || Math.sign(vd.x) || 1; t.vx += dirx * push; t.vy += Math.min(-30, vd.y * push * 0.4 - (a.isPlayer ? 40 : 0)); t.onGround = false; if (a.isPlayer) t.knockT = clamp(push / 500, 0.12, 0.45);
       const rp = t.rag.pts[NE.RAGIDX(part, t.facing)]; if (rp) { rp.ox -= vd.x * spd * 0.012; rp.oy -= vd.y * spd * 0.012; }
       NE.Audio.play(kind === 'sharp' || kind === 'bite' ? 'slash' : 'hit', clamp(spd / 200, 0.4, 1.2)); if (a.isPlayer || t.isPlayer) G.shake(clamp(dmg / 12, 0.8, hv > 1 ? 5 : 3)); if (hv > 1) { G.slowmo = 0.12; for (let i = 0; i < 6; i++) G.addP(hit.x, hit.y, rf(-60, 60), rf(-60, 10), 0.3, '#fff0c0', 'spark', 0.5); }
       if (kind === 'sharp' || dmg > 12) C.spray(hit.x, hit.y, vd.x, vd.y, Math.round(dmg * 0.8));

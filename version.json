@@ -1,6 +1,33 @@
 {
  "log": [
   {
+   "version": "0.5.3",
+   "date": "2026-11-18",
+   "title": "Fight back",
+   "changes": [
+    "Knocked down? Mash Space or click to fight back. If an enemy stands over you for the finisher, you now have about 4 seconds to throw them off. Each press also pushes their swing back. Breaking free stuns everyone nearby and gives you a few seconds of second wind so you don't black out again straight away.",
+    "Co-op: when your partner dies, walk over their corpse and press E to raise it as a brood minion. It costs you a little blood. The dead player steers the minion ([A/D] move, [Space] hop, [LMB] bite) while their Vespa waits for a new host. Minions are weak and burst after a few hits, but their kills count as Vespa kills.",
+    "Co-op: corpses you drag now move on your partner's screen too.",
+    "Double-tap Crouch to go fully prone and stay down. Double-tap again, jump or sprint to get up.",
+    "You can chip away at any rock with any weapon, or your bare hands, to dig out of tight spots. Pickaxes are still much faster. Rock now shows cracks that spread as it takes damage.",
+    "Your hits knock people back properly and briefly loosen their footing.",
+    "Enemies no longer trade blows nonstop. They back off after each swing, hold at the edge of their reach while they recover, and take turns instead of all swinging at once.",
+    "Enemies' weapons no longer hurt you while they're winding up, and they can't hit you while you're down except with the finisher.",
+    "Bones break far less easily. Blunt hits need real force to fracture, falls are much gentler (you take less damage and land safely from higher up), and big falls rarely break both legs.",
+    "New Strength skills: Hauler (+3kg carry per rank, and heavy loads slow you less) and Organized Packing (+1 inventory slot per rank, and stacks hold 25% more).",
+    "The Status tab now shows your Vespa strain: its name, rarity, what it does, and any nectar gifts you've awakened.",
+    "Loot screen: your pack is on the left and the container is on the right."
+   ]
+  },
+  {
+   "version": "0.5.2",
+   "date": "2026-11-18",
+   "title": "Sharp text",
+   "changes": [
+    "The captions in the host-taking cutscene are now sharp, readable text instead of blurry canvas text. The same fix applies to the lift's LOWERING label and the Vespa burst countdown."
+   ]
+  },
+  {
    "version": "0.5.1",
    "date": "2026-11-18",
    "title": "Deeper detail",

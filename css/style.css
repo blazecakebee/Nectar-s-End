@@ -386,3 +386,21 @@ button, .btn, .t-btn, .hx, .slot, .li, .wr, .tr, .eq, .kb-k, [data-a], [data-c],
 .eg-bars { display: grid; gap: .15em; } .eg-r { display: grid; grid-template-columns: 7.5em 1fr 2.6em; align-items: center; gap: .4em; font-size: .68em; }
 .eg-r span { color: var(--dim); } .eg-r b { text-align: right; font-weight: 400; } .eg-r i { height: .45em; background: var(--barbg, #1a1612); border-radius: .2em; overflow: hidden; } .eg-r em { display: block; height: 100%; background: linear-gradient(90deg, var(--honey), #ffe08a); }
 .eg-pts { margin: .2em 0 .5em; font-size: .85em; color: var(--honey); } .eg-pts small { color: var(--dim); }
+
+/* infestation cutscene captions (DOM text so it stays sharp at any scale) */
+#cine { position: absolute; inset: 0; pointer-events: none; z-index: 20; }
+#cine .cine-cap { position: absolute; left: 0; right: 0; bottom: 1.1em; text-align: center; font-family: 'Pixelify Sans', monospace; font-size: 1.25em; color: #ece6d6; letter-spacing: .04em; text-shadow: 0 .08em 0 #000, 0 0 .5em #000; }
+#cine .cine-skip { position: absolute; right: 1.2em; top: 1em; font-size: .8em; color: #8f897c; letter-spacing: .06em; }
+
+.domtext { position: absolute; left: 0; right: 0; text-align: center; pointer-events: none; z-index: 19; font-family: 'Pixelify Sans', monospace; font-size: 1.3em; color: #ece6d6; letter-spacing: .12em; text-shadow: 0 .08em 0 #000; }
+.domtext.big { font-size: 2.6em; color: #ffd040; text-shadow: 0 0 .3em #a06000, 0 .06em 0 #000; } .domtext.big.hot { color: #ff6040; }
+
+.domtext.strug { font-size: 1.05em; color: #ffd040; letter-spacing: .08em; animation: strugP .5s steps(2) infinite; } .domtext.strug.hot { color: #ff6040; }
+@keyframes strugP { 50% { opacity: .65; } }
+
+/* status: your Vespa strain */
+.st-vespa { display: flex; gap: .6em; align-items: flex-start; padding: .45em .55em; border: 1px solid var(--tc); border-radius: .35em; background: linear-gradient(90deg, color-mix(in srgb, var(--vc) 14%, transparent), transparent 70%); }
+.sv-eye { width: 2.2em; height: 2.2em; flex: none; border-radius: 50%; background: radial-gradient(circle, #fff 0 12%, var(--vc) 13% 55%, #120c06 56%); box-shadow: 0 0 .7em var(--vc); display: grid; place-items: center; animation: svb 4s infinite; }
+@keyframes svb { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+.st-vespa b { color: var(--vc); font-family: 'Pixelify Sans', monospace; } .sv-tier { margin-left: .5em; font-size: .62em; color: var(--tc); letter-spacing: .12em; border: 1px solid var(--tc); padding: 0 .35em; border-radius: .2em; }
+.st-vespa p { margin: .2em 0 .25em; font-size: .78em; color: var(--ink); } .sv-ab { display: flex; flex-wrap: wrap; gap: .25em; } .sv-ab span { font-size: .66em; padding: .05em .4em; border-radius: 1em; background: rgba(255,200,60,.12); color: var(--honey); }

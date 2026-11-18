@@ -46,7 +46,7 @@ NE.computeStats = function (meta, surv) {
   s.parkour = 1 + r('parkour') * 0.12; s.runSpeed = 1 + r('sprinter') * 0.05; s.runCost = 1 - r('sprinter') * 0.1;
   s.pick = 1 + r('nimble') * 0.12; s.search -= r('nimble') * 0.06; s.battery *= 1 + r('lantern') * 0.2; s.lamp = 1 + r('lantern') * 0.1;
   s.stress -= r('composure') * 0.1; s.wake = 1 + r('composure') * 0.15; s.barter -= r('barter') * 0.08; s.post = 1 + r('barter') * 0.1;
-  s.swing = 1 + r('brawler') * 0.12; s.slots += r('packmule'); s.carry += r('packmule') * 2;
+  s.swing = 1 + r('brawler') * 0.12; s.slots += r('packmule') + r('organizer'); s.carry += r('packmule') * 2 + r('hauler') * 3; s.encTol = r('hauler') * 0.06; s.stackMul = 1 + r('organizer') * 0.25;
   if (surv) {
     const occ = NE.OCCUPATIONS.find(o => o.id === surv.occ); if (occ) applyMods(s, occ.mods);
     for (const t of surv.traits) { const tr = NE.TRAITS.find(x => x.id === t); if (tr) applyMods(s, tr.mods); }
@@ -68,9 +68,9 @@ class Inv {
   find(id) { return this.items.find(e => e.id === id); }
   add(id, n, extra) {
     n = n == null ? 1 : n; const it = NE.ITEMS[id]; if (!it) return n;
-    if (it.stack) {
-      for (const e of this.items) if (e.id === id && e.n < it.stack) { const k = Math.min(n, it.stack - e.n); e.n += k; n -= k; if (!n) return 0; }
-      while (n > 0 && this.items.length < this.slots) { const k = Math.min(n, it.stack); this.items.push({ id, n: k }); n -= k; }
+    if (it.stack) { const cap = Math.round(it.stack * (this.stackMul || 1));
+      for (const e of this.items) if (e.id === id && e.n < cap) { const k = Math.min(n, cap - e.n); e.n += k; n -= k; if (!n) return 0; }
+      while (n > 0 && this.items.length < this.slots) { const k = Math.min(n, cap); this.items.push({ id, n: k }); n -= k; }
       return n;
     }
     while (n > 0 && this.items.length < this.slots) { const e = { id, n: it.uses || 1 }; if (it.dur) e.dur = it.dur; if (it.gun) e.mag = 0; Object.assign(e, extra || {}); this.items.push(e); n--; }
@@ -137,8 +137,8 @@ class Anatomy {
     else if (kind === 'burn') { add('burn', 0.25); }
     else if (kind === 'glass') { add('cut', 0.3, { bleed: rf(0.4, 1) }); this.ev.push('bleed'); }
     else { // blunt / fall / crush
-      add('bruise', 0); const fc = (kind === 'fall' ? 0.06 : 0.025) * amt * s.fracture * (part === 'torso' ? 0.4 : part === 'head' ? 0.3 : 1);
-      if (amt > 6 && chance(fc)) this.fracture(part);
+      add('bruise', 0); const fc = Math.min(kind === 'fall' ? 0.35 : 0.25, (kind === 'fall' ? 0.016 * Math.max(0, amt - 10) : 0.008 * Math.max(0, amt - 14))) * s.fracture * (part === 'torso' ? 0.35 : part === 'head' ? 0.25 : 1);
+      if (amt > 8 && chance(fc)) this.fracture(part);
       if (amt > 16 && chance(0.3)) add('lac', 0.2);
     }
     // organ damage
@@ -231,7 +231,7 @@ class Anatomy {
     tc -= (100 - this.org.brain) * 0.8;
     if (this.temp < 34.5) tc -= (34.5 - this.temp) * 18; if (this.temp > 40) tc -= (this.temp - 40) * 20;
     if (this.thirst <= 0) tc -= 25; if (this.hunger <= 0) tc -= 12;
-    tc -= this.drugs.morphine * 12 + this.gas * 18 * s.gas; tc += this.drugs.adrenaline * 45;
+    tc -= this.drugs.morphine * 12 + this.gas * 18 * s.gas; tc += this.drugs.adrenaline * 45; if (this.secondWind > 0) { this.secondWind -= dt; tc += 60; }
     this.cons = this.cons > tc ? Math.max(tc, this.cons - dt * 14) : Math.min(tc, this.cons + dt * 7 * (s.wake || 1));
     this.cons = clamp(this.cons, -20, 100);
     if (!this.uncon && this.cons <= 0) { this.uncon = true; this.ev.push('uncon'); }

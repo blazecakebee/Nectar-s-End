@@ -214,6 +214,8 @@ NE.PERKS = [
   { id: 'barter', name: 'Silver Tongue', max: 3, icon: 'p_coin', desc: '-8% trader prices and +10% Deep Post payout per rank.' },
   { id: 'brawler', name: 'Brawler', max: 4, icon: 'ui_fist', desc: '+12% melee swing speed and harder knockback per rank.' },
   { id: 'packmule', name: 'Pack Mule', max: 3, icon: 'ui_inv', desc: '+1 backpack slot and +2kg carry per rank.' },
+  { id: 'hauler', name: 'Hauler', max: 5, icon: 'ui_craft', desc: '+3kg carry capacity per rank. Heavy loads slow you down less.' },
+  { id: 'organizer', name: 'Organized Packing', max: 4, icon: 'ui_inv', desc: '+1 inventory slot per rank. Stackable items stack 25% higher per rank.' },
   { id: 'coldblood', name: 'Cold Blood', max: 1, icon: 'skull', ang: -46, after: 'psychology', req: { psychology: 4, endurance: 3 }, col: '#ff4060', desc: 'CAPSTONE: no panic tremors, slower bleeding under stress, self-surgery never knocks you out. Needs Psychology 4 + Endurance 3.' },
 ];
 

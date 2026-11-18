@@ -44,6 +44,7 @@ G.bindInput = function () {
     if (NE.UI.rebinding) { e.preventDefault(); NE.UI.finishRebind(e.code); return; }
     if (['Tab', 'Space', 'ArrowUp', 'ArrowDown'].includes(e.code) || G.actionOf(e.code)) e.preventDefault();
     if (G.infest && ['Space', 'Escape', 'Enter'].includes(e.code)) { G.skipInfest(); K[e.code] = true; return; }
+    if (!K[e.code] && e.code === 'Space' && G.player && G.player.alive && G.player.anat.uncon && G.state === 'run') { G.struggle(); K[e.code] = true; return; }
     if (!K[e.code]) G.onKey(e.code); K[e.code] = true;
   });
   window.addEventListener('keyup', e => { K[e.code] = false; });
@@ -60,7 +61,7 @@ G.bindInput = function () {
 // ---------------- rebindable keys ----------------
 NE.BIND_DEFS = [
   ['left', 'Move left', ['KeyA', 'ArrowLeft']], ['right', 'Move right', ['KeyD', 'ArrowRight']], ['up', 'Climb up / grab rope', ['KeyW', 'ArrowUp']], ['down', 'Climb down / crouch', ['KeyS', 'ArrowDown']],
-  ['jump', 'Jump (also off ropes & walls)', ['Space', null]], ['sprint', 'Run (or double-tap a direction)', ['ShiftLeft', 'ShiftRight']], ['crouch', 'Crouch / crawl', ['ControlLeft', 'KeyC']],
+  ['jump', 'Jump (also off ropes & walls)', ['Space', null]], ['sprint', 'Run (or double-tap a direction)', ['ShiftLeft', 'ShiftRight']], ['crouch', 'Crouch / crawl (double-tap: go prone)', ['ControlLeft', 'KeyC']],
   ['interact', 'Interact / search', ['KeyE', null]], ['light', 'Lantern on / off', ['KeyF', null]], ['reload', 'Reload / clear jam', ['KeyR', null]], ['throw', 'Throw', ['KeyG', null]], ['cycleThrow', 'Cycle throwable', ['KeyQ', null]],
   ['weapon', 'Cycle weapon', ['Digit1', null]], ['bandage', 'Quick-bandage worst bleed', ['KeyB', null]], ['pulse', 'Hive Pulse (once awakened)', ['KeyX', null]],
   ['menu', 'Hex menu', ['KeyM', null]], ['inventory', 'Inventory', ['Tab', 'KeyI']], ['health', 'Health & triage', ['KeyH', null]], ['status', 'Status', ['KeyV', null]], ['craft', 'Crafting', ['KeyK', null]], ['map', 'Map', ['KeyN', null]], ['journal', 'Journal', ['KeyJ', null]],
@@ -76,6 +77,8 @@ G.onKey = function (code) {
   NE.Audio.init();
   if (G.state === 'prologue') { if (code === 'Escape') NE.Prologue.finish(); else if (code === 'Space' || code === 'Enter') NE.Prologue.next(); return; }
   const UI = NE.UI; const p = G.player; const run = G.state === 'run';
+  // double-tap crouch: drop fully prone (crawl) and stay down until you double-tap again, jump, or sprint
+  if (G.actionOf(code) === 'crouch' && p && G.playing()) { const now = performance.now(); if (now - (G._crT || 0) < 320) { G.prone = !G.prone; G._crT = 0; if (G.prone) NE.Audio.play('step', 0.4); } else { G._crT = now; } }
   if (code === 'Escape') { if (UI.closeTop()) return; if (G.playing()) UI.openHex(); return; }
   if (!G.playing()) return;
   if (UI.modalOpen()) return;
@@ -98,7 +101,7 @@ G.onKey = function (code) {
 G.throwSel = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick']; if (G.throwPref && p.inv.has(G.throwPref)) return G.throwPref; return ids.find(i => p.inv.has(i)); };
 G.cycleThrow = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick'].filter(i => p.inv.has(i)); if (!ids.length) return G.toast('No throwables.'); const i = (ids.indexOf(G.throwSel()) + 1) % ids.length; G.throwPref = ids[i]; G.toast('Throw: ' + NE.ITEMS[ids[i]].name + ' [' + NE.keyLabel('throw') + ']'); };
 G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const cur = p.equip.weapon; const all = [null, ...ws]; const i = ((all.indexOf(cur) + dir) % all.length + all.length) % all.length; p.equip.weapon = all[i]; p.charge = null; NE.UI.weaponFlash(all, i); NE.Audio.play('click', 0.7); };
-G.onClick = function () { if (G.infest) return G.skipInfest(); if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
+G.onClick = function () { if (G.infest) return G.skipInfest(); if (G.player && G.player.alive && G.player.anat.uncon && G.state === 'run') return G.struggle(); if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
 G.startGrab = function () {
   if (!G.playing() || NE.UI.panel) return; const p = G.player; const m = G.mouse;
   if (NE.dist(m.wx, m.wy, p.x, p.cy) > 40) return;
@@ -110,7 +113,8 @@ G.ctl = function () {
   if (block) return { mx: 0 };
   const L = G.kd('left'), R = G.kd('right'), U = G.kd('up'), D = G.kd('down'), J = G.kd('jump');
   const mx = (R ? 1 : 0) - (L ? 1 : 0); if (G.autoRun && mx !== G.autoRun) G.autoRun = 0;
-  return { mx, up: U, down: D, jump: J, sprint: G.kd('sprint') || (!!G.autoRun && mx === G.autoRun), crouch: G.kd('crouch') || (D && !p.climbing && !p.ladderAt()), drop: D && J };
+  if (G.prone && (J || G.kd('sprint') || !p.alive || p.climbing)) G.prone = false;
+  return { prone: G.prone, mx, up: U, down: D, jump: J, sprint: G.kd('sprint') || (!!G.autoRun && mx === G.autoRun), crouch: G.kd('crouch') || (D && !p.climbing && !p.ladderAt()), drop: D && J };
 };
 
 // ---------------- helpers ----------------
@@ -134,7 +138,19 @@ G.decal = function (x, y, col) {
 };
 
 // ---------------- states ----------------
-G.clearWorld = function () { G.infest = null; G.bullets = []; G.pools = []; G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
+// knocked down: mash Space / click to claw your way back up and shove off whoever is standing over you
+G.struggle = function () {
+  const p = G.player, A = p.anat; const ex = G.actors.find(a => a.alive && a.D && a.exec && a.target === p);
+  if (ex && ex.exec) ex.exec.t = Math.max(0, ex.exec.t - 0.07); p.strug = Math.min(1, (p.strug || 0) + (ex ? 0.1 : 0.06) * (A.blood > 3000 ? 1 : 0.6) * (0.6 + A.org.brain / 250)); G.shake(0.6); NE.Audio.play('step', 0.5);
+  if (p.strug >= 1) { p.strug = 0; A.uncon = false; A.cons = Math.max(A.cons, 45); A.secondWind = 8; A.stam = Math.max(A.stam, 35); A.painSpike *= 0.5; p.knockT = 0;
+    const foes = G.actors.filter(a => a.alive && a.D && NE.dist(a.x, a.y, p.x, p.y) < 30);
+    for (const e of foes) { e.exec = null; e.charge = null; e.windT = 0; e.stagger = 1.1; e.knockT = 0.4; e.vx += Math.sign(e.x - p.x || 1) * 230; e.vy -= 70; e.onGround = false; e.cd = 1.4; }
+    NE.Audio.play('shout', 0.9); NE.Audio.play('hit', 1); G.shake(4); G.slowmo = 0.25; G.say(pick(['Get OFF me!', 'Not like this—', 'NO!']), 1); G.toast(foes.length ? 'You fight back and throw them off!' : 'You drag yourself back to your senses.');
+    G.domText('strug', null); } };
+G.struggleTick = function (dt) { const p = G.player; if (!p || !p.alive || !p.anat.uncon || G.state !== 'run') { if (p) p.strug = 0; G.domText('strug', null); return; }
+  p.strug = Math.max(0, (p.strug || 0) - dt * 0.12); const ex = G.actors.some(a => a.alive && a.D && a.exec && a.target === p); const n = Math.round(p.strug * 10);
+  G.domText('strug', (ex ? 'THEY\'RE STANDING OVER YOU — ' : 'KNOCKED DOWN — ') + 'MASH [SPACE] TO FIGHT BACK  ' + '▮'.repeat(n) + '▯'.repeat(10 - n), 0.7, 'strug' + (ex ? ' hot' : '')); };
+G.clearWorld = function () { G.prone = false; G.minion = null; G.infest = null; G.hideCine && G.hideCine(); G.domText('burst-t', null); G.domText('desc-lbl', null); G.bullets = []; G.pools = []; G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
 G.toTitle = function () { G.autosave(); try { sessionStorage.removeItem('ne_live'); } catch (e) { } G.clearWorld(); G.state = 'title'; G.world = null; if (G.net) G.net.close(); NE.UI.showTitle(); NE.Audio.music('title'); };
 G.toLobby = function () {
   G.clearWorld(); G.state = 'lobby'; G.run = null; G.meta.started = true; G.meta.run = null; try { sessionStorage.setItem('ne_live', '1'); } catch (e) { }
@@ -236,7 +252,7 @@ G.update = function (dt, rdt) {
   // player
   const env = G.env = G.computeEnv(p);
   if (p.alive) {
-    p.update(dt, G.state === 'dying' || G.infest ? { mx: 0 } : G.ctl()); if (G.infest) G.infestUpdate(dt);
+    p.update(dt, G.state === 'dying' || G.infest ? { mx: 0 } : G.ctl()); G.struggleTick(dt); if (G.infest) G.infestUpdate(dt);
     if (run) { p.anat.update(dt, env); G.handleAnatEvents(p); G.vespaTick(p, dt); if (G.state === 'run' && p.anat.dead) G.playerDeath(); }
     p.rag.tiles = p.anat.uncon; if (p.anat.uncon) p.rag.collide = false;
     if (run && p.alive) G.hazards(p, dt);
@@ -414,6 +430,7 @@ G.interactTarget = function () {
   const p = G.player; let best = null, bd = 16;
   for (const o of G.nearObjs()) { if (!o.act) continue; if (o.type === 'forage') o.label = 'Forage ' + NE.ITEMS[o.item].name; if (o.type === 'container' && o.actor && o.actor.rag) { const c = o.actor.rag.pts[2]; o.x = c.x; o.y = c.y + 3; } const dx = Math.abs(o.x - p.x), dy = Math.abs(o.y - p.y); if (dy > 14) continue; const r = o.type === 'elevator' ? 24 : 14; if (dx < r && dx < bd + (o.type === 'elevator' ? 10 : 0)) { bd = dx; best = o; } }
   for (const a of G.actors) { if (!a.isNPC || !a.alive || a.leaving || a.isPuppet) continue; const dx = Math.abs(a.x - p.x); if (dx < 14 && Math.abs(a.y - p.y) < 14 && dx < bd) { bd = dx; best = a; } }
+  if (G.net && G.net.on && G.net.peer && !G.net.peer.alive && G.net.peer.wisp && !G.net.peer.minion) { const q = G.net.peer, c = q.rag.pts[2]; const dx = Math.abs(c.x - p.x); if (dx < 16 && Math.abs(c.y - p.y) < 16 && dx < bd) { best = { act: 'raisePeer', x: c.x, y: c.y + 3, label: 'Raise ' + (q.surv ? q.surv.first : 'your partner') + ' as a brood minion' }; bd = dx; } }
   if (G.net && G.net.on && G.net.peer && G.net.peer.alive && !G.net.peer.hidden) { const q = G.net.peer; const dx = Math.abs(q.x - p.x); if (dx < 16 && Math.abs(q.y - p.y) < 16 && dx < bd) { best = { act: 'treatPeer', x: q.x, y: q.y, label: (G.net.peerMed && G.net.peerMed.u ? 'Revive / treat ' : 'Treat ') + (q.surv ? q.surv.first : 'partner') }; bd = dx; } }
   if (!best && p.alive) { // standing in / at the edge of cave water: drink it or wash rags in it
     const W = G.world; for (const ox of [0, -6, 6]) { const tx = Math.floor((p.x + ox) / T), ty = Math.floor((p.y - 2) / T), ty2 = Math.floor((p.y + 2) / T);
@@ -439,6 +456,7 @@ G.interact = function () {
     case 'harvest': return G.harvestRelic(o);
     case 'table': G.toast('Surgical table: treatments are faster and hurt less here.'); return UI.open('health');
     case 'treatPeer': return UI.peerTriage();
+    case 'raisePeer': { if (p.anat.blood < 3200) return G.toast('You\'re too drained to feed it. (Needs some of your blood.)'); p.treating = { t: 0, dur: 2.5, peer: true, op: 'raise', part: 'torso', x: o.x, y: o.y - 3 }; G.toast('Your Vespa bleeds a little of itself into the corpse...'); return; }
     case 'water': {
       const A = p.anat;
       if (G.kd('crouch') && p.inv.count('rag')) { // scrub dirty / bloody rags
@@ -577,7 +595,7 @@ G.afterDeath = function () {
   G.endRun(false, p.anat.cause);
 };
 G.endRun = function (extracted, cause) {
-  const R = G.run, p = G.player, M = G.meta; if (!R) return; G.state = 'runend'; G.goop = null; G.wisp = null; G.infest = null;
+  const R = G.run, p = G.player, M = G.meta; if (!R) return; G.state = 'runend'; G.goop = null; G.wisp = null; G.infest = null; G.hideCine && G.hideCine(); G.domText('burst-t', null);
   const depth = Math.round(R.maxDepth);
   let xp = depth * 0.6 + R.kills * 10 + (R.vkills || 0) * 35 + R.treated * 25 + R.milestone * 40 + (R.towns || []).length * 30 + (R.abil || []).length * 25;
   xp = Math.round(xp);
@@ -614,7 +632,7 @@ G.render = function (dt) {
   const cx = Math.round(G.cam.x + rf(-sh, sh)), cy = Math.round(G.cam.y + rf(-sh, sh));
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = pal.bg; ctx.fillRect(0, 0, VW, VH);
   ctx.translate(-cx, -cy);
-  W.draw(ctx, cx, cy, G.t);
+  W.draw(ctx, cx, cy, G.t); W.drawCracks(ctx, cx, cy);
   for (const f of W.visibleFloors(cy)) if (f.dc) ctx.drawImage(f.dc, 0, f.y0 * T);
   NE.Gore.drawPools(ctx);
   for (const o of G.nearObjs()) G.drawObj(ctx, o);
@@ -624,6 +642,7 @@ G.render = function (dt) {
   if (p.alive || !G.goop) p.draw(ctx);
   if (p.charge && p.alive) { const k = Math.min(1, p.charge.t / 0.82), bx = Math.round(p.x) - 6, by = Math.round(p.y - p.h) - 8; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, 14, 4); ctx.fillStyle = p.charge.t < 0.32 ? '#8a7a5a' : k >= 1 ? ((G.t * 12 | 0) % 2 ? '#fff4c0' : '#ffb020') : '#ffb020'; ctx.fillRect(bx, by, Math.round(12 * k), 2); }
   if (G.goop) G.drawGoop(ctx);
+  if (G.minion) G.drawMinion(ctx);
   if (G.infest) G.drawInfest(ctx);
   for (const q of G.parts) { if (q.kind === 'glow') continue; ctx.fillStyle = q.col; ctx.globalAlpha = q.kind === 'steam' || q.kind === 'dust' ? Math.min(1, q.life / q.max * 1.5) : 1; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   ctx.globalAlpha = 1; G.drawAmbient(ctx);
@@ -775,6 +794,9 @@ G.drawFX = function () {
 
 // ---------------- descent scene (title lives in title.js) ----------------
 G.drawWait = function (dt) { const ctx = G.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#050403'; ctx.fillRect(0, 0, VW, VH); ctx.fillStyle = '#e0c050'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.fillText('Waiting for your partner\'s world...', VW / 2, VH / 2); ctx.textAlign = 'left'; };
+// crisp DOM labels over the low-res canvas (canvas text gets blurry when the game is scaled up)
+G.domText = function (id, text, yFrac, cls) { let el = document.getElementById(id); if (!text) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = id; el.className = 'domtext ' + (cls || ''); document.getElementById('ui').appendChild(el); } if (el.textContent !== text) el.textContent = text; el.style.top = (yFrac * 100) + '%'; };
 G.drawDescent = function (dt) {
   // the winch cage drops down a rock shaft: parallax strata, guide-rail sparks, swinging lantern, the hosts inside
   const ctx = G.ctx; G.descT += dt; const t = G.descT; ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -808,10 +830,10 @@ G.drawDescent = function (dt) {
   ctx.fillStyle = '#3a342e'; for (let i = 0; i <= 8; i++) ctx.fillRect(cage.x + i * 9, cage.y, 1, cage.h - 4); ctx.fillStyle = '#5a5048'; ctx.fillRect(cage.x - 2, cage.y - 2, cage.w + 4, 3); ctx.fillRect(cage.x - 2, cage.y + cage.h - 2, cage.w + 4, 3); ctx.fillRect(cage.x - 2, cage.y + 30, cage.w + 4, 1);
   for (const q of G.parts) { q.life -= dt; q.vy += 300 * dt * q.grav; q.x += q.vx * dt; q.y += q.vy * dt; } G.parts = G.parts.filter(q => q.life > 0); for (const q of G.parts) { ctx.globalAlpha = Math.max(0, q.life / q.max); ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); } ctx.globalAlpha = 1;
   // readout in the game's own type + a honey progress bar
-  const k = Math.min(1, t / 4.4); ctx.font = 'bold 9px "Pixelify Sans", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#e8e2d0'; ctx.fillText(t < 4 ? 'LOWERING' + '.'.repeat(1 + Math.floor(t * 3) % 3) : 'TOUCHDOWN', cx, cage.y + cage.h + 20);
+  const k = Math.min(1, t / 4.4); G.domText('desc-lbl', t < 4 ? 'LOWERING' + '.'.repeat(1 + Math.floor(t * 3) % 3) : 'TOUCHDOWN', (cage.y + cage.h + 13) / VH);
   ctx.fillStyle = '#1a1612'; ctx.fillRect(cx - 50, cage.y + cage.h + 26, 100, 5); ctx.fillStyle = '#f0b040'; ctx.fillRect(cx - 50, cage.y + cage.h + 26, Math.round(100 * k), 5); ctx.fillStyle = '#ffe08a'; ctx.fillRect(cx - 50, cage.y + cage.h + 26, Math.round(100 * k), 1); ctx.textAlign = 'left';
   G.cam.shake = 1.2 * sp; if (t > 4.2) { ctx.fillStyle = 'rgba(0,0,0,' + Math.min(1, (t - 4.2) * 3) + ')'; ctx.fillRect(0, 0, VW, VH); }
-  if (t > 4.6) { G.parts = []; if (G.net && G.net.on && G.net.role === 'guest' && G.descSeed == null) { G.state = 'wait'; return; } G.startRun(); }
+  if (t > 4.6) { G.domText('desc-lbl', null); G.parts = []; if (G.net && G.net.on && G.net.role === 'guest' && G.descSeed == null) { G.state = 'wait'; return; } G.startRun(); }
 };
 NE.bootGame = () => NE.atlasReady.then(() => G.init());
 })(window.NE);

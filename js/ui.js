@@ -179,6 +179,9 @@ UI.render.status = function (b) {
   const org = k => { const v = A.org[k]; return '<div class="org"><span>' + k.toUpperCase() + '</span>' + bar(v, 100, v > 70 ? 'linear-gradient(90deg,#b8701c,#ffc040)' : v > 35 ? 'linear-gradient(90deg,#8a3a10,#e07020)' : 'linear-gradient(90deg,#6a0808,#ff3a2a)', Math.round(v) + '%') + '</div>'; };
   b.innerHTML = '<div class="crt"><div class="crt-l">' +
     '<div class="st-head"><canvas id="stp"></canvas><div><b>' + esc(s.name) + '</b><small>' + occ.name + ', ' + s.age + '</small><div class="st-inf"><span>VESPA HOLD</span><div class="bar"><div class="bar-f" style="width:' + Math.round((p.infest || 0) * 100) + '%;background:repeating-linear-gradient(90deg,#ffc030 0 6px,#2a1a08 6px 9px)"></div><span>' + Math.round((p.infest || 0) * 100) + '%</span></div></div></div></div>' +
+    (() => { const v = NE.variantOf(s.variant), T2 = NE.VTIERS.find(t => t.id === v.tier); const ab = (p.abil || []).map(id => NE.ABILITIES.find(x => x.id === id)).filter(Boolean);
+      return '<h4>YOUR VESPA</h4><div class="st-vespa" style="--vc:' + v.glow + ';--tc:' + T2.col + '"><div class="sv-eye"><i></i></div><div><b>' + esc(v.name) + '</b><span class="sv-tier">' + T2.name.toUpperCase() + ' STRAIN</span><p>' + esc(v.desc) + '</p>' +
+        (ab.length ? '<div class="sv-ab">' + ab.map(a => '<span title="' + esc(a.desc) + '">' + esc(a.name) + '</span>').join('') + '</div>' : '<small class="dim">No nectar gifts awakened yet. Drink Relic Nectar to grow new abilities.</small>') + '</div></div>'; })() +
     '<h4>HEARTBEAT</h4><div class="ecg-wrap"><canvas id="ecg" width="300" height="70"></canvas><div class="bpm">' + Math.round(A.bpm) + '<small>BPM</small></div></div>' +
     '<div class="st-grid">' + card('BLOOD', Math.round(A.blood) + 'mL', Math.round(A.blood / 50) + '% • ' + (A.bleeding > 0.05 ? '-' + A.bleeding.toFixed(2) + ' mL/s' : 'not bleeding'), A.blood < 3800 ? 'bad' : '') + card('PAIN', Math.round(A.pain), 'threshold ' + Math.round(A.threshold), A.pain > A.threshold ? 'bad' : '') + card('CONSCIOUS', Math.round(Math.max(0, A.cons)) + '%', A.uncon ? 'UNCONSCIOUS' : '', A.cons < 40 ? 'bad' : '') + card('TEMP', A.temp.toFixed(1) + '°C', A.wet > 0.3 ? 'wet' : '', A.temp < 35.5 || A.temp > 38.3 ? 'warn' : '') + card('STAMINA', Math.round(A.stam) + '/' + Math.round(A.stamMax)) + card('HUNGER', Math.round(A.hunger) + '%', '', A.hunger < 25 ? 'warn' : '') + card('THIRST', Math.round(A.thirst) + '%', '', A.thirst < 25 ? 'warn' : '') + card('INFECTION', Math.round(A.infection) + '%', '', A.infection > 30 ? 'warn' : '') + card('RADIATION', Math.round(A.rad), '', A.rad > 25 ? 'warn' : '') + card('TOXINS', Math.round(A.tox), '', A.tox > 30 ? 'warn' : '') + card('STRESS', Math.round(A.stress) + '%', '', A.stress > 60 ? 'warn' : '') + card('CARRY', p.inv.weight().toFixed(1) + '/' + p.inv.carry.toFixed(0) + 'kg', '', p.inv.weight() > p.inv.carry ? 'warn' : '') + '</div>' +
     '<h4>ORGANS</h4><div class="orgs">' + ['brain', 'eyes', 'lungs', 'heart', 'stomach', 'liver'].map(org).join('') + '</div></div>' +
@@ -458,12 +461,15 @@ UI.doctor = function (npc) {
 // ----- LOOT -----
 UI.render.loot = function (b, o) {
   const g = G(), p = g.player; const items = o.items || [];
-  let h = '<div class="loot"><div><h4>' + esc(o.label || 'Container') + '</h4><div class="lst">';
+  // your pack on the left, the container on the right
+  let h = '<div class="loot"><div><h4>YOUR PACK ' + p.inv.items.length + '/' + p.inv.slots + ' • ' + p.inv.weight().toFixed(1) + '/' + p.inv.carry.toFixed(0) + 'kg</h4><div class="lst">';
+  if (!p.inv.items.length) h += '<div class="dim">Empty.</div>';
+  p.inv.items.forEach((e, i) => { const it = NE.ITEMS[e.id]; h += '<div class="li mine" data-s="' + i + '">' + ic(e.id) + '<span>' + esc(it.name) + (e.n > 1 ? ' <small>×' + e.n + '</small>' : '') + '</span><b>STASH ▸</b></div>'; });
+  h += '</div></div><div><h4>' + esc(o.label || 'Container') + '</h4><div class="lst">';
   if (!items.length) h += '<div class="dim">Empty.</div>';
-  items.forEach((e, i) => { const it = NE.ITEMS[e.id]; h += '<div class="li" data-t="' + i + '">' + ic(e.id) + '<span>' + esc(it.name) + (e.n > 1 || it.uses ? ' <small>' + (it.uses ? e.n + ' uses' : '×' + e.n) + '</small>' : '') + (e.dur != null ? ' <small>' + Math.round(e.dur) + '%</small>' : '') + '</span><b>TAKE</b></div>'; });
-  h += '</div>' + (items.length ? '<button class="btn" id="takeall">Take all</button>' : '') + '</div><div><h4>YOUR PACK ' + p.inv.items.length + '/' + p.inv.slots + ' • ' + p.inv.weight().toFixed(1) + '/' + p.inv.carry.toFixed(0) + 'kg</h4><div class="lst">';
-  p.inv.items.forEach((e, i) => { const it = NE.ITEMS[e.id]; h += '<div class="li mine" data-s="' + i + '">' + ic(e.id) + '<span>' + esc(it.name) + (e.n > 1 ? ' <small>×' + e.n + '</small>' : '') + '</span><b>STASH</b></div>'; });
-  b.innerHTML = h + '</div></div></div>';
+  items.forEach((e, i) => { const it = NE.ITEMS[e.id]; h += '<div class="li" data-t="' + i + '">' + ic(e.id) + '<span>' + esc(it.name) + (e.n > 1 || it.uses ? ' <small>' + (it.uses ? e.n + ' uses' : '×' + e.n) + '</small>' : '') + (e.dur != null ? ' <small>' + Math.round(e.dur) + '%</small>' : '') + '</span><b>◂ TAKE</b></div>'; });
+  h += '</div>' + (items.length ? '<button class="btn" id="takeall">Take all</button>' : '');
+  b.innerHTML = h + '</div></div>';
   const take = i => { const e = items[i]; if (!p.inv.addEntry(e)) { const it = NE.ITEMS[e.id]; if (it.stack) { const left = p.inv.add(e.id, e.n); if (left === e.n) { g.toast('Backpack full.'); NE.Audio.play('deny'); return false; } e.n = left; if (left) return false; } else { g.toast('Backpack full.'); NE.Audio.play('deny'); return false; } } items.splice(i, 1); return true; };
   const sync = () => { if (g.net && g.net.on) g.net.syncContainer(o); };
   b.querySelectorAll('[data-t]').forEach(el => el.onclick = () => { if (take(+el.dataset.t)) NE.Audio.play('rummage'); sync(); UI.render.loot(b, o); });

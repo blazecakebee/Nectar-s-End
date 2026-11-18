@@ -27,7 +27,7 @@ G.drawGlow = function (ctx) {
   if (G.player && G.player.abil && G.player.abil.includes('eyes')) for (const a of G.actors) if (a.alive && !a.vespa && !a.town && a.D && Math.abs(a.y - G.player.y) < 200) { const e = G.eyePos(a); ctx.fillStyle = 'rgba(255,60,40,' + (0.6 + 0.3 * Math.sin(G.t * 5 + a.x)) + ')'; ctx.fillRect(e.x, e.y, 1, 1); }
   for (const q of G.amb) if (q.glow) { ctx.globalAlpha = q.a * (0.55 + 0.45 * Math.sin(G.t * q.tw + q.ph)); ctx.fillStyle = q.col; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   ctx.globalAlpha = 1;
-  if (G.wisp) G.drawWisp(ctx);
+  if (G.wisp && !G.minion) G.drawWisp(ctx);
   if (G.goop) G.drawGoopGlow(ctx);
 };
 
@@ -114,7 +114,7 @@ G.goopUpdate = function (dt) {
         for (let i = 0; i < 4; i++) G.addP(a.x, a.cy, rf(-40, 40), rf(-50, 0), 0.6, g.latch && G.player.vglow || '#d8a020', 'goo');
         if (was && a.anat.dead) { g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; G.toast('+35 XP — Vespa kill'); g.latch = null; } } } }
   if (G.mouse.l && g.cd <= 0 && !g.latch) G.goopLash();
-  if (g.t <= 0) { G.goop = null; G.state = 'dying'; G.dieT = 2.4; NE.Audio.play('retract'); NE.Audio.play('death'); G.burstFx = { x: g.x, y: g.y - 3, t: 0.5, col: '#a07010' }; for (let i = 0; i < 30; i++) G.addP(g.x, g.y - 3, rf(-50, 50), rf(-70, 0), rf(0.6, 1.2), '#a07010', 'goo'); G.log('The Vespa dissolves into the rock.' + (g.kills ? ' It took ' + g.kills + ' with it.' : ''), 'bad'); if (G.net && G.net.on) G.net.send({ t: 'burstend' }); }
+  if (g.t <= 0) { G.domText('burst-t', null); G.goop = null; G.state = 'dying'; G.dieT = 2.4; NE.Audio.play('retract'); NE.Audio.play('death'); G.burstFx = { x: g.x, y: g.y - 3, t: 0.5, col: '#a07010' }; for (let i = 0; i < 30; i++) G.addP(g.x, g.y - 3, rf(-50, 50), rf(-70, 0), rf(0.6, 1.2), '#a07010', 'goo'); G.log('The Vespa dissolves into the rock.' + (g.kills ? ' It took ' + g.kills + ' with it.' : ''), 'bad'); if (G.net && G.net.on) G.net.send({ t: 'burstend' }); }
 };
 G.goopLash = function () {
   const g = G.goop; if (!g || g.cd > 0) return; g.cd = 0.32; g.lashT = 0.18; const m = G.mouse; let dx = m.wx - g.x, dy = m.wy - (g.y - 3); const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; const reach = 38;
@@ -141,7 +141,7 @@ G.drawGoop = function (ctx) {
 };
 G.drawGoopGlow = function (ctx) {
   const g = G.goop; ctx.fillStyle = '#fff1a0'; ctx.fillRect(Math.round(g.x) + g.facing * 2, Math.round(g.y) - 4, 1, 1); ctx.fillRect(Math.round(g.x) + g.facing * 2 - 2, Math.round(g.y) - 4, 1, 1);
-  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.font = 'bold 16px "Pixelify Sans", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = g.t < 3 ? (Math.sin(G.t * 12) > 0 ? '#ff6040' : '#ffd040') : '#ffd040'; ctx.fillText(Math.max(0, g.t).toFixed(1), NE.VW / 2, 30); ctx.restore();
+  G.domText('burst-t', Math.max(0, g.t).toFixed(1), 0.06, 'big' + (g.t < 3 && Math.sin(G.t * 12) > 0 ? ' hot' : ''));
 };
 
 // ---------- run intro: the Vespa finds its host ----------
@@ -151,6 +151,7 @@ G.startInfest = function () {
   G.infest = { t: 0, x: p.x + 60, y: p.y - 120, col: v.glow, v, trail: [], done: false };
   p.vespa = false; p.anat.stam = Math.min(p.anat.stam, 40); NE.Audio.play('chime', 0.6);
 };
+G.hideCine = function () { const el = document.getElementById('cine'); if (el) el.classList.add('hide'); };
 G.skipInfest = function () { const I = G.infest; if (!I || I.t > 4.6) return; I.t = 4.6; };
 G.infestUpdate = function (dt) {
   const I = G.infest, p = G.player; I.t += dt; const t = I.t; const hx = p.rag.pts[0].x, hy = p.rag.pts[0].y;
@@ -165,7 +166,7 @@ G.infestUpdate = function (dt) {
   for (const q of I.trail) q.a -= dt * 2;
   // host convulses as it takes hold
   if (t > 3.9 && t < 5.2) { for (const q of p.rag.pts) { q.x += rf(-0.6, 0.6); q.y += rf(-0.4, 0.4); } if (Math.random() < dt * 8) NE.Combat && NE.Combat.spray(hx, hy + 2, rf(-1, 1), -0.3, 2); }
-  if (t > 5.4 && !I.done) { I.done = true; G.infest = null; p.crouch = false; NE.UI.showHUD && NE.UI.showHUD(); const T2 = NE.VTIERS.find(x => x.id === I.v.tier);
+  if (t > 5.4 && !I.done) { I.done = true; G.infest = null; G.hideCine(); p.crouch = false; NE.UI.showHUD && NE.UI.showHUD(); const T2 = NE.VTIERS.find(x => x.id === I.v.tier);
     NE.UI.banner(p.surv.first.toUpperCase() + ' IS TAKEN', I.v.name + ' · ' + T2.name + ' strain — ' + I.v.desc); G.log('Vespa strain: ' + I.v.name + ' [' + T2.name + '] — ' + I.v.desc, 'good'); }
 };
 G.drawInfest = function (ctx) {
@@ -179,9 +180,11 @@ G.drawInfest = function (ctx) {
   // letterbox + caption
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); const k = Math.min(1, t * 2, Math.max(0, (5.4 - t) * 2)); const bar = Math.round(22 * k);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, NE.VW, bar); ctx.fillRect(0, NE.VH - bar, NE.VW, bar);
-  ctx.globalAlpha = k; ctx.font = '7px "Pixelify Sans", monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#e8e2d0';
-  const cap = t < 1.6 ? 'Something small and bright falls down the shaft...' : t < 3.4 ? 'It circles the caver. Tasting. Choosing.' : t < 4.4 ? 'It pours in through the eyes.' : 'The eyes open gold.';
-  ctx.fillText(cap, NE.VW / 2, NE.VH - 8); ctx.fillStyle = '#8f897c'; ctx.font = '5px monospace'; ctx.fillText('click / space to skip', NE.VW - 40, 14); ctx.restore(); ctx.globalAlpha = 1; ctx.textAlign = 'left';
+  ctx.restore(); ctx.globalAlpha = 1;
+  // captions are crisp DOM text, not tiny canvas text scaled up
+  const cap = t < 1.6 ? 'Something small and bright falls down the shaft...' : t < 3.4 ? 'It circles the caver. Tasting. Choosing.' : t < 4.4 ? 'It pours in through the eyes.' : 'The eyes open.';
+  let el = document.getElementById('cine'); if (!el) { el = document.createElement('div'); el.id = 'cine'; el.innerHTML = '<div class="cine-cap"></div><div class="cine-skip">click / space to skip</div>'; document.getElementById('ui').appendChild(el); }
+  el.style.opacity = k; el.classList.remove('hide'); const c = el.firstChild; if (c.textContent !== cap) c.textContent = cap;
 };
 
 // ---------- co-op: the Vespa drifts to a new host near your partner ----------
@@ -189,12 +192,13 @@ G.startWisp = function () {
   const p = G.player; G.state = 'run'; G.wisp = { x: p.x, y: p.y - 6, t: 40 };
   G.dyn.push({ type: 'container', ct: 'corpse', actor: p, x: p.x, y: p.y, label: p.surv.name + ' (your old host)', act: 'search', items: p.inv.items.slice(), searched: true });
   p.inv.items = []; const M = G.meta; const s = M.survivor; M.cemetery.unshift({ name: s.name, occ: NE.OCCUPATIONS.find(o => o.id === s.occ).name, age: s.age, depth: Math.round(NE.depthOfY(p.y)), cause: p.anat.cause, time: Math.round(G.run.t), kills: G.run.kills, extracted: false, date: new Date().toLocaleDateString(), look: s.look, abil: (G.run.abil || []).slice() });
-  G.log('Your host is gone. The Vespa drifts toward your partner, looking for new flesh (40s).', 'sys'); NE.UI.banner('HOST LOST', 'Drift to your partner. A new host will be found.'); G.musicFor();
+  G.log('Your host is gone. The Vespa drifts toward your partner, looking for new flesh (40s). Your partner can raise your old body as a weak brood minion for you to steer.', 'sys'); NE.UI.banner('HOST LOST', 'Drift to your partner. They can raise your corpse as a minion for you.'); G.musicFor();
 };
 G.wispUpdate = function (dt) {
   const w = G.wisp, q = G.net && G.net.peer; w.t -= dt; const tx = q ? q.x - 10 : w.x, ty = q ? q.y - 16 : w.y;
+  if (G.minion) { G.minionUpdate(dt); if (w.t <= 0) { G.minion = null; G.rehost(); } return; }
   w.x = lerp(w.x, tx, Math.min(1, dt * 1.5)); w.y = lerp(w.y, ty + Math.sin(G.t * 2) * 4, Math.min(1, dt * 1.5)); G.addP(w.x, w.y, rf(-4, 4), rf(-4, 4), 0.8, pick([GOLD, '#ffb020']), 'glow', 0);
-  if (w.t <= 0 || (q && !q.alive && w.t < 35)) G.rehost();
+  if (w.t <= 0 || (q && !q.alive && w.t < 35)) { G.minion = null; G.rehost(); }
 };
 G.drawWisp = function (ctx) { const w = G.wisp; const x = Math.round(w.x), y = Math.round(w.y); for (let i = -2; i <= 2; i++) { ctx.fillStyle = i % 2 ? '#3a2408' : GOLD; ctx.fillRect(x + i, y - 1, 1, 3); } ctx.fillStyle = 'rgba(255,220,80,0.4)'; ctx.fillRect(x - 3, y - 2, 7, 5); ctx.fillStyle = '#fff6c0'; ctx.fillRect(x + 1, y, 1, 1); };
 G.rehost = function () {
@@ -207,6 +211,33 @@ G.rehost = function () {
   NE.UI.showRun(); NE.UI.banner('NEW HOST', s.name + ', ' + s.age + ' — wandered too close.'); G.log('The Vespa takes ' + s.name + '. Their eyes turn gold.', 'good'); NE.Audio.play('nectar');
   if (G.net && G.net.on) G.net.sendHello(); G.musicFor(); G.autosave();
 };
+
+// ---------- co-op: while your Vespa waits for a new host, it can spit out a weak brood minion you steer to help your partner ----------
+G.spawnMinion = function (sx, sy) {
+  const w = G.wisp; if (!w || G.minion) return; w.t = Math.max(w.t, 30); const m = Object.create(NE.Actor.prototype); Object.assign(m, { g: G, x: sx != null ? sx : w.x, y: sy != null ? sy : w.y + 4, vx: 0, vy: 0, w: 6, h: 5, onGround: false, dropT: 0, climbing: false, hp: 30, cd: 0, bite: 0, facing: 1, ph: 0, hitT: 0 });
+  const W = G.world; let k = 0; while (W.solidAt(m.x, m.y - 2) && k++ < 20) m.y -= T;
+  G.minion = m; NE.Audio.play('squelch', 0.9); NE.Audio.play('latch', 0.6); for (let i = 0; i < 16; i++) G.addP(m.x, m.y - 3, rf(-40, 40), rf(-60, 0), 0.6, pick(['#ffc21a', '#d08a10']), 'goo');
+};
+G.minionUpdate = function (dt) {
+  const m = G.minion, w = G.wisp; if (!w) { G.minion = null; return; } const block = NE.UI.modalOpen();
+  const L = !block && G.kd('left'), Rr = !block && G.kd('right'), U = !block && (G.kd('up') || G.kd('jump')); const mx = (Rr ? 1 : 0) - (L ? 1 : 0); if (mx) m.facing = mx;
+  m.vx = lerp(m.vx, mx * 82, Math.min(1, dt * 10)); if (U && m.onGround) { m.vy = -205; m.onGround = false; NE.Audio.play('squelch', 0.4); }
+  m.vy += NE.GRAV * dt; if (m.vy > 380) m.vy = 380; m.bumped = 0; m.x += m.vx * dt; m.collideX(); if (m.bumped && mx === m.bumped && U) m.vy = -80;
+  const py = m.y; m.y += m.vy * dt; m.collideY(py, false); m.cd = Math.max(0, m.cd - dt); m.bite = Math.max(0, m.bite - dt); m.hitT = Math.max(0, m.hitT - dt); m.ph += dt * (Math.abs(m.vx) > 5 ? 14 : 3);
+  if (G.mouse.l && m.cd <= 0) { m.cd = 0.45; m.bite = 0.15; NE.Audio.play('slash', 0.5);
+    for (const a of G.actors) { if (!a.alive || a.isPlayer || a.isRemote || a.town || a.isNPC && !a.D) continue; if (Math.abs(a.x - m.x) > 13 || (a.x - m.x) * m.facing < -3 || a.y < m.y - 14 || a.y - a.h > m.y + 2) continue;
+      const part = pick(['lleg', 'rleg', 'lleg', 'rleg', 'torso']); const was = a.alive; a.hurt(part, rf(6, 10), 'bite', 'Brood minion', { x: m.facing, y: -0.2 }); a.stagger = Math.max(a.stagger || 0, 0.25); if (a.onAggro && G.net && G.net.peer) a.onAggro(G.net.peer);
+      NE.Combat && NE.Combat.spray(a.x, a.y - 4, m.facing, -0.3, 4); if (was && a.anat.dead) { G.run.vkills = (G.run.vkills || 0) + 1; G.toast('+35 XP — minion kill'); } break; } }
+  // enemies swat at it
+  for (const a of G.actors) { if (!a.alive || !a.D || a.stagger > 0 || NE.dist(a.x, a.y, m.x, m.y) > 14) continue; a.mSwat = (a.mSwat || rf(0.3, 0.9)) - dt; if (a.mSwat <= 0) { a.mSwat = rf(1.1, 1.6); a.facing = Math.sign(m.x - a.x) || 1; NE.Combat && NE.Combat.strike(a); m.hp -= rf(5, 9); m.hitT = 0.15; m.vx += a.facing * 120; m.vy -= 80; NE.Audio.play('hit', 0.6); for (let i = 0; i < 5; i++) G.addP(m.x, m.y - 3, rf(-40, 40), rf(-50, 0), 0.5, '#d8a020', 'goo'); } }
+  if (Math.random() < dt * 6) G.addP(m.x + rf(-2, 2), m.y - 1, rf(-8, 8), rf(-10, 0), 0.4, '#ffc21a', 'goo');
+  w.x = m.x; w.y = m.y - 3;
+  if (m.hp <= 0) { G.minion = null; NE.Audio.play('squelch', 1); for (let i = 0; i < 20; i++) G.addP(m.x, m.y - 3, rf(-60, 60), rf(-80, 0), 0.8, pick(['#ffc21a', '#a07010']), 'goo'); G.toast('Your minion bursts. Your partner can raise your body again.'); }
+};
+G.drawMinionAt = function (ctx, x, y, f, ph, hit) { x = Math.round(x); y = Math.round(y);
+  for (let i = -3; i <= 3; i++) { const hgt = 3 - Math.abs(i) * 0.6 + Math.sin(ph + i) * 0.4; for (let j = 0; j < hgt; j++) { ctx.fillStyle = hit ? '#ffffff' : ((i + 4) % 2 ? '#3a2408' : '#ffc21a'); ctx.fillRect(x + i, y - 1 - j, 1, 1); } }
+  ctx.fillStyle = '#fff6c0'; ctx.fillRect(x + f * 2, y - 3, 1, 1); ctx.fillStyle = '#d08a10'; for (let k = 0; k < 3; k++) ctx.fillRect(x - 2 + k * 2 + Math.round(Math.sin(ph * 2 + k)), y, 1, 1); ctx.fillRect(x + f * 4, y - 2, 1, 1); };
+G.drawMinion = function (ctx) { const m = G.minion; if (!m) return; G.drawMinionAt(ctx, m.x, m.y, m.facing, m.ph, m.hitT > 0); if (m.bite > 0) { ctx.fillStyle = '#fff0a0'; ctx.fillRect(Math.round(m.x + m.facing * 6), Math.round(m.y - 3), 2, 1); } };
 
 // ---------- town: rest at the inn ----------
 G.rest = function () {

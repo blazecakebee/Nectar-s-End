@@ -6,7 +6,7 @@ NE.SKILL_CATS = [
   { id: 'agility', name: 'Agility & Movement', col: '#a6d46a', icon: 'boot', ang: -150, perks: ['movement', 'agility', 'cardio', 'parkour', 'sprinter'] },
   { id: 'perception', name: 'Eyesight & Perception', col: '#ffd24a', icon: 'eye', ang: -30, perks: ['eyesight', 'scavenger', 'nimble', 'lantern'] },
   { id: 'psyche', name: 'Psychology', col: '#d49af0', icon: 'mind', ang: 150, perks: ['psychology', 'composure', 'barter'] },
-  { id: 'strength', name: 'Strength & Conditioning', col: '#ff9a3c', icon: 'fist', ang: 30, perks: ['strength', 'brawler', 'packmule'] },
+  { id: 'strength', name: 'Strength & Conditioning', col: '#ff9a3c', icon: 'fist', ang: 30, perks: ['strength', 'brawler', 'packmule', 'hauler', 'organizer'] },
 ];
 const R = 62, CD = R * 2.25, NR = 13;
 class SkillTree {

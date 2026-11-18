@@ -252,6 +252,12 @@ function makeTex(pal, kind) {
   t.back = b; return t;
 }
 World.prototype.texFor = function (biome) { const k = biome.id; if (!this.tex[k]) this.tex[k] = makeTex(biome.pal, k); return this.tex[k]; };
+// chipped rock shows cracks that spread as it takes damage, so you can see a wall giving way bit by bit
+World.prototype.drawCracks = function (ctx, cx, cy) {
+  for (const [k, d] of this.thp) { const i = k.indexOf(','); const tx = +k.slice(0, i), ty = +k.slice(i + 1); const px = tx * T, py = ty * T; if (px < cx - 8 || px > cx + NE.VW || py < cy - 8 || py > cy + NE.VH) continue;
+    const t = this.get(tx, ty); if (!t) continue; const f = Math.min(1, d / this.tileHP(t)); const n = 1 + Math.floor(f * 6);
+    ctx.fillStyle = 'rgba(0,0,0,' + (0.25 + f * 0.45) + ')'; for (let q = 0; q < n; q++) { let x = 3 + Math.floor(NE.hash(tx + q, ty) * 3), y = Math.floor(NE.hash(ty, tx + q) * 3); for (let s = 0; s < 3 + q % 3; s++) { ctx.fillRect(px + x, py + y, 1, 1); x += NE.hash(q, s + tx) < 0.5 ? -1 : 1; y += 1; if (x < 0 || x > 7 || y > 7) break; } }
+    if (f > 0.5) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(px + 1, py + 6, 2, 1); ctx.fillRect(px + 5, py + 1, 1, 2); } } };
 World.prototype.draw = function (ctx, cx, cy, time) {
   const VW = NE.VW, VH = NE.VH; const tx0 = Math.floor(cx / T) - 1, ty0 = Math.floor(cy / T) - 1, tx1 = tx0 + Math.ceil(VW / T) + 2, ty1 = ty0 + Math.ceil(VH / T) + 2;
   for (let ty = ty0; ty <= ty1; ty++) { const fl = this.floorOf(Math.max(0, ty)); if (!fl) continue; const tex = this.texFor(fl.biome); const pat = tex._pat || (tex._pat = ctx.createPattern(tex.back, 'repeat')); if (pat.setTransform) pat.setTransform(new DOMMatrix().translate(Math.round(cx * 0.3), Math.round(cy * 0.3))); ctx.fillStyle = pat; ctx.fillRect(tx0 * T, ty * T, (tx1 - tx0 + 1) * T, T); }

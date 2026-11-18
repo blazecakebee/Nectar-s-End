@@ -12,14 +12,14 @@ NE.makeCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; 
 class RemotePlayer extends NE.Actor {
   constructor(g, x, y, hello) { super(g, x, y, { faction: 'player', look: hello.surv.look }); this.isRemote = true; this.vespa = true; this.light = { on: true, bat: 100 }; this.setHello(hello); this.tgt = { x, y }; this.stats = { speed: 1, climb: 1 }; }
   setHello(h) { if (h.surv && h.surv.variant) this.vglow = NE.variantOf(h.surv.variant).glow; this.surv = h.surv; this.look = h.surv.look; this.shirt = h.shirt; this.pants = h.pants; this.packCol = h.pack; this.name = h.surv.name; }
-  apply(s) { this.tgt = { x: s.x, y: s.y }; this.vx = s.vx; this.vy = s.vy; this.facing = s.f; this.h = s.h; this.crouch = !!s.cr; this.crawl = !!s.cw; this.climbing = !!s.cl; this.onGround = !!s.og; this.aimDir = { x: s.ax, y: s.ay }; this.w2 = s.w; this.lightOn = !!s.lt; this.light.on = !!s.lt; this.infest = s.inf || 0; this.muts = s.mu ? NE.mutsOf(s.mu.split(',')) : {}; this.swingT = s.sw ? 0.2 : 0; this.swingDur = 0.4; this.goop = s.gp || null; this.wisp = s.ws || null;
+  apply(s) { this.tgt = { x: s.x, y: s.y }; this.vx = s.vx; this.vy = s.vy; this.facing = s.f; this.h = s.h; this.crouch = !!s.cr; this.crawl = !!s.cw; this.climbing = !!s.cl; this.onGround = !!s.og; this.aimDir = { x: s.ax, y: s.ay }; this.w2 = s.w; this.lightOn = !!s.lt; this.light.on = !!s.lt; this.infest = s.inf || 0; this.muts = s.mu ? NE.mutsOf(s.mu.split(',')) : {}; this.swingT = s.sw ? 0.2 : 0; this.swingDur = 0.4; this.goop = s.gp || null; this.wisp = s.ws || null; this.minion = !!s.mn;
     if (!s.al && this.alive) { this.die('Lost'); } else if (s.al && !this.alive) { this.alive = true; this.limpRag = false; this.anat.dead = false; this.rag.tiles = false; this.rag.collide = false; this.rag.noActor = true; for (const c of this.rag.cons) if (c.s < 1) c.s = 0.4; } }
   weaponId() { return this.w2 || null; }
   get gunOut() { return !!(this.w2 && NE.ITEMS[this.w2] && NE.ITEMS[this.w2].gun) && !this.climbing && !this.crawl; }
   get twoHand() { return !!(this.w2 && NE.ITEMS[this.w2] && NE.ITEMS[this.w2].twoHand); }
   update(dt) { const d = Math.hypot(this.tgt.x - this.x, this.tgt.y - this.y); if (d > 60) { this.x = this.tgt.x; this.y = this.tgt.y; } else { this.x = lerp(this.x, this.tgt.x, Math.min(1, dt * 14)); this.y = lerp(this.y, this.tgt.y, Math.min(1, dt * 14)); } if (Math.abs(this.vx) > 2 && this.onGround) this.walkPh += dt * Math.abs(this.vx) * 0.32; if (this.climbing && this.vy) this.climbPh += dt * 8; this.flash = Math.max(0, this.flash - dt); }
   hurt(part, dmg, kind, src, dir) { if (!this.alive) return; G.net.send({ t: 'hurt', part, dmg, kind, src, dir }); this.flash = 0.12; const p = this.rag.pts[1]; if (kind !== 'blunt' && kind !== 'burn') G.blood(p.x, p.y, Math.round(dmg * 0.4), dir ? dir.x : 0, dir ? dir.y : -0.3); }
-  draw(ctx) { if (this.hidden) return; if (this.goop || this.wisp) return G.net.drawRemoteForm(ctx, this); super.draw(ctx); }
+  draw(ctx) { if (this.hidden) return; if (this.goop || this.wisp) { if (!this.alive) super.draw(ctx); return G.net.drawRemoteForm(ctx, this); } super.draw(ctx); }
 }
 // ---------- host-owned enemies/NPCs, mirrored on the guest ----------
 class Puppet extends NE.Actor {
@@ -79,7 +79,7 @@ class Net {
   tick(dt) {
     if (!this.on) return; const p = G.player; this.acc += dt; this.eacc += dt;
     if (this.acc > 0.05 && p && (G.state === 'run' || G.state === 'lobby' || G.state === 'burst' || G.state === 'dying')) { this.acc = 0; const gp = G.goop, ws = G.wisp;
-      this.send({ t: 'p', x: gp ? gp.x : ws ? ws.x : p.x, y: gp ? gp.y : ws ? ws.y : p.y, vx: p.vx, vy: p.vy, f: p.facing, h: p.h, cr: p.crouch ? 1 : 0, cw: p.crawl ? 1 : 0, cl: p.climbing ? 1 : 0, og: p.onGround ? 1 : 0, ax: p.aimDir ? +p.aimDir.x.toFixed(2) : 1, ay: p.aimDir ? +p.aimDir.y.toFixed(2) : 0, w: p.weaponId ? p.weaponId() : null, lt: p.light && p.light.on ? 1 : 0, al: p.alive ? 1 : 0, inf: +(p.infest || 0).toFixed(2), mu: (p.abil || []).join(','), sw: p.swingT > 0 ? 1 : 0, gp: gp ? 1 : 0, ws: ws ? 1 : 0, lobby: G.state === 'lobby' ? 1 : 0 }); }
+      this.send({ t: 'p', mn: G.minion ? 1 : 0, x: gp ? gp.x : ws ? ws.x : p.x, y: gp ? gp.y : ws ? ws.y : p.y, vx: p.vx, vy: p.vy, f: p.facing, h: p.h, cr: p.crouch ? 1 : 0, cw: p.crawl ? 1 : 0, cl: p.climbing ? 1 : 0, og: p.onGround ? 1 : 0, ax: p.aimDir ? +p.aimDir.x.toFixed(2) : 1, ay: p.aimDir ? +p.aimDir.y.toFixed(2) : 0, w: p.weaponId ? p.weaponId() : null, lt: p.light && p.light.on ? 1 : 0, al: p.alive ? 1 : 0, inf: +(p.infest || 0).toFixed(2), mu: (p.abil || []).join(','), sw: p.swingT > 0 ? 1 : 0, gp: gp ? 1 : 0, ws: ws ? 1 : 0, lobby: G.state === 'lobby' ? 1 : 0 }); }
     if (this.role === 'host' && this.eacc > 0.1 && G.state !== 'lobby' && G.world && this.peer) { this.eacc = 0; this.sendEnemies(); }
     this.pacc = (this.pacc || 0) + dt; if (this.pacc > 0.08 && G.phys && this.peer && G.state === 'run') { this.pacc = 0; this.sendProps(); }
     this.macc = (this.macc || 0) + dt; if (this.macc > 0.5 && p && p.anat && this.peer) { this.macc = 0; this.sendMed(); }
@@ -88,6 +88,10 @@ class Net {
   // ---- physics props: whoever is handling a prop streams it; the host streams everything nobody is touching
   sendProps() {
     const l = []; const p = G.player, q = this.peer;
+    // corpses you're dragging (ragdolls) stream too, keyed by who they belong to
+    for (const b of G.phys.bodies) { const o = b.owner; if (!o || o.alive || b.remove) continue; const held = G.grab && G.grab.body === b; if (held) b.ownT = G.t + 1; if (!held && !((b.ownT || 0) > G.t)) continue;
+      const key = o.isPlayer ? 'P:' + this.role : o.isRemote ? 'P:' + (this.role === 'host' ? 'guest' : 'host') : o.nid ? 'A:' + o.nid : null; if (!key) continue;
+      const pts = []; for (const pt of b.pts) pts.push(Math.round(pt.x * 10) / 10, Math.round(pt.y * 10) / 10); l.push([key, pts, held ? 1 : 0]); }
     for (const b of G.phys.bodies) { if (!b.nid || b.remove) continue;
       const mine = (G.grab && G.grab.body === b) || (b.ownT || 0) > G.t; if (mine) b.ownT = Math.max(b.ownT || 0, G.t + (G.grab && G.grab.body === b ? 0.3 : 0));
       const remote = (b.remoteT || 0) > G.t - 0.5; if (remote && !mine) continue; if (!mine && this.role !== 'host') continue;
@@ -99,14 +103,16 @@ class Net {
   }
   onProps(l) {
     this.propMap = new Map(); for (const b of G.phys.bodies) if (b.nid && !b.remove) this.propMap.set(b.nid, b);
-    for (const [id, pts, drag] of l) { const b = this.propMap.get(id); if (!b || (G.grab && G.grab.body === b)) continue; b.remoteT = G.t; b.ownT = 0; b.dragBy = drag ? this.peer : null; if (drag) b.dragT = G.t;
+    const ragOf = id => { if (id[0] === 'P') { const a = id.slice(2) === this.role ? G.player : this.peer; return a && !a.alive ? a.rag : null; } if (id[0] === 'A') { const n = +id.slice(2); const a = this.role === 'guest' ? this.puppets.get(n) : G.actors.find(x => x.nid === n); return a && !a.alive ? a.rag : null; } return null; };
+    for (const [id, pts, drag] of l) { const b = id[1] === ':' ? ragOf(id) : this.propMap.get(id); if (!b || (G.grab && G.grab.body === b)) continue; b.remoteT = G.t; b.ownT = 0; b.dragBy = drag ? this.peer : null; if (drag) b.dragT = G.t;
       for (let i = 0; i < b.pts.length && i * 2 + 1 < pts.length; i++) { const pt = b.pts[i]; const nx = pts[i * 2], ny = pts[i * 2 + 1]; const dx = nx - pt.x, dy = ny - pt.y; const far = Math.abs(dx) + Math.abs(dy) > 6; pt.ox = far ? nx : nx - dx * 0.5; pt.oy = far ? ny : ny - dy * 0.5; pt.x = nx; pt.y = ny; } }
   }
   // ---- partner medical summary (so you can triage them) + treatment over the wire
   sendMed() { const A = G.player.anat; const parts = {}; for (const k of NE.PARTS) { const P = A.parts[k]; parts[k] = [P.wounds.filter(w => !w.closed).length, Math.round(A.partBleed(k) * 10) / 10, P.frac ? 1 : 0, P.splint ? 1 : 0, P.bandage ? 1 : 0, P.tq ? 1 : 0, P.wounds.filter(w => w.bullet).length, P.severed ? 1 : 0]; }
     this.send({ t: 'med', u: A.uncon ? 1 : 0, b: Math.round(A.blood), pain: Math.round(A.pain), parts }); }
-  treatProg(tr) { tr._s = (tr._s || 0) + 1; if (tr._s % 6 === 0) this.send({ t: 'tprog', k: tr.t / tr.dur, part: tr.part, by: G.player.surv.first }); }
+  treatProg(tr) { if (tr.op === 'raise') return; tr._s = (tr._s || 0) + 1; if (tr._s % 6 === 0) this.send({ t: 'tprog', k: tr.t / tr.dur, part: tr.part, by: G.player.surv.first }); }
   treatDone(tr) { const p = G.player;
+    if (tr.op === 'raise') { p.anat.blood -= 250; G.addP && [...Array(14)].forEach(() => G.addP(tr.x, tr.y, NE.rf(-40, 40), NE.rf(-60, 0), 0.6, '#ffc21a', 'goo')); NE.Audio.play('squelch', 1); this.send({ t: 'raise', x: tr.x, y: tr.y, by: p.surv.first }); G.toast('The corpse twitches. It\'s theirs to steer now.'); return; }
     if (tr.op === 'revive') { this.send({ t: 'revive', by: p.surv.first }); G.toast('You haul ' + (this.peerSurv ? this.peerSurv.first : 'them') + ' back to their senses.'); return; }
     if (!p.inv.items.includes(tr.entry)) return G.toast('Item missing.'); tr.entry.n--; if (tr.entry.n <= 0) p.inv.remove(tr.entry);
     this.send({ t: 'treat', id: tr.entry.id, part: tr.part, by: p.surv.first }); G.toast('Treated their ' + NE.PART_NAMES[tr.part].toLowerCase() + '.'); G.run && G.run.treated++; }
@@ -146,6 +152,7 @@ class Net {
       case 'pp': if (G.phys) this.onProps(m.l); return;
       case 'bag': { if (!G.world || G.state !== 'run') return; let o = G.dyn.find(d => d.nkey === m.k); if (o) { o.items = m.it; return; } G.dyn.push({ type: 'container', ct: 'bag', x: m.x, y: m.y, label: 'Dropped Bag', act: 'search', items: m.it, searched: true, nkey: m.k }); return; }
       case 'med': this.peerMed = m; return;
+      case 'raise': if (G.wisp && !G.minion) { G.spawnMinion(m.x, m.y); G.toast(m.by + ' raised your old body as a brood minion. [A/D] move · [Space] hop · [LMB] bite.'); } return;
       case 'tprog': G.peerTreat = { k: m.k, part: m.part, by: m.by, t: G.t }; return;
       case 'treat': { const p = G.player; if (!p || !p.alive) return; const e = { id: m.id, n: 1 }; p.inv.items.push(e); const before = G.toast; let msg = ''; G.toast = s => { msg = s; }; try { NE.applyTreatment(p, e, m.part); } finally { G.toast = before; } p.inv.remove(e); G.peerTreat = null; G.toast(m.by + ' treated your ' + NE.PART_NAMES[m.part].toLowerCase() + (msg ? ': ' + msg : '.')); return; }
       case 'revive': { const p = G.player; if (!p || !p.alive) return; const A = p.anat; A.cons = Math.max(A.cons, 55); A.uncon = false; A.painSpike = Math.max(0, A.painSpike - 20); A.stress = Math.max(0, A.stress - 20); G.peerTreat = null; G.toast(m.by + ' pulled you back up.'); return; }
@@ -191,6 +198,7 @@ class Net {
   }
   drawRemoteForm(ctx, a) {
     const x = Math.round(a.x), y = Math.round(a.y);
+    if (a.minion) { G.drawMinionAt(ctx, a.x, a.y, a.facing || 1, G.t * 10, a.flash > 0); return; }
     if (a.goop) { for (let j = -5; j <= 0; j++) for (let i = -5; i <= 5; i++) { if ((i / 5) ** 2 + ((j + 3) / 3.2) ** 2 > 1) continue; ctx.fillStyle = (Math.floor((i + 8 + Math.sin(G.t * 4)) / 2.5) % 2) ? '#3a2408' : '#ffc21a'; ctx.fillRect(x + i, y + j, 1, 1); } for (let k = 0; k < 5; k++) { const ang = -Math.PI / 2 + (k - 2) * 0.6 + Math.sin(G.t * 5 + k) * 0.4; NE.pline(ctx, x, y - 3, x + Math.cos(ang) * 8, y - 3 + Math.sin(ang) * 8, 1, '#ffd84a'); } }
     else if (a.wisp) { for (let i = -2; i <= 2; i++) { ctx.fillStyle = i % 2 ? '#3a2408' : '#ffd23a'; ctx.fillRect(x + i, y - 1, 1, 3); } }
   }

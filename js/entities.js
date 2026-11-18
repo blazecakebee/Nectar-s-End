@@ -23,7 +23,7 @@ class Actor {
     const legs = A.legFactor(); this.limp = legs.broken > 0 || legs.f < 0.7;
     // stance
     const HS = NE.HSTAND, HC = NE.HCROUCH, HK = NE.HCRAWL; let wantH = HS; const lowCeil = this.blockedAbove(HC);
-    if (legs.crawl || A.uncon) { this.crawl = true; this.crouch = true; wantH = HK; }
+    if (legs.crawl || A.uncon || c.prone) { this.crawl = true; this.crouch = true; wantH = HK; }
     else if (c.crouch || lowCeil) { this.crouch = true; this.crawl = lowCeil || this.blockedAbove(HS) && this.crawl; wantH = this.crawl ? HK : HC; }
     else { if (this.blockedAbove(HS)) { wantH = this.h; } else { this.crouch = false; this.crawl = false; } }
     if (this.blockedAbove(HC) && this.h <= HK) { wantH = HK; this.crawl = true; }
@@ -36,7 +36,7 @@ class Actor {
     if (!this.climbing && onLadder && this.ladderCD <= 0 && (c.up || (c.down && !this.onGroundSolid())) && !this.crawl && !A.uncon) { this.climbing = true; this.vx *= 0.3; }
     if (this.climbing && (!onLadder || A.uncon)) this.climbing = false;
     if (this.climbing && jumpPress) { this.climbing = false; this.ladderCD = 0.4; this.vy = c.down ? 40 : -150; this.vx = (c.mx || 0) * 95; this.onGround = false; A.stam -= 3; }
-    let enc = 1; if (this.inv) { const r = this.inv.weight() / this.inv.carry; if (r > 1) enc = Math.max(0.35, 1 - (r - 1) * 1.3); }
+    let enc = 1; if (this.inv) { const r = this.inv.weight() / this.inv.carry; if (r > 1) enc = Math.max(0.35, 1 - (r - 1) * 1.3 * (1 - (st.encTol || 0))); }
     const bloodF = clamp(A.blood / 5000 / 0.75, 0.55, 1);
     this.sprint = !!c.sprint && !this.crouch && A.stam > 3 && legs.broken === 0 && enc > 0.8 && Math.abs(c.mx) > 0;
     let spd = 60 * st.speed * legs.f * bloodF * enc * (this.sprint ? 1.95 * (st.runSpeed || 1) : 1) * (this.crawl ? 0.38 : this.crouch ? 0.55 : 1) * (inWater ? 0.6 : 1) * (this.speedMul || 1) * this.gearSpd() * (A.hunger < 10 || A.thirst < 10 ? 0.85 : 1);
@@ -82,7 +82,7 @@ class Actor {
       else { this.vy = -205 * (st.parkour || 1); this.vx = -d * 135 * (st.parkour || 1); this.wallLock = 0.22; this.facing = -d; A.stam -= 5 / (st.parkour || 1); NE.Audio.play('step', 0.8); }
       this.lastWall = d; this.wallCoy = 0; this.g.dust(this.x + d * 3, this.y - 4, 5); this.g.noise(this.x, this.y, 30);
     }
-    const tgt = c.mx * spd * (this.onIce ? 1.1 : 1); const acc = this.onIce ? 90 : this.onGround ? 950 : this.wallLock > 0 ? 50 : 300;
+    this.knockT = Math.max(0, (this.knockT || 0) - dt); const tgt = this.knockT > 0 ? 0 : c.mx * spd * (this.onIce ? 1.1 : 1); const acc = this.knockT > 0 ? 160 : this.onIce ? 90 : this.onGround ? 950 : this.wallLock > 0 ? 50 : 300;
     if (this.vx < tgt) this.vx = Math.min(tgt, this.vx + acc * dt); else if (this.vx > tgt) this.vx = Math.max(tgt, this.vx - acc * dt);
     if (c.mx) this.facing = c.mx > 0 ? 1 : -1;
     if (c.jump && this.onGround && !this.crawl && legs.broken < 2 && A.stam > 4) { this.vy = -192 * (legs.broken ? 0.7 : 1) * (inWater ? 0.8 : 1); this.onGround = false; A.stam -= 6; if (c.down) { this.vy = 0; this.dropT = 0.25; } }
@@ -96,7 +96,7 @@ class Actor {
     this.landT = Math.max(0, (this.landT || 0) - dt); if (landed && vyb > 140) this.landT = 0.14;
     return { landed: landed ? vyb : 0 };
   }
-  fallHurt(res) { if (!res || res.landed <= 300) return; const v = res.landed, dmg = (v - 300) * 0.16 * 0.7; this.hurt(pick(['lleg', 'rleg']), dmg, 'fall', 'Fall'); if (dmg > 8) this.hurt(pick(['lleg', 'rleg']), dmg * 0.6, 'fall', 'Fall'); if (v > 430) this.hurt('torso', dmg * 0.4, 'blunt', 'Fall'); NE.Audio.play('land', 0.7); this.g.dust(this.x, this.y, 4); }
+  fallHurt(res) { if (!res || res.landed <= 330) return; const v = res.landed, dmg = (v - 330) * 0.16 * 0.6; this.hurt(pick(['lleg', 'rleg']), dmg, 'fall', 'Fall'); if (dmg > 14) this.hurt(pick(['lleg', 'rleg']), dmg * 0.6, 'fall', 'Fall'); if (v > 430) this.hurt('torso', dmg * 0.4, 'blunt', 'Fall'); NE.Audio.play('land', 0.7); this.g.dust(this.x, this.y, 4); }
   gearSpd() { let k = 1; for (const sl in (this.gear || {})) { const it = NE.ITEMS[this.gear[sl].id]; if (it && it.spd) k *= it.spd; } return k; }
   wallAt() { const W = this.g.world; for (const d of [1, -1]) { const xx = this.x + d * (this.w / 2 + 1.2); if (W.solid(W.get(Math.floor(xx / T), Math.floor((this.y - this.h * 0.55) / T))) && W.solid(W.get(Math.floor(xx / T), Math.floor((this.y - this.h + 2) / T)))) return d; } return 0; }
   onGroundSolid() { const W = this.g.world; return W.solid(W.get(Math.floor(this.x / T), Math.floor((this.y + 1) / T))); }
@@ -177,7 +177,7 @@ class Player extends Actor {
     const stats = NE.computeStats(meta, surv); if (surv.variant) NE.applyVariant(stats, surv.variant);
     super(g, x, y, { faction: 'player', look: surv.look, stats, hpMul: stats.hpMul });
     this.surv = surv; this.stats = stats; this.isPlayer = true;
-    this.inv = new NE.Inv(stats.slots, stats.carry); this.inv.medHalf = stats.medHalf;
+    this.inv = new NE.Inv(stats.slots, stats.carry); this.inv.medHalf = stats.medHalf; this.inv.stackMul = stats.stackMul || 1;
     this.equip = { weapon: null }; this.light = { on: true, bat: 100 }; this.filterT = 0; this.treating = null; this.search = null;
     const of = NE.OUTFITS.find(o => o.id === meta.equipped.outfit) || NE.OUTFITS[0];
     this.shirt = of.random ? surv.look.shirt : of.shirt; this.pants = of.random ? surv.look.pants : of.pants;
@@ -196,9 +196,9 @@ class Player extends Actor {
     if (A.uncon || this.treating || this.search) c = { mx: 0 };
     if ((this.treating || this.search) && (input.mx || input.jump || input.up)) { if (this.treating) { g.toast('Treatment interrupted.'); this.treating = null; } if (this.search) { this.search = null; } c = input; }
     const res = this.physicsMove(dt, c);
-    if (res.landed > 300) {
-      const v = res.landed; const dmg = (v - 300) * 0.16 * 0.7 * st.fall * (this.glide ? 0.4 : 1); NE.Audio.play('land', 1);
-      this.hurt(pick(['lleg', 'rleg']), dmg, 'fall', 'Fall'); if (dmg > 8) this.hurt(pick(['lleg', 'rleg']), dmg * 0.6, 'fall', 'Fall'); if (v > 430) this.hurt('torso', dmg * 0.4, 'blunt', 'Fall');
+    if (res.landed > 330) {
+      const v = res.landed; const dmg = (v - 330) * 0.16 * 0.6 * st.fall * (this.glide ? 0.4 : 1); NE.Audio.play('land', 1);
+      this.hurt(pick(['lleg', 'rleg']), dmg, 'fall', 'Fall'); if (dmg > 14) this.hurt(pick(['lleg', 'rleg']), dmg * 0.5, 'fall', 'Fall'); if (v > 430) this.hurt('torso', dmg * 0.4, 'blunt', 'Fall');
       g.shake(Math.min(4, dmg / 6)); g.dust(this.x, this.y, 6);
     } else if (res.landed > 120) { NE.Audio.play('land', 0.5); }
     if (this.stepT > (this.sprint ? 22 : 16)) { this.stepT = 0; if (this.onGround) { if (this.sprint) g.dust(this.x - this.facing * 2, this.y, 2); NE.Audio.play('step', this.sprint ? 1 : this.crouch ? 0.3 : 0.6); if (this.inWater) NE.Audio.play('splash', 0.4); g.noise(this.x, this.y, (this.sprint ? 90 : this.crouch ? 12 : 40) * st.noise); } }
@@ -226,7 +226,8 @@ class Player extends Actor {
     const m = w.melee; if (this.cd > 0) return;
     if (A.parts.larm.severed && A.parts.rarm.severed) return;
     if (A.stam < m.stam * 0.4) { g.say(pick(NE.MONO.lowstam || ['Need to catch my breath...']), 1); return; }
-    if (w.dig && g.tryDig && g.tryDig(this, w)) { const af = A.armFactor(); this.swingDur = m.cd / Math.max(0.5, af); this.swingT = this.swingDur; this.cd = this.swingDur; A.stam -= m.stam * 0.6 * this.stats.staminaCost; NE.Audio.play('swing'); return; }
+    const dg = w.dig || 0.3 + (w.w || 0.3) * 0.15; // anything can chip away at rock — tools just do it much faster
+    if (g.tryDig && g.tryDig(this, w.dig ? w : Object.assign({}, w, { dig: dg }))) { const af = A.armFactor(); this.swingDur = m.cd / Math.max(0.5, af); this.swingT = this.swingDur; this.cd = this.swingDur; A.stam -= m.stam * 0.6 * this.stats.staminaCost; NE.Audio.play('swing'); return; }
     if (w.twoHand && (A.parts.larm.frac && !A.parts.larm.splint || A.parts.rarm.frac && !A.parts.rarm.splint)) { g.toast('Can\'t swing that with a broken arm.'); return; }
     if (this.strk) return; this.charge = { t: 0, w }; // hold to wind up a heavy attack, release to strike
   }
@@ -347,11 +348,13 @@ class Enemy extends Actor {
           if (ko && d < reach + 4 && Math.abs(dy) < 14 && mw) { // knockout finisher: one decisive blow on a helpless body
             if (!this.exec) { this.exec = { t: 0 }; this.charge = { t: 0 }; if (t.isPlayer) g.log(this.D.name + ' stands over you, weapon raised...', 'bad'); NE.Audio.play('shout', 0.7); }
             this.exec.t += dt; this.charge.t += dt;
-            if (this.exec.t > 1.3) { this.exec = null; this.charge = null; NE.Combat.strike(this, mw, 1.6); const k = mw.melee.kind === 'blunt' ? 'blunt' : 'sharp'; t.hurt('head', 220, k, this.D.name, { x: this.facing, y: 0.6 }); if (t.anat && !t.anat.dead) { t.anat.org.brain = 0; t.anat.cause = 'Executed by ' + this.D.name; } g.shake(5); NE.Audio.play('crack', 1); this.cd = 1.2; }
+            if (this.exec.t > 4) { this.exec = null; this.charge = null; NE.Combat.strike(this, mw, 1.6); const k = mw.melee.kind === 'blunt' ? 'blunt' : 'sharp'; t.hurt('head', 220, k, this.D.name, { x: this.facing, y: 0.6 }); if (t.anat && !t.anat.dead) { t.anat.org.brain = 0; t.anat.cause = 'Executed by ' + this.D.name; } g.shake(5); NE.Audio.play('crack', 1); this.cd = 1.2; }
           } else if (this.windT > 0) { // readable wind-up before every swing
             this.windT -= dt; if (this.charge) this.charge.t += dt; c.mx = 0;
-            if (this.windT <= 0) { const heavy = this.heavyNext ? 1.35 : 0; this.charge = null; NE.Combat.strike(this, mw, heavy); this.cd = (mw.melee.cd || 0.8) * 0.85 + rf(0.25, 0.55); if (this.type === 'feral' || this.D.bare) NE.Audio.play('growl', 0.5); }
-          } else if (d < reach + 2 && Math.abs(dy) < 14 && this.cd <= 0 && mw) { this.exec = null; this.heavyNext = (mw.w || 0) > 2 || chance(0.2); this.windT = 0.28 + (mw.w || 0.3) * 0.07 + (this.heavyNext ? 0.25 : 0); this.charge = { t: 0 }; }
+            if (this.windT <= 0) { const heavy = this.heavyNext ? 1.35 : 0; this.charge = null; NE.Combat.strike(this, mw, heavy); this.cd = (mw.melee.cd || 0.8) * 1.15 + rf(0.45, 0.9); this.backT = rf(0.45, 0.9); if (this.type === 'feral' || this.D.bare) NE.Audio.play('growl', 0.5); }
+          } else if (this.backT > 0) { this.backT -= dt; c.mx = -Math.sign(dx) * 0.55; if (d > reach + 18) this.backT = 0; }
+          else if (this.cd > 0 && d < reach + 6) { c.mx = d < reach ? -Math.sign(dx) * 0.4 : 0; } // circle at the edge of reach while recovering
+          else if (d < reach + 2 && Math.abs(dy) < 14 && this.cd <= 0 && mw && !(t.isPlayer && g.actors.some(o => o !== this && o.D && o.windT > 0 && o.target === t && Math.abs(o.x - t.x) < 30))) { this.exec = null; this.heavyNext = (mw.w || 0) > 2 || chance(0.2); this.windT = 0.28 + (mw.w || 0.3) * 0.07 + (this.heavyNext ? 0.25 : 0); this.charge = { t: 0 }; }
           else if (d > reach - 3) { this.exec = null; c.mx = Math.sign(dx); c.sprint = d > 30 && this.type !== 'scav' && this.type !== 'husk'; }
           if (dy > 20 && d < 30 && this.onGround) c.drop = true;
         }
