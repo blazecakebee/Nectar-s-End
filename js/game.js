@@ -51,7 +51,8 @@ G.bindInput = function () {
   const pos = e => { const r = cv.getBoundingClientRect(); G.mouse.x = (e.clientX - r.left) / r.width * VW; G.mouse.y = (e.clientY - r.top) / r.height * VH; };
   window.addEventListener('mousemove', pos);
   cv.addEventListener('mousedown', e => { pos(e); NE.Audio.init(); if (G.state === 'prologue') return NE.Prologue.next(); if (e.button === 0) { G.mouse.l = true; G.onClick(); } if (e.button === 2) { G.mouse.r = true; G.startGrab(); } });
-  window.addEventListener('mouseup', e => { if (e.button === 0) G.mouse.l = false; if (e.button === 2) { G.mouse.r = false; G.releaseGrab(); } });
+  cv.addEventListener('wheel', e => { if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen() || !G.player.alive) return; e.preventDefault(); const now = performance.now(); if (now - (G._whT || 0) < 110) return; G._whT = now; G.cycleWeapon(e.deltaY > 0 ? 1 : -1); }, { passive: false });
+  window.addEventListener('mouseup', e => { if (e.button === 0) { G.mouse.l = false; if (G.player && G.player.charge) G.player.release(); } if (e.button === 2) { G.mouse.r = false; G.releaseGrab(); } });
   cv.addEventListener('contextmenu', e => e.preventDefault());
   document.addEventListener('contextmenu', e => { if (G.state === 'run' || G.state === 'lobby' || G.state === 'burst') e.preventDefault(); });
 };
@@ -95,7 +96,7 @@ G.onKey = function (code) {
 };
 G.throwSel = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick']; if (G.throwPref && p.inv.has(G.throwPref)) return G.throwPref; return ids.find(i => p.inv.has(i)); };
 G.cycleThrow = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick'].filter(i => p.inv.has(i)); if (!ids.length) return G.toast('No throwables.'); const i = (ids.indexOf(G.throwSel()) + 1) % ids.length; G.throwPref = ids[i]; G.toast('Throw: ' + NE.ITEMS[ids[i]].name + ' [' + NE.keyLabel('throw') + ']'); };
-G.cycleWeapon = function () { const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const cur = p.equip.weapon; const all = [null, ...ws]; const i = (all.indexOf(cur) + 1) % all.length; p.equip.weapon = all[i]; G.toast('Holding: ' + (all[i] ? NE.ITEMS[all[i].id].name : 'fists')); NE.Audio.play('ui'); };
+G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const cur = p.equip.weapon; const all = [null, ...ws]; const i = ((all.indexOf(cur) + dir) % all.length + all.length) % all.length; p.equip.weapon = all[i]; p.charge = null; NE.UI.weaponFlash(all, i); NE.Audio.play('click', 0.7); };
 G.onClick = function () { if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
 G.startGrab = function () {
   if (!G.playing() || NE.UI.panel) return; const p = G.player; const m = G.mouse;
@@ -212,6 +213,7 @@ G.frame = function (dt) {
     if (G.net && G.net.on && G.state !== 'lobby') ts = Math.max(ts, UI.modalOpen() || UI.panel ? 1 : ts); // co-op never pauses
     if (G.player && G.player.anat.uncon && G.state === 'run' && !(G.net && G.net.on)) ts = 2.5;
     if (G.state === 'dying') ts = 0.35;
+    if (G.slowmo > 0) { G.slowmo -= dt; ts *= 0.3; }
     G.timeScale = ts; const sdt = dt * ts;
     if (sdt > 0) G.update(sdt, dt);
     G.render(dt);
@@ -244,7 +246,7 @@ G.update = function (dt, rdt) {
   G.physAcc = (G.physAcc || 0) + dt; let n = 0;
   while (G.physAcc >= 1 / 60 && n < 4) {
     G.physAcc -= 1 / 60; n++;
-    if (G.grab && p.alive) { const gp = G.grab; const m = G.mouse; let tx = m.wx, ty = m.wy; const dx = tx - p.x, dy = ty - p.cy, d = Math.hypot(dx, dy); if (d > 36) { tx = p.x + dx / d * 36; ty = p.cy + dy / d * 36; } const mm = gp.body.mass || 1; const k = clamp(0.4 / mm, 0.06, 0.4); if (mm > 2.5 && ty < p.y - 10) ty = lerp(ty, p.y - 4, 0.6); gp.x = lerp(gp.x, tx, k); gp.y = lerp(gp.y, ty, k); if (NE.dist(gp.x, gp.y, p.x, p.cy) > 60) G.releaseGrab(); }
+    if (G.grab && p.alive) { const gp = G.grab; const m = G.mouse; let tx = m.wx, ty = m.wy; const dx = tx - p.x, dy = ty - p.cy, d = Math.hypot(dx, dy); if (d > 36) { tx = p.x + dx / d * 36; ty = p.cy + dy / d * 36; } const mm = gp.body.mass || 1; const k = clamp(0.45 / Math.max(0.6, mm), 0.14, 0.45) * (p.stats.melee || 1); if (mm > 1.9 && ty < p.y - 14) ty = lerp(ty, p.y - 6, 0.5); gp.x = lerp(gp.x, tx, k); gp.y = lerp(gp.y, ty, k); if (NE.dist(gp.x, gp.y, p.x, p.cy) > 60) G.releaseGrab(); }
     G.phys.step(1 / 60);
     for (const a of G.actors) { if (!a.alive || !near(a)) continue; const hits = G.phys.pushActor(a); for (const h of hits) G.propHit(a, h); }
   }
@@ -449,8 +451,8 @@ G.finishSearch = function (o) {
   if (o.breach) {
     const tool = o.breach; o.breach = null; let ok;
     if (tool === 'keycard') { ok = true; p.inv.consume('keycard'); }
-    else if (tool === 'crowbar') { ok = chance(sec ? 0.55 : 0.9); G.noise(p.x, p.y, 140); NE.Audio.play('hit'); }
-    else { ok = chance(sec ? 0.35 : 0.75); if (chance(0.3)) { p.inv.consume('lockpick'); G.toast('The lockpick snapped.'); } }
+    else if (tool === 'crowbar') { ok = chance((sec ? 0.55 : 0.9) * (p.stats.pick || 1)); G.noise(p.x, p.y, 140); NE.Audio.play('hit'); }
+    else { ok = chance((sec ? 0.35 : 0.75) * (p.stats.pick || 1)); if (chance(0.3)) { p.inv.consume('lockpick'); G.toast('The lockpick snapped.'); } }
     if (!ok) { NE.Audio.play('deny'); return G.toast('Couldn\'t get it open. Try again.'); }
     o.locked = null; NE.Audio.play('open_metal');
   }
@@ -588,6 +590,7 @@ G.render = function (dt) {
   for (const a of G.actors) if (!a.alive) a.draw(ctx);
   for (const a of G.actors) if (a.alive && a !== p && Math.abs(a.y - F.y) < 260) a.draw(ctx);
   if (p.alive || !G.goop) p.draw(ctx);
+  if (p.charge && p.alive) { const k = Math.min(1, p.charge.t / 0.82), bx = Math.round(p.x) - 6, by = Math.round(p.y - p.h) - 8; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, 14, 4); ctx.fillStyle = p.charge.t < 0.32 ? '#8a7a5a' : k >= 1 ? ((G.t * 12 | 0) % 2 ? '#fff4c0' : '#ffb020') : '#ffb020'; ctx.fillRect(bx, by, Math.round(12 * k), 2); }
   if (G.goop) G.drawGoop(ctx);
   for (const q of G.parts) { if (q.kind === 'glow') continue; ctx.fillStyle = q.col; ctx.globalAlpha = q.kind === 'steam' || q.kind === 'dust' ? Math.min(1, q.life / q.max * 1.5) : 1; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   ctx.globalAlpha = 1; G.drawAmbient(ctx);
@@ -677,7 +680,7 @@ G.drawLighting = function (cx, cy, fl) {
   if (G.net && G.net.peer && G.net.peer.alive && !G.net.peer.hidden) { const q = G.net.peer; lights.push({ x: q.x, y: q.cy, r: 28, i: 0.55, player: true }); if (q.lightOn) { const L = NE.lanternPos(q); lights.push({ x: L.x, y: L.y, r: 88, i: 0.85, col: '#ffb860', player: true }); } }
   if (p.alive) {
     lights.push({ x: p.x, y: p.cy, r: (p.abil && p.abil.includes('eyes') ? 62 : 24) * sight, i: 0.6, player: true });
-    if (p.light.on) { const fk = p.light.bat < 15 ? (Math.random() < 0.15 ? 0.45 : 1) : 0.94 + Math.sin(G.t * 9) * 0.03 + Math.sin(G.t * 23) * 0.03; const L = NE.lanternPos(p); lights.push({ x: L.x, y: L.y, r: 92 * sight * fk * (0.6 + 0.4 * Math.min(1, p.light.bat / 40)), i: 0.95, col: '#ffb860', player: true }); }
+    if (p.light.on) { const fk = p.light.bat < 15 ? (Math.random() < 0.15 ? 0.45 : 1) : 0.94 + Math.sin(G.t * 9) * 0.03 + Math.sin(G.t * 23) * 0.03; const L = NE.lanternPos(p); lights.push({ x: L.x, y: L.y, r: 92 * sight * (st.lamp || 1) * fk * (0.6 + 0.4 * Math.min(1, p.light.bat / 40)), i: 0.95, col: '#ffb860', player: true }); }
   for (const a of G.actors) { if (!a.alive || a === p || a.isRemote || !NE.hasLantern(a) || Math.abs(a.y - p.y) > 200) continue; const L = NE.lanternPos(a); lights.push({ x: L.x, y: L.y, r: 50, i: 0.62 + Math.sin(G.t * 11 + a.x) * 0.04, col: a.town ? '#ffd090' : '#ffa850' }); }
   } else if (!G.goop && !G.wisp) lights.push({ x: p.x, y: p.cy, r: 30, i: 0.4, player: true });
   for (const o of G.nearObjs()) {

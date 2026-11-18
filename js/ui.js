@@ -33,6 +33,7 @@ UI.init = function () {
     <div id="vitals"></div>
     <div id="hotbar"></div>
     <div id="prompt" class="hide"></div>
+    <div id="wsel" class="hide"></div>
     <div id="say" class="hide"></div>
     <div id="prog" class="hide"><div></div></div>
     <div id="toasts"></div>
@@ -71,6 +72,10 @@ UI.hideHUD = function () { $('#hud').classList.add('hide'); };
 UI.hudStatic = function () { const p = G().player; if (!p) return; const s = p.surv; $('.p-frame').style.background = NE.portraitBG(s.look); $('.p-name').textContent = s.name; $('.p-occ').textContent = NE.OCCUPATIONS.find(o => o.id === s.occ).name + ', ' + s.age; };
 
 // ---------------- toasts / say / banner ----------------
+UI.weaponFlash = function (all, i) {
+  const el = $('#wsel'); el.innerHTML = all.map((e, k) => '<div class="ws' + (k === i ? ' on' : '') + '">' + (e ? ic(e.id, 3) : icn('fist', null, 3)) + (k === i ? '<b>' + esc(e ? NE.ITEMS[e.id].name : 'Fists') + '</b>' : '') + '</div>').join('');
+  el.classList.remove('hide'); clearTimeout(UI._wsT); UI._wsT = setTimeout(() => el.classList.add('hide'), 1100);
+};
 UI.toast = function (m, cls) {
   const box = $('#toasts'); if (!box) return; const d = document.createElement('div'); d.className = 'toast ' + (cls || ''); d.textContent = m; box.appendChild(d);
   setTimeout(() => d.classList.add('out'), 3800); setTimeout(() => d.remove(), 4400); while (box.children.length > 6) box.firstChild.remove();
@@ -115,7 +120,7 @@ UI.hudUpdate = function () {
   // hotbar
   const w = p.equip.weapon, wd = p.weaponDef(); let ammo = ''; if (wd.gun) ammo = (w.jammed ? '<b class="bad">JAM</b> ' : '') + w.mag + '/' + wd.gun.mag + ' <span class="dim">(' + p.inv.count(wd.gun.ammo) + ')</span>';
   const th = g.throwSel(); const band = p.inv.count('bandage') + p.inv.count('cleanrag') + p.inv.count('rag');
-  $('#hotbar').innerHTML = '<div class="hb">' + (w ? ic(w.id) : icn('fist')) + '<div><b>' + esc(wd.name) + '</b><small>' + (ammo || 'LMB attack • [' + NE.keyLabel('weapon') + '] swap') + '</small></div></div>' +
+  $('#hotbar').innerHTML = '<div class="hb">' + (w ? ic(w.id) : icn('fist')) + '<div><b>' + esc(wd.name) + '</b><small>' + (ammo || 'LMB • hold for heavy • scroll swaps') + '</small></div></div>' +
     '<div class="hb' + (p.light.on ? '' : ' off') + '">' + icn('ui_town') + '<div><b>[' + NE.keyLabel('light') + '] Lantern</b><small>' + Math.round(p.light.bat) + '% oil</small></div></div>' +
     (g.state === 'run' ? '<div class="hb">' + (th ? ic(th) : icn('bottle')) + '<div><b>[' + NE.keyLabel('throw') + '] Throw</b><small>' + (th ? esc(NE.ITEMS[th].name) + ' ×' + p.inv.count(th) : 'none • [' + NE.keyLabel('cycleThrow') + '] cycle') + '</small></div></div>' +
     '<div class="hb">' + icn('bandage') + '<div><b>[' + NE.keyLabel('bandage') + '] Bandage</b><small>' + band + ' dressings</small></div></div>' : '') +
@@ -355,7 +360,7 @@ UI.render.settings = function (b) {
     '<label class="set"><span>Tips</span><input type="checkbox" data-k="tips"' + (S.tips ? ' checked' : '') + '></label>' +
     '<h4>SAVE DATA</h4><div class="acts"><button class="btn" id="slotsb">Save slots</button><button class="btn" id="exp">Export save</button><button class="btn" id="imp">Import save</button><button class="btn danger" id="rst">Erase this slot</button></div><h4>UPDATES</h4><div class="acts"><button class="btn" id="clog">View update log</button><span class="dim">Running v' + esc((window.NE_VERSION_INFO && window.NE_VERSION_INFO.version) || '?') + '</span></div><input type="file" id="impf" accept=".json" class="hide"></div>' +
     '<div><h4>KEYBINDS <small class="dim">click a key, then press the new one • Esc cancels • Del clears</small></h4><div class="kb">' + NE.BIND_DEFS.map(d => { const bb = NE.bindOf(d[0]); return '<div class="kb-r"><span>' + d[1] + '</span><button class="kb-k" data-bind="' + d[0] + '|0">' + NE.keyName(bb[0]) + '</button><button class="kb-k alt" data-bind="' + d[0] + '|1">' + NE.keyName(bb[1]) + '</button></div>'; }).join('') +
-    '<div class="kb-r fixed"><span>Strike / shoot / dig (melee weapon follows your cursor)</span><button class="kb-k" disabled>LMB</button><button class="kb-k alt" disabled>—</button></div><div class="kb-r fixed"><span>Grab & drag objects</span><button class="kb-k" disabled>RMB</button><button class="kb-k alt" disabled>—</button></div><div class="kb-r fixed"><span>Close / menu</span><button class="kb-k" disabled>Esc</button><button class="kb-k alt" disabled>—</button></div>' +
+    '<div class="kb-r fixed"><span>Strike / shoot / dig — hold to charge a heavy attack (weapon follows your cursor)</span><button class="kb-k" disabled>LMB</button><button class="kb-k alt" disabled>—</button></div><div class="kb-r fixed"><span>Switch weapon / tool</span><button class="kb-k" disabled>Scroll</button><button class="kb-k alt" disabled>—</button></div><div class="kb-r fixed"><span>Grab & drag objects</span><button class="kb-k" disabled>RMB</button><button class="kb-k alt" disabled>—</button></div><div class="kb-r fixed"><span>Close / menu</span><button class="kb-k" disabled>Esc</button><button class="kb-k alt" disabled>—</button></div>' +
     '</div><div class="acts" style="margin-top:.4em"><button class="btn sm" id="kbreset">Reset keybinds to default</button></div></div></div>';
   b.querySelectorAll('[data-bind]').forEach(el => el.onclick = () => { b.querySelectorAll('.kb-k.wait').forEach(x => x.classList.remove('wait')); el.classList.add('wait'); el.textContent = 'press a key…'; UI.rebinding = { a: el.dataset.bind.split('|')[0], i: +el.dataset.bind.split('|')[1] }; NE.Audio.play('ui'); });
   $('#kbreset').onclick = () => { g.store.settings.binds = {}; NE.Save.write(g); UI.render.settings(b); UI.toast('Keybinds reset.'); };
@@ -433,7 +438,7 @@ UI.deepPost = function () {
   const g = G(), p = g.player, M = g.meta; const send = p.inv.items.filter(e => { const it = NE.ITEMS[e.id]; return it.value && (it.cat === 'value' || it.cat === 'mat'); });
   const val = send.reduce((a, e) => a + NE.ITEMS[e.id].value * e.n, 0); const shards = p.inv.count('datashard');
   UI.dialog('Deep Post', 'A pulley line runs all the way to Base Camp. Whatever you send up is banked for good — scrap for the Quartermaster, Crystal Shards as XP.<br><br>You carry <b class="good">' + val + '</b> worth of scrap, tape and trinkets' + (shards ? ' and <b class="good">' + shards + '</b> Crystal Shard' + (shards > 1 ? 's' : '') : '') + '. Base Camp holds <b>' + M.scrap + '</b> scrap.', [
-    { label: 'Send it all up', disabled: !send.length, fn: () => { let sc = 0, xp = 0; for (const e of send) { const it = NE.ITEMS[e.id]; if (e.id === 'datashard') xp += (it.xp || 40) * e.n; sc += it.value * e.n; p.inv.remove(e); } sc = Math.round(sc * 0.6); M.scrap += sc; M.xp += xp; while (M.xp >= NE.xpForLevel(M.level)) { M.xp -= NE.xpForLevel(M.level); M.level++; M.points++; g.toast('Level up! +1 skill point (spend it at Base Camp).'); } g.run.sent = (g.run.sent || 0) + sc; NE.Audio.play('buy'); g.log('Sent up the Deep Post: +' + sc + ' scrap' + (xp ? ', +' + xp + ' XP' : '') + '.', 'good'); g.autosave(); } },
+    { label: 'Send it all up', disabled: !send.length, fn: () => { let sc = 0, xp = 0; for (const e of send) { const it = NE.ITEMS[e.id]; if (e.id === 'datashard') xp += (it.xp || 40) * e.n; sc += it.value * e.n; p.inv.remove(e); } sc = Math.round(sc * 0.6 * (p.stats.post || 1)); M.scrap += sc; M.xp += xp; while (M.xp >= NE.xpForLevel(M.level)) { M.xp -= NE.xpForLevel(M.level); M.level++; M.points++; g.toast('Level up! +1 skill point (spend it at Base Camp).'); } g.run.sent = (g.run.sent || 0) + sc; NE.Audio.play('buy'); g.log('Sent up the Deep Post: +' + sc + ' scrap' + (xp ? ', +' + xp + ' XP' : '') + '.', 'good'); g.autosave(); } },
     { label: 'Not now' }]);
 };
 UI.doctor = function (npc) {

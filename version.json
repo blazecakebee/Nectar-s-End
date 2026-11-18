@@ -1,6 +1,18 @@
 {
  "log": [
   {
+   "version": "0.4.1",
+   "date": "2026-11-18",
+   "title": "Heavy attacks, lighter crates, bigger skill web",
+   "changes": [
+    "Hold the attack button to wind up a heavy attack (a bar fills over your head), then release for up to 2.1x damage, a bigger swing, harder knockback and a short hit-stop. A quick click is still a fast strike.",
+    "Scroll the mouse wheel to cycle through your weapons and tools (fists included). A quick picker shows what you're holding.",
+    "Object weight now comes from size and material: crates are easy to lift and toss, barrels a bit heavier, rocks and rubble dense. Your strength makes dragging easier.",
+    "10 new skills (2-3 per branch): Clotting, Vitality, Parkour, Sprinter, Nimble Fingers, Lanternwright, Composure, Silver Tongue, Brawler and Pack Mule.",
+    "Skill web: branches stay closed until you click one, which zooms in on just that branch. Clicking a cell selects it and shows a Confirm upgrade button, so you never spend a point by accident."
+   ]
+  },
+  {
    "version": "0.4.0",
    "date": "2026-11-18",
    "title": "Blood & Physics",

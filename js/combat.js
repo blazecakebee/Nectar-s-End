@@ -17,11 +17,11 @@ C.weaponOf = function (a) {
   if (a.D) { if (a.weapon && NE.ITEMS[a.weapon] && NE.ITEMS[a.weapon].melee) return NE.ITEMS[a.weapon]; if (!a.weapon) return { id: a.type === 'feral' ? 'claws' : 'fists', name: 'Claws', w: 0.3, melee: { dmg: a.D.dmg || 6, kind: a.D.kind || 'blunt', reach: a.D.reach || 9, stam: 3, cd: a.D.cd || 0.8 } }; }
   return null;
 };
-C.strike = function (a, w) {
+C.strike = function (a, w, heavy) {
   w = w || C.weaponOf(a); if (!w || a.strk) return false; const id = w.id || 'fists';
   const kind = STRIKE[id] || (w.melee.kind === 'sharp' && (w.w || 1) < 0.6 ? 'thrust' : 'swing');
-  a.strk = { t: 0, dur: kind === 'thrust' ? 0.16 : clamp(0.16 + (w.w || 1) * 0.06, 0.18, 0.34), kind }; a.hitSet = new Set();
-  NE.Audio.play('swing', 0.7); return true;
+  a.strk = { t: 0, dur: (kind === 'thrust' ? 0.16 : clamp(0.16 + (w.w || 1) * 0.06, 0.18, 0.34)) * (heavy ? 1.25 : 1), kind, heavy: heavy || 0 }; a.hitSet = new Set();
+  NE.Audio.play('swing', heavy ? 1.1 : 0.7); return true;
 };
 C.tick = function (a, dt, tx, ty, active) {
   const w = active ? C.weaponOf(a) : null; if (!w) { a.wdir = null; a.wext = 0; a.strk = null; return; }
@@ -32,7 +32,8 @@ C.tick = function (a, dt, tx, ty, active) {
     if (S.kind === 'thrust') { ext = Math.sin(k * Math.PI) * 6; boost = 2.2; }
     else { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(1.9, -0.8, Math.min(1, k * 1.25)); boost = 2.6; }
     if (S.t >= S.dur) a.strk = null; }
-  const maxRate = 30 / (1 + wt * 0.45) * boost; const d = angDiff(a.wa, target + off); const step = clamp(d, -maxRate * dt, maxRate * dt);
+  else if (a.charge) { const k = clamp(a.charge.t / 0.6, 0, 1); const up = Math.cos(target) >= 0 ? -1 : 1; const id2 = w.id || 'fists'; if (STRIKE[id2] || (w.melee.kind === 'sharp' && (w.w || 1) < 0.6)) ext = -2.5 * k; else off = up * 2.1 * k; if (k >= 1 && Math.random() < 0.3) G.addP(a.wtip ? a.wtip.x : a.x, a.wtip ? a.wtip.y : a.y, rf(-10, 10), rf(-20, 0), 0.25, '#ffe8a0', 'spark', 0); }
+  const maxRate = 30 / (1 + wt * 0.45) * boost * (a.isPlayer && a.stats.swing ? a.stats.swing : 1); const d = angDiff(a.wa, target + off); const step = clamp(d, -maxRate * dt, maxRate * dt);
   a.wav = step / Math.max(dt, 1e-4); a.wa += step; a.wext = lerp(a.wext || 0, ext, Math.min(1, dt * 30));
   const dx = Math.cos(a.wa), dy = Math.sin(a.wa); a.wdir = { x: dx, y: dy };
   const reach = 7.5 + a.wext; const hx = sx + dx * reach, hy = sy + dy * reach, tipx = hx + dx * L, tipy = hy + dy * L;
@@ -58,13 +59,13 @@ C.sweep = function (a, w, p0, p1, tv, dt, striking) {
       if (!hit) continue; a.hitCD.set(t, now + 0.24);
       const spd = tv * (0.35 + 0.65 * hit.f); const cap = a.isPlayer ? 2.1 : 1.15;
       let dmg = m.dmg * clamp((spd - 40) / 150, 0.25, cap) * (a.isPlayer ? a.stats.melee : 1) * a.anat.armFactor();
-      if (a.strk && a.strk.kind === 'thrust' && m.kind === 'sharp') dmg *= 1.25; if (a.abil && a.abil.includes('sting')) dmg *= 1.4;
+      if (a.strk && a.strk.kind === 'thrust' && m.kind === 'sharp') dmg *= 1.25; const hv = a.strk && a.strk.heavy ? a.strk.heavy : 1; dmg *= hv; if (a.abil && a.abil.includes('sting')) dmg *= 1.4;
       const part = t.partNear(hit.x, hit.y); const kind = m.kind === 'sharp' && a.strk && a.strk.kind === 'thrust' ? 'sharp' : m.kind;
       t.hurt(part, dmg, kind, a.isPlayer ? a.surv.first : (a.D ? a.D.name : 'Someone'), vd); t.lastBy = a;
       if (a.abil && a.abil.includes('sting') && t.alive && t.anat) t.anat.tox = (t.anat.tox || 0) + 15;
-      const push = Math.min(140, spd * 0.35) * (0.5 + (w.w || 0.5) * 0.4); t.vx += vd.x * push; t.vy += Math.min(0, vd.y * push * 0.4);
+      const push = Math.min(160 * hv, spd * 0.35 * hv) * (0.5 + (w.w || 0.5) * 0.4) * (a.isPlayer && a.stats.swing ? a.stats.swing : 1); t.vx += vd.x * push; t.vy += Math.min(0, vd.y * push * 0.4);
       const rp = t.rag.pts[NE.RAGIDX(part, t.facing)]; if (rp) { rp.ox -= vd.x * spd * 0.012; rp.oy -= vd.y * spd * 0.012; }
-      NE.Audio.play(kind === 'sharp' || kind === 'bite' ? 'slash' : 'hit', clamp(spd / 200, 0.4, 1.2)); if (a.isPlayer || t.isPlayer) G.shake(clamp(dmg / 12, 0.8, 3));
+      NE.Audio.play(kind === 'sharp' || kind === 'bite' ? 'slash' : 'hit', clamp(spd / 200, 0.4, 1.2)); if (a.isPlayer || t.isPlayer) G.shake(clamp(dmg / 12, 0.8, hv > 1 ? 5 : 3)); if (hv > 1) { G.slowmo = 0.12; for (let i = 0; i < 6; i++) G.addP(hit.x, hit.y, rf(-60, 60), rf(-60, 10), 0.3, '#fff0c0', 'spark', 0.5); }
       if (kind === 'sharp' || dmg > 12) C.spray(hit.x, hit.y, vd.x, vd.y, Math.round(dmg * 0.8));
       if (t.onAggro && a.isPlayer) t.onAggro(a); else if (t.onAggro) t.onAggro(a);
       if (m.kind === 'blunt' && a.strk) { a.strk = null; a.wa -= Math.sign(a.wav || 1) * 0.5; } // heavy things bounce off

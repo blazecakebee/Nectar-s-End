@@ -19,13 +19,13 @@ class Phys {
   add(b) { this.bodies.push(b); return b; }
   box(kind, x, y, w, h, m, color) {
     const b = new Body(kind); b.w = w; b.h = h; b.color = color;
-    const r = Math.min(w, h) * 0.3; NE.Phys.weigh(b, m);
+    const r = Math.min(w, h) * 0.3; NE.Phys.weigh(b, NE.Phys.massOf(kind, w * h));
     b.point(x - w / 2, y - h / 2, r, m); b.point(x + w / 2, y - h / 2, r, m); b.point(x + w / 2, y + h / 2, r, m); b.point(x - w / 2, y + h / 2, r, m);
     b.link(0, 1); b.link(1, 2); b.link(2, 3); b.link(3, 0); b.link(0, 2); b.link(1, 3);
     return this.add(b);
   }
   stick(kind, x, y, len, ang, r, m) {
-    const b = new Body(kind); const dx = Math.cos(ang) * len / 2, dy = Math.sin(ang) * len / 2; NE.Phys.weigh(b, m);
+    const b = new Body(kind); const dx = Math.cos(ang) * len / 2, dy = Math.sin(ang) * len / 2; NE.Phys.weigh(b, NE.Phys.massOf(kind, len * r * 2));
     b.point(x - dx, y - dy, r, m); b.point(x + dx, y + dy, r, m); b.link(0, 1); return this.add(b);
   }
   step(dt) {
@@ -122,6 +122,9 @@ class Phys {
   }
 }
 // Heavier things fall faster, bounce less and slide less. m = mass per point.
-Phys.weigh = function (b, m) { m = m || 1; b.mass = m; b.grav = 1.3 + Math.min(0.7, m * 0.14); b.damp = 0.993; b.bounce = m > 2 ? 0.08 : m > 1 ? 0.15 : 0.25; b.fric = m > 2 ? 0.62 : 0.78; };
+// mass from size (area in px²) × material density, so a crate is liftable and a rock in your hand feels heavier than a bottle
+Phys.DENSITY = { crate: 1, barrel: 1.1, debris: 1.6, brick: 1.7, dynamite: 1, bottle: 0.7, molotov: 0.8, flare: 0.6, glowstick: 0.4, organ: 0.6 };
+Phys.massOf = function (kind, area) { return NE.clamp(area / 40 * (Phys.DENSITY[kind] || 1), 0.15, 2.2); };
+Phys.weigh = function (b, m) { m = m || 1; b.mass = m; b.grav = 1.3 + Math.min(0.7, m * 0.14); b.damp = 0.993; b.bounce = m > 1.5 ? 0.1 : m > 0.8 ? 0.18 : 0.28; b.fric = m > 1.5 ? 0.66 : 0.78; };
 NE.Phys = Phys;
 })(window.NE);

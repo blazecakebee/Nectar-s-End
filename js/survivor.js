@@ -42,6 +42,11 @@ NE.computeStats = function (meta, surv) {
   s.search -= r('scavenger') * 0.12; s.loot += r('scavenger') * 0.2;
   const ps = r('psychology'); s.stress -= ps * 0.12; s.aim -= ps * 0.06; s.barter -= ps * 0.06;
   s.coldblood = r('coldblood') > 0;
+  s.bleed -= r('clotting') * 0.07; s.clot = r('clotting') * 0.3; s.hpMul = 1 + r('vitality') * 0.08;
+  s.parkour = 1 + r('parkour') * 0.12; s.runSpeed = 1 + r('sprinter') * 0.05; s.runCost = 1 - r('sprinter') * 0.1;
+  s.pick = 1 + r('nimble') * 0.12; s.search -= r('nimble') * 0.06; s.battery *= 1 + r('lantern') * 0.2; s.lamp = 1 + r('lantern') * 0.1;
+  s.stress -= r('composure') * 0.1; s.wake = 1 + r('composure') * 0.15; s.barter -= r('barter') * 0.08; s.post = 1 + r('barter') * 0.1;
+  s.swing = 1 + r('brawler') * 0.12; s.slots += r('packmule'); s.carry += r('packmule') * 2;
   if (surv) {
     const occ = NE.OCCUPATIONS.find(o => o.id === surv.occ); if (occ) applyMods(s, occ.mods);
     for (const t of surv.traits) { const tr = NE.TRAITS.find(x => x.id === t); if (tr) applyMods(s, tr.mods); }
@@ -180,7 +185,7 @@ class Anatomy {
     }
     bleed *= s.bleed * (env.bleedMul || 1); if (s.coldblood && this.stress > 40) bleed *= 0.8;
     this.bleeding = bleed; this.blood -= bleed * dt;
-    if (bleed < 0.05 && this.thirst > 15) this.blood = Math.min(5000, this.blood + dt * 0.6 * (s.heart ? 4 : 1));
+    if (bleed < 0.05 && this.thirst > 15) this.blood = Math.min(5000, this.blood + dt * 0.6 * (s.heart ? 4 : 1) * (1 + (s.clot || 0)));
     if (this.drugs.blood > 0) this.blood = Math.min(5000, this.blood + dt * 8.5);
     this.infection = lerp(this.infection, maxInf, Math.min(1, dt)) ;
     // ----- drugs decay
@@ -227,7 +232,7 @@ class Anatomy {
     if (this.temp < 34.5) tc -= (34.5 - this.temp) * 18; if (this.temp > 40) tc -= (this.temp - 40) * 20;
     if (this.thirst <= 0) tc -= 25; if (this.hunger <= 0) tc -= 12;
     tc -= this.drugs.morphine * 12 + this.gas * 18 * s.gas; tc += this.drugs.adrenaline * 45;
-    this.cons = this.cons > tc ? Math.max(tc, this.cons - dt * 14) : Math.min(tc, this.cons + dt * 7);
+    this.cons = this.cons > tc ? Math.max(tc, this.cons - dt * 14) : Math.min(tc, this.cons + dt * 7 * (s.wake || 1));
     this.cons = clamp(this.cons, -20, 100);
     if (!this.uncon && this.cons <= 0) { this.uncon = true; this.ev.push('uncon'); }
     else if (this.uncon && this.cons > 22) { this.uncon = false; this.ev.push('wake'); }

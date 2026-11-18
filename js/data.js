@@ -146,6 +146,16 @@ NE.PERKS = [
   { id: 'strength', name: 'Strength', max: 7, icon: 'dumbbell', ang: 8, col: '#ffb060', desc: '+8% melee damage, +2.5kg carry per rank.' },
   { id: 'scavenger', name: 'Scavenger', max: 4, icon: 'pick', ang: -14, col: '#ffb060', desc: '-12% search time, wider loot sense per rank.' },
   { id: 'psychology', name: 'Psychology', max: 4, icon: 'mind', ang: -46, col: '#c890ff', desc: '-12% stress, steadier aim, better barter per rank.' },
+  { id: 'clotting', name: 'Clotting', max: 3, icon: 'ab_amber', desc: '-7% bleeding and +30% blood regeneration per rank.' },
+  { id: 'vitality', name: 'Vitality', max: 4, icon: 'ab_heart', desc: '+8% health on every body part per rank. Harder to dismember.' },
+  { id: 'parkour', name: 'Parkour', max: 3, icon: 'ab_wings', desc: '+12% wall-jump power, slower wall slides, cheaper wall jumps per rank.' },
+  { id: 'sprinter', name: 'Sprinter', max: 4, icon: 'ab_pulse', desc: '+5% running speed and -10% running stamina per rank.' },
+  { id: 'nimble', name: 'Nimble Fingers', max: 3, icon: 'lockpick', desc: '+12% lockpick/crowbar success and -6% search time per rank.' },
+  { id: 'lantern', name: 'Lanternwright', max: 3, icon: 'ui_town', desc: 'Lantern oil lasts 20% longer and the lantern shines 10% further per rank.' },
+  { id: 'composure', name: 'Composure', max: 3, icon: 'ui_bed', desc: '-10% stress and +15% faster recovery from blackouts per rank.' },
+  { id: 'barter', name: 'Silver Tongue', max: 3, icon: 'p_coin', desc: '-8% trader prices and +10% Deep Post payout per rank.' },
+  { id: 'brawler', name: 'Brawler', max: 4, icon: 'ui_fist', desc: '+12% melee swing speed and harder knockback per rank.' },
+  { id: 'packmule', name: 'Pack Mule', max: 3, icon: 'ui_inv', desc: '+1 backpack slot and +2kg carry per rank.' },
   { id: 'coldblood', name: 'Cold Blood', max: 1, icon: 'skull', ang: -46, after: 'psychology', req: { psychology: 4, endurance: 3 }, col: '#ff4060', desc: 'CAPSTONE: no panic tremors, slower bleeding under stress, self-surgery never knocks you out. Needs Psychology 4 + Endurance 3.' },
 ];
 

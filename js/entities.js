@@ -39,7 +39,7 @@ class Actor {
     let enc = 1; if (this.inv) { const r = this.inv.weight() / this.inv.carry; if (r > 1) enc = Math.max(0.35, 1 - (r - 1) * 1.3); }
     const bloodF = clamp(A.blood / 5000 / 0.75, 0.55, 1);
     this.sprint = !!c.sprint && !this.crouch && A.stam > 3 && legs.broken === 0 && enc > 0.8 && Math.abs(c.mx) > 0;
-    let spd = 60 * st.speed * legs.f * bloodF * enc * (this.sprint ? 1.95 : 1) * (this.crawl ? 0.38 : this.crouch ? 0.55 : 1) * (inWater ? 0.6 : 1) * (this.speedMul || 1);
+    let spd = 60 * st.speed * legs.f * bloodF * enc * (this.sprint ? 1.95 * (st.runSpeed || 1) : 1) * (this.crawl ? 0.38 : this.crouch ? 0.55 : 1) * (inWater ? 0.6 : 1) * (this.speedMul || 1);
     if (this.climbing) {
       const cs = 54 * (st.climb || 1) * A.armFactor() * bloodF; this.sliding = c.down && c.sprint;
       if (this.sliding) { this.vy = Math.min(210, Math.max(this.vy, 60) + 500 * dt); this.slideT = (this.slideT || 0) + dt; if (this.slideT > 0.09) { this.slideT = 0; if (this.isPlayer) NE.Audio.play('rope'); } }
@@ -55,11 +55,11 @@ class Actor {
     if (this.onGround) { this.wallBoosts = 0; this.lastWall = 0; }
     const wd = this.isPlayer && !this.onGround && !this.climbing && !this.crawl && !A.uncon ? this.wallAt() : 0; if (wd) { this.wallDir = wd; this.wallCoy = 0.12; }
     this.wallSliding = false;
-    if (wd && c.mx === wd && this.vy > 40 && A.armFactor() > 0.4) { this.vy = Math.min(this.vy, 70); this.wallSliding = true; if (Math.random() < dt * 12) this.g.dust(this.x + wd * 3, this.y - 6, 1); }
+    if (wd && c.mx === wd && this.vy > 40 && A.armFactor() > 0.4) { this.vy = Math.min(this.vy, 70 / (st.parkour || 1)); this.wallSliding = true; if (Math.random() < dt * 12) this.g.dust(this.x + wd * 3, this.y - 6, 1); }
     if (this.isPlayer && jumpPress && !this.onGround && !this.climbing && this.wallCoy > 0 && A.stam > 4 && legs.broken < 2) {
       const d = this.wallDir; const boost = c.sprint && c.mx === d && (this.wallBoosts || 0) < 2 && this.lastWall !== -d;
-      if (boost) { this.vy = -230; this.vx = -d * 40; this.wallBoosts = (this.wallBoosts || 0) + 1; this.wallLock = 0.12; A.stam -= 7; NE.Audio.play('land', 0.35); }
-      else { this.vy = -205; this.vx = -d * 135; this.wallLock = 0.22; this.facing = -d; A.stam -= 5; NE.Audio.play('step', 0.8); }
+      if (boost) { this.vy = -230 * (st.parkour || 1); this.vx = -d * 40; this.wallBoosts = (this.wallBoosts || 0) + 1; this.wallLock = 0.12; A.stam -= 7; NE.Audio.play('land', 0.35); }
+      else { this.vy = -205 * (st.parkour || 1); this.vx = -d * 135 * (st.parkour || 1); this.wallLock = 0.22; this.facing = -d; A.stam -= 5 / (st.parkour || 1); NE.Audio.play('step', 0.8); }
       this.lastWall = d; this.wallCoy = 0; this.g.dust(this.x + d * 3, this.y - 4, 5); this.g.noise(this.x, this.y, 30);
     }
     const tgt = c.mx * spd * (this.onIce ? 1.1 : 1); const acc = this.onIce ? 90 : this.onGround ? 950 : this.wallLock > 0 ? 50 : 300;
@@ -152,7 +152,7 @@ NE.Actor = Actor;
 class Player extends Actor {
   constructor(g, x, y, surv, meta) {
     const stats = NE.computeStats(meta, surv);
-    super(g, x, y, { faction: 'player', look: surv.look, stats });
+    super(g, x, y, { faction: 'player', look: surv.look, stats, hpMul: stats.hpMul });
     this.surv = surv; this.stats = stats; this.isPlayer = true;
     this.inv = new NE.Inv(stats.slots, stats.carry); this.inv.medHalf = stats.medHalf;
     this.equip = { weapon: null }; this.light = { on: true, bat: 100 }; this.filterT = 0; this.treating = null; this.search = null;
@@ -180,10 +180,11 @@ class Player extends Actor {
     } else if (res.landed > 120) { NE.Audio.play('land', 0.5); }
     if (this.stepT > (this.sprint ? 22 : 16)) { this.stepT = 0; if (this.onGround) { if (this.sprint) g.dust(this.x - this.facing * 2, this.y, 2); NE.Audio.play('step', this.sprint ? 1 : this.crouch ? 0.3 : 0.6); if (this.inWater) NE.Audio.play('splash', 0.4); g.noise(this.x, this.y, (this.sprint ? 90 : this.crouch ? 12 : 40) * st.noise); } }
     // stamina
-    if (this.sprint) A.stam -= dt * 8.5 * st.staminaCost; else if (this.swingT <= 0) A.stam += dt * 17 * (A.hunger > 10 ? 1 : 0.5) * (A.blood > 3800 ? 1 : 0.6);
+    if (this.sprint) A.stam -= dt * 8.5 * st.staminaCost * (st.runCost || 1); else if (this.swingT <= 0) A.stam += dt * 17 * (A.hunger > 10 ? 1 : 0.5) * (A.blood > 3800 ? 1 : 0.6);
     // aim
     const dx = g.mouse.wx - this.x, dy = g.mouse.wy - (this.y - this.h + 4); const L = Math.hypot(dx, dy) || 1; this.aimDir = { x: dx / L, y: dy / L };
     if (!c.mx && !this.climbing && !A.uncon) this.facing = dx >= 0 ? 1 : -1;
+    if (this.charge) { this.charge.t += dt; A.stam -= dt * 3; if (!g.mouse.l || A.uncon || this.climbing) this.release(); }
     { const w = this.weaponDef(); const ok = !w.gun && !this.climbing && !this.crawl && !this.treating && !this.search && !A.uncon && !(A.parts.larm.severed && A.parts.rarm.severed); NE.Combat.tick(this, dt, g.mouse.wx, g.mouse.wy, ok); }
     // waist lantern (oil)
     if (this.light.on) { this.light.bat = Math.max(0, this.light.bat - dt * 100 / (360 * st.battery)); if (this.light.bat <= 0) { this.light.on = false; g.toast('Your lantern sputters out.'); } }
@@ -203,7 +204,12 @@ class Player extends Actor {
     if (A.stam < m.stam * 0.4) { g.say(pick(NE.MONO.lowstam || ['Need to catch my breath...']), 1); return; }
     if (w.dig && g.tryDig && g.tryDig(this, w)) { const af = A.armFactor(); this.swingDur = m.cd / Math.max(0.5, af); this.swingT = this.swingDur; this.cd = this.swingDur; A.stam -= m.stam * 0.6 * this.stats.staminaCost; NE.Audio.play('swing'); return; }
     if (w.twoHand && (A.parts.larm.frac && !A.parts.larm.splint || A.parts.rarm.frac && !A.parts.rarm.splint)) { g.toast('Can\'t swing that with a broken arm.'); return; }
-    const af = A.armFactor(); if (NE.Combat.strike(this, w)) { this.cd = m.cd * 0.55 / Math.max(0.5, af); A.stam -= m.stam * 0.6 * this.stats.staminaCost; }
+    if (this.strk) return; this.charge = { t: 0, w }; // hold to wind up a heavy attack, release to strike
+  }
+  release() {
+    const ch = this.charge; this.charge = null; if (!ch || this.strk || !this.alive) return; const w = ch.w, m = w.melee, A = this.anat; const af = A.armFactor();
+    const heavy = ch.t >= 0.32 ? 1 + Math.min(1, (ch.t - 0.32) / 0.5) * 1.1 : 0;
+    if (NE.Combat.strike(this, w, heavy)) { this.cd = m.cd * (heavy ? 0.9 : 0.55) / Math.max(0.5, af); A.stam -= m.stam * (heavy ? 1.4 : 0.6) * this.stats.staminaCost; if (heavy) { NE.Audio.play('swing', 1.2); this.g.shake(1.5); } }
   }
   resolveMelee(w) {
     const g = this.g, m = w.melee; const af = this.anat.armFactor(); let best = null, bd = 1e9;

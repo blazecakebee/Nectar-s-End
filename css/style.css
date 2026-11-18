@@ -332,3 +332,10 @@ button { font-family: inherit; }
 .st-host { background: #0c0805; }
 .st-hint { color: #b8a07a; } .st-info { background: rgba(20,12,6,.92); border: 1px solid #6a4a1e; border-radius: .4em; color: #f6e6c0; box-shadow: 0 0 1em rgba(240,160,40,.15); }
 .st-foot { background: #140c06; border-top: 1px solid #3a2810; }
+
+.st-acts { margin-top: .35em; display: flex; gap: .4em; justify-content: center; align-items: center; }
+.st-acts .btn { pointer-events: auto; } .st-buy { background: linear-gradient(#ffcf5a, #e8962a) !important; color: #2a1404 !important; border-color: #ffe7a0 !important; font-weight: 700; }
+
+#wsel { position: absolute; left: 50%; bottom: 4.3em; transform: translateX(-50%); display: flex; gap: .25em; align-items: center; padding: .25em .4em; border-radius: .6em; background: var(--glass); border: 1px solid rgba(255,255,255,.1); backdrop-filter: blur(3px); }
+#wsel .ws { display: flex; align-items: center; gap: .25em; padding: .1em .25em; border-radius: .35em; opacity: .5; } #wsel .ws img { width: 1.5em; height: 1.5em; }
+#wsel .ws.on { opacity: 1; background: rgba(240,180,60,.18); outline: 1px solid var(--honey); } #wsel .ws b { font-size: .72em; color: var(--honey); white-space: nowrap; }
