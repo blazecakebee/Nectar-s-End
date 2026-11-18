@@ -522,7 +522,7 @@ G.onEnemyDeath = function (e, cause) {
   if (!e.alive) return; e.die(cause);
   const byPlayer = G.player && e.anat.lastHit === G.player.surv.first;
   if (byPlayer && G.player && G.player.abil && G.player.abil.includes('frenzy')) { const A = G.player.anat; A.stam = A.stamMax; A.blood = Math.min(5000, A.blood + 250); G.addP && G.addP(G.player.x, G.player.cy, 0, -20, 0.6, '#ff4040', 'glow', 0); }
-  if (byPlayer && G.run) { G.run.kills++; if (e.type === 'specops') G.run.specops = true; G.say(pick(NE.MONO.kill), 0.6); }
+  if (byPlayer && G.run) { const kx = Math.round(10 * (NE.THREAT[e.type] || 1) + Math.min(25, (e.depth || 0) / 60)); G.run.killXP = (G.run.killXP || 0) + kx; G.toast('+' + kx + ' XP'); G.run.kills++; if (e.type === 'specops') G.run.specops = true; G.say(pick(NE.MONO.kill), 0.6); }
   const items = e.dropLoot ? e.dropLoot() : (e.kind === 'trader' ? (e.stock || []).map(s => ({ id: s.id, n: s.n })) : [{ id: 'rag', n: 1 }, { id: 'trinket', n: 1 }]);
   e.gear = {};
   G.dyn.push({ type: 'container', ct: 'corpse', actor: e, x: e.x, y: e.y, label: (e.D ? e.D.name : e.name || 'Body') + ' (body)', act: 'search', items, searched: false, depth: 0 });
@@ -544,7 +544,7 @@ NE.sellPrice = function (e) { const it = NE.ITEMS[e.id]; let v = NE.basePrice(e.
 G.tradeValue = function (inv) { let v = (G.run && G.run.credit) || 0; for (const e of inv.items) { const it = NE.ITEMS[e.id]; if (it.value && e.id !== 'datashard') v += it.value * e.n; } return v; };
 G.payValue = function (inv, price) {
   if (G.run && G.run.credit) { const k = Math.min(G.run.credit, price); G.run.credit -= k; price -= k; }
-  for (const id of ['trinket', 'scrap', 'tape', 'ammo762', 'ammo9']) { while (price > 0 && inv.count(id) > 0) { inv.consume(id, 1); price -= NE.ITEMS[id].value; } }
+  for (const id of ['silver', 'trinket', 'scrap', 'tape', 'ammo762', 'ammo9']) { while (price > 0 && inv.count(id) > 0) { inv.consume(id, 1); price -= NE.ITEMS[id].value; } }
   return price <= 0;
 };
 
@@ -556,8 +556,8 @@ G.events = function (dt) {
   const p = G.player; const q = net && net.peer && net.peer.alive && !net.peer.hidden ? net.peer : null;
   const tgt = q && (!p.alive || chance(0.5)) ? q : p; if (!tgt.alive) { G.eventT = 20; return; }
   const fl = G.world.floors[G.floorIdx(tgt.y - 2)] || G.curFloor(); const b = fl.biome; if (fl.f === 0 || fl.town) { G.eventT = 20; return; }
-  const ev = NE.wpick([['cavein', b.id === 'desert' ? 4.5 : 3], ['blackout', 2], ['gas', b.id === 'grotto' ? 0.8 : 0.6], ['beacon', 2.2], ['ambush', 1.8 + fl.depth / 500]]);
-  const d = { ev, f: fl.f, dur: rf(28, 45), side: chance(0.5) ? 4 : G.world.W - 4, bf: fl.f + ri(1, 2), bx: ri(6, G.world.W - 6) * T, trap: chance(0.35), ax: tgt.x > G.world.W * T / 2 ? 5 * T : (G.world.W - 5) * T, k: ri(1, 2) + (fl.depth > 500 ? 1 : 0), tg: tgt === p ? 'host' : 'guest' };
+  const ev = NE.wpick([['cavein', b.id === 'desert' ? 4.5 : 3], ['blackout', 2], ['gas', b.id === 'grotto' ? 0.8 : 0.6], ['beacon', 2.2], ['ambush', 1.4 + Math.min(1, fl.depth / 1200)]]);
+  const d = { ev, f: fl.f, dur: rf(28, 45), side: chance(0.5) ? 4 : G.world.W - 4, bf: fl.f + ri(1, 2), bx: ri(6, G.world.W - 6) * T, trap: chance(0.35), ax: tgt.x > G.world.W * T / 2 ? 5 * T : (G.world.W - 5) * T, k: fl.depth > 700 && chance(0.4) ? 2 : 1, tg: tgt === p ? 'host' : 'guest' };
   G.applyEvent(d, tgt === q ? q : p);
   if (net) net.send({ t: 'ev', d });
 };
@@ -612,7 +612,7 @@ G.afterDeath = function () {
 G.endRun = function (extracted, cause) {
   const R = G.run, p = G.player, M = G.meta; if (!R) return; G.state = 'runend'; G.goop = null; G.wisp = null; G.infest = null; G.hideCine && G.hideCine(); G.domText('burst-t', null);
   const depth = Math.round(R.maxDepth);
-  let xp = depth * 0.6 + R.kills * 10 + (R.vkills || 0) * 35 + R.treated * 25 + R.milestone * 40 + (R.towns || []).length * 30 + (R.abil || []).length * 25;
+  let xp = depth * 0.6 + (R.killXP != null ? R.killXP : R.kills * 10) + (R.vkills || 0) * 35 + R.treated * 25 + R.milestone * 40 + (R.towns || []).length * 30 + (R.abil || []).length * 25;
   xp = Math.round(xp);
   M.xp += xp; let lv = 0; while (M.xp >= NE.xpForLevel(M.level)) { M.xp -= NE.xpForLevel(M.level); M.level++; M.points++; lv++; }
   const unlocks = [];

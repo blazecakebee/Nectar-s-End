@@ -1,6 +1,17 @@
 {
  "log": [
   {
+   "version": "0.6.7",
+   "date": "2026-11-18",
+   "title": "Fairer depths, rewarding fights",
+   "changes": [
+    "Fewer enemies the deeper you go. Each level now has at most 2 hostiles above 300m and at most 3 below, instead of up to 6. The count grows slowly with depth, troglodyte packs are rarer, and ambushes are smaller and less frequent.",
+    "Every enemy now drops Silver, a new currency all traders accept. Tougher foes and deeper levels drop more.",
+    "Enemies also have a good chance to carry supplies like bandages, painkillers, water, food, lantern oil, tape or ammo. The toughest ones (Stalkers, Burrowers, Rival Hosts, Expedition soldiers) sometimes carry Relic Nectar.",
+    "Kills now give XP based on how dangerous the enemy was and how deep you are, shown as a '+XP' pop-up. Kill XP counts toward your end-of-run total."
+   ]
+  },
+  {
    "version": "0.6.6",
    "date": "2026-11-18",
    "title": "Nectar & strain gifts",

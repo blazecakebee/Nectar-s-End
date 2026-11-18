@@ -287,7 +287,7 @@ class Enemy extends Actor {
   constructor(g, x, y, type, depth) {
     const D = NE.ENEMIES[type]; const look = NE.makeSurvivor().look;
     super(g, x, y, { faction: D.faction, look, npc: true, hpMul: D.hpMul });
-    this.type = type; this.D = D; this.state = 'idle'; this.target = null; this.thinkT = rf(0, 0.3); this.atkT = 0; this.wander = rf(-1, 1) > 0 ? 1 : -1; this.wanderT = rf(1, 4); this.homeX = x; this.lostT = 0; this.hostile = true;
+    this.type = type; this.D = D; this.depth = depth || 0; this.state = 'idle'; this.target = null; this.thinkT = rf(0, 0.3); this.atkT = 0; this.wander = rf(-1, 1) > 0 ? 1 : -1; this.wanderT = rf(1, 4); this.homeX = x; this.lostT = 0; this.hostile = true;
     this.shirt = D.shirt; this.pants = D.pants; if (D.skin) { this.skinCol = NE.shade(D.skin, rf(0.85, 1.1)); } if (type === 'feral' || type === 'husk') this.look.hair = pick(['bald', 'buzz', 'long', 'shaggy']); if (D.bare) { this.look.hair = type === 'trog' ? pick(['bald', 'long', 'shaggy']) : 'bald'; this.shirt = NE.shade(D.skin, 0.85); } if (type === 'husk') this.gear.head = { id: 'helmet', n: 1, dur: 30 }; this.hunch = type === 'trog' || type === 'stalker' || type === 'burrower' || type === 'feral';
     this.speedMul = rf(0.82, 0.95) * D.speed / 42;
     this.weapon = D.weapon ? pick(D.weapon) : null; if (this.weapon && depth > 400 && type === 'scav' && chance(0.3)) this.weapon = 'axe';
@@ -394,6 +394,10 @@ class Enemy extends Actor {
     for (const s in this.gear) { const e = this.gear[s]; if (e.dur > 3) items.push(e); }
     for (const [id, p] of this.D.loot) if (chance(p * 0.3)) { const it = NE.ITEMS[id]; items.push({ id, n: it.stack ? (it.cat === 'ammo' ? ri(2, 8) : ri(1, 2)) : (it.uses || 1) }); }
     if (this.weapon && NE.ITEMS[this.weapon].gun && this.ammo > 0) items.push({ id: NE.ITEMS[this.weapon].gun.ammo, n: this.ammo });
+    // fights pay: silver on every body (more from tougher foes and deeper down), and a chance of supplies
+    const th = NE.THREAT[this.type] || 1, dp = this.depth || 0; items.push({ id: 'silver', n: Math.max(1, Math.round((ri(2, 4) + dp / 120) * th)) });
+    if (chance(0.35 + th * 0.08)) { const it = NE.wpick([['bandage', 3], ['rag', 3], ['painkillers', 2], ['water', 2], ['ration', 2], ['battery', 2], ['tape', 2], ['ammo9', 1.5], ['antiseptic', 1], ['splint', 1], ['trinket', 1.5]]); const D2 = NE.ITEMS[it]; items.push({ id: it, n: D2.stack ? (D2.cat === 'ammo' ? ri(4, 10) : 1) : (D2.uses || 1) }); }
+    if (th >= 1.9 && chance(0.15)) items.push({ id: 'nectar', n: 1 });
     return items;
   }
 }

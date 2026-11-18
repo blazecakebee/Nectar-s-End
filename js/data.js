@@ -105,6 +105,7 @@ NE.ITEMS = {
   ration: { name: 'Canned Ration', icon: 'can', w: 0.4, cat: 'food', hunger: 40, desc: 'Beans, probably.' },
   chocolate: { name: 'Chocolate Bar', icon: 'chocolate', w: 0.1, cat: 'food', hunger: 15, stress: -12, desc: 'A small mercy.' },
   spoiled: { name: 'Death Cap', icon: 'can', col: '#6a8a40', w: 0.4, cat: 'food', hunger: 30, tox: 40, desc: 'Looks edible. Probably isn\'t.' },
+  silver: { name: 'Silver', icon: 'p_coin', col: '#d8dce4', w: 0.01, stack: 99, cat: 'value', value: 2, desc: 'Old silver coins and rings. Every trader takes it.' },
   scrap: { name: 'Scrap Metal', icon: 'scrap', w: 0.4, stack: 10, cat: 'mat', value: 3, desc: 'Topside currency. Crafting.' },
   tape: { name: 'Duct Tape', icon: 'tape', w: 0.2, stack: 5, cat: 'mat', value: 2, desc: 'Holds the world together.' },
   cloth: { name: 'Cloth Scraps', icon: 'cloth', w: 0.1, stack: 10, cat: 'mat', desc: 'Two make a rag.' },
@@ -405,6 +406,8 @@ NE.ISIZE = {
   splint: [1, 2], bloodbag: [1, 2], alcohol: [1, 2], water: [1, 2], dirtywater: [1, 2], bottle: [1, 2], molotov: [1, 2], antiseptic: [1, 2], ration: [1, 1], brick: [1, 1], tourniquet: [1, 1],
 };
 NE.packGrid = slots => '10×' + Math.max(4, 4 + Math.floor((slots + 8 - 20) / 2)) + ' grid';
+// how dangerous each enemy is: drives kill XP and silver
+NE.THREAT = { feral: 1, scav: 1.1, trog: 1.1, husk: 1.3, gunner: 1.5, stalker: 1.9, burrower: 2, expedition: 1.9, rival: 2.3, specops: 2.6 };
 NE.isize = id => NE.ISIZE[id] || [1, 1];
 
 // ---------- strain gifts: each Vespa strain can awaken its own extra powers from Relic Nectar ----------
