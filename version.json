@@ -18,7 +18,16 @@
     "Height matters: short survivors are quicker and tall ones are sturdier. 4'11\" moves 20% faster, 6'6\" takes 20% less damage, sliding evenly in between (5'9\" is about +10% of each). Shown next to your height on the HUD. This replaces the old small speed penalty for being tall.",
     "Skill tree rebalance: every perk is roughly 30–50% weaker per rank. Sprinter is now +3% run speed and -5% running stamina per rank (was +5% / -10%). Movement +2.5% speed / -3% stamina. Strength +5% melee. Brawler +6% swing. Vitality +5% health. Endurance, Tolerance, Medicine, Scavenger, Psychology and the others are trimmed to match. Overlapping perks have floors so they can't stack into near-immunity: search time at least 60%, stress 50%, trader prices 75%, treatment time 60%, bleeding 55%, stamina cost 70%.",
     "Climbing animations: climbing a wall is now a hand-over-hand crawl. One hand reaches up, grabs and pulls while the knees frog up for footholds. Ladders and ropes get the same treatment and play it in reverse going down. Your weapon arm no longer aims at the mouse while you're on a wall.",
-    "New: climb down walls. In the air beside a wall, hold S (or S plus toward the wall) to clamber down slowly instead of sliding or falling. Costs a little stamina."
+    "New: climb down walls. In the air beside a wall, hold S (or S plus toward the wall) to clamber down slowly instead of sliding or falling. Costs a little stamina.",
+    "Fixed: things no longer generate on top of each other. Containers, stations, plants and props keep spacing. Anything that would overlap slides along the ground to a free spot, or the less important one is removed.",
+    "Fixed: medical tents. The tent, surgery cot, medical cabinet and water jug always spawn together on flat, dry ground, with a level pad dug out if needed. Water jugs no longer appear on their own in random caves.",
+    "Fixed: objects were placed on the very bottom row of a level, which the next level down could dig away. They now sit on solid rows only.",
+    "Redrew the Hermit's Bindle: a walking stick with a patched cloth bundle tied to the end, propped on a rolled bedroll.",
+    "27 new forageable plants, 3 per biome, each with its own effect: food, water, healing, pain relief, warmth, stamina, radiation and infection cleansing, and hallucinogens (Glowcap, Prismcap, Spirit Lotus, Shadowcap, Starberry). Visions tint and sway the screen and dull pain and stress while they last.",
+    "Treatment is no longer slowed when the Health menu is open; it runs at full speed while the world stays slowed. The Health menu now shows a progress bar for the current treatment, with time left.",
+    "Body types: every survivor is Lean (+5% speed), Muscular (+5% melee strength) or Heavyset (gets hungry 25% slower, living off fat reserves). Each looks different in men and women: broad chest and thick arms, or a round belly and double chin. Shown on the HUD and in the dossier.",
+    "Height bonuses toned down: 4'11\" now +8% speed and 6'6\" +8% defense (was 20%). Height's melee, carry, climb and health effects are halved too.",
+    "Mandibles get their own weapon slot. With the mandible gift, scroll to Mandibles for a bleeding bite. Fists are plain fists again."
    ]
   },
   {

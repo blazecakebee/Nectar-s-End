@@ -108,7 +108,7 @@ const ONE = { raidstash: 'grotto', toolbox: 'grotto', minecart: 'desert', ammobo
 for (const r in NE.CT_REGION) NE.CT_REGION[r] = NE.CT_REGION[r].filter(([id]) => !(id in ONE) || ONE[id] === r);
 const NEWCT = [
   ['fairyring', 'Fairy-Ring Stump', 'basket', '#6a5a3a', 'wood', [['grove', 1.4], ['common', 0.4]], [1, 2], 'grotto'],
-  ['hermitpack', 'Hermit\'s Bindle', 'sack', '#7a6a4a', 'cloth', [['grove', 1], ['med', 0.6]], [1, 2], 'grotto'],
+  ['hermitpack', 'Hermit\'s Bindle', 'bindle', '#7a6a4a', 'cloth', [['grove', 1], ['med', 0.6]], [1, 2], 'grotto'],
   ['mossbody', 'Moss-Covered Delver', 'body', '#4a6a30', 'cloth', [['grove', 0.8], ['armor', 0.4], ['raider', 0.3]], [1, 2], 'grotto'],
   ['canopic', 'Canopic Jars', 'urn', '#c09a60', 'wood', [['sands', 1.2], ['ruin', 0.8]], [1, 2], 'desert'],
   ['nomadbox', 'Nomad Strongbox', 'chest', '#8a5a30', 'wood', [['sands', 1.3], ['raider', 0.5]], [1, 3], 'desert'],
@@ -763,6 +763,57 @@ const forA = W_.genFloor; W_.genFloor = function (f) { const fl = forA.call(this
   const add = (id, n) => { for (let k = 0; k < n; k++) { const tx = ri(8, this.W - 9); const x = (tx + 0.5) * T; fl.objs.push({ type: 'forage', item: id, x, y: this.groundY(fl, x), label: '', act: 'pick' }); } };
   if (B === 'grotto' && chance(0.35)) add('gingerroot', 1); if (['ossuary', 'heart', 'drowned'].includes(B) && chance(0.3)) add('mandrake', 1); return fl; };
 
+// ---- wild forage: three plants per biome, each with its own use (food, water, healing, visions, warmth, stamina...)
+const WILD = [
+  // id, name, biome, fx, desc
+  ['glowcap', 'Glowcap', 'grotto', { hunger: 10, trip: 45, stress: -15 }, 'Glows faintly. Eat it and the cave starts to breathe. Calms the nerves.'],
+  ['healberry', 'Mendberry', 'grotto', { hunger: 6, heal: 10 }, 'Tart red berry. Knits small wounds a little.'],
+  ['fernfrond', 'Dewfern Frond', 'grotto', { thirst: 14, hunger: 3 }, 'Chew the wet fronds for water.'],
+  ['aloe', 'Cave Aloe', 'desert', { heal: 8, thirst: 6, pain: 10 }, 'Cool gel. Soothes pain, closes scrapes.'],
+  ['datefruit', 'Dune Date', 'desert', { hunger: 22, stam: 25 }, 'Sticky and sweet. A burst of energy.'],
+  ['barrelcactus', 'Barrel Cactus Flesh', 'desert', { thirst: 28, tox: 4 }, 'Watery pulp. A little bitter on the gut.'],
+  ['frostberry', 'Frostberry', 'ice', { hunger: 8, thirst: 16 }, 'Icy, juicy berries.'],
+  ['frostleaf', 'Emberleaf', 'ice', { warm: 1.2, pain: 12 }, 'Burns the tongue and warms you to the bones.'],
+  ['snowdrop', 'Snowdrop Bloom', 'ice', { heal: 6, infect: 20 }, 'Antiseptic petals. Fights infection.'],
+  ['crystalcap', 'Prismcap', 'crystal', { trip: 60, rad: 20 }, 'Crystal-veined mushroom. Purges radiation and floods your eyes with colour.'],
+  ['manaberry', 'Humming Berry', 'crystal', { stam: 45, hunger: 6 }, 'Faintly vibrates. Your legs feel light.'],
+  ['crystalapple', 'Geode Apple', 'crystal', { hunger: 18, thirst: 12, rad: 10 }, 'Glassy skin, crisp flesh.'],
+  ['fireberry', 'Cinderberry', 'magma', { stam: 35, warm: 0.6, thirst: -6 }, 'Hot to the touch. Pure energy, but drying.'],
+  ['firepepper', 'Magma Pepper', 'magma', { pain: 25, thirst: -10, hunger: 4 }, 'So hot nothing else hurts for a while.'],
+  ['flamelily', 'Flame Lily', 'magma', { heal: 14, tox: 6 }, 'Cauterising nectar. Heals, but it\'s mildly poisonous.'],
+  ['sunfruit', 'Sunfruit', 'hive', { hunger: 20, thirst: 12 }, 'Honey-soaked fruit the swarm grows.'],
+  ['lavender', 'Hive Lavender', 'hive', { stress: -30, pain: 8 }, 'The smell alone slows your heart.'],
+  ['pitcher', 'Pitcher Plant', 'hive', { thirst: 26, tox: 3 }, 'Drink what pooled inside. Don\'t look too closely.'],
+  ['seaweed', 'Brine Kelp', 'drowned', { hunger: 10, thirst: 5 }, 'Salty, chewy, filling enough.'],
+  ['lotusroot', 'Lotus Root', 'drowned', { heal: 10, infect: 10, hunger: 8 }, 'Starchy root with healing sap.'],
+  ['spiritlotus', 'Spirit Lotus', 'drowned', { trip: 70, stress: -30 }, 'Glowing petals. You see things that aren\'t there, and stop caring.'],
+  ['shadowcap', 'Shadowcap', 'ossuary', { trip: 45, hunger: 8, tox: 4 }, 'Grows on old bones. Strong visions.'],
+  ['nettle', 'Grave Nettle', 'ossuary', { heal: 8, infect: 20 }, 'Stings going down, cleans wounds from inside.'],
+  ['bracket', 'Bracket Fungus', 'ossuary', { hunger: 18 }, 'Woody shelf fungus. Bland and filling.'],
+  ['moonfruit', 'Moonfruit', 'heart', { hunger: 20, thirst: 15 }, 'Pale and cool, full of juice.'],
+  ['shadowrose', 'Blackheart Rose', 'heart', { heal: 16, tox: 8 }, 'Strong healing at a price.'],
+  ['starberry', 'Starberry', 'heart', { stam: 60, trip: 20 }, 'Fizzes on the tongue. Endless energy, a little dizzy.'],
+];
+NE.WILD = {};
+for (const [id, name, biome, fx, desc] of WILD) { const it = { name, icon: id, w: 0.1, stack: 5, cat: 'food', desc: desc + ' (Foraged)', fx, value: 4 + Math.round((fx.heal || 0) / 3 + (fx.trip ? 3 : 0)) };
+  if (fx.hunger > 0) it.hunger = fx.hunger; if (fx.thirst > 0) it.thirst = fx.thirst; if (fx.tox) it.tox = fx.tox; if (fx.stress) it.stress = fx.stress; IT[id] = it; (NE.WILD[biome] = NE.WILD[biome] || []).push(id); }
+const consF = NE.consume; NE.consume = function (pl, entry) { const it = NE.ITEMS[entry.id]; const fx = it && it.fx; const r = consF.apply(this, arguments); if (!r || !fx || !pl.isPlayer) return r; const A = pl.anat;
+  if (fx.thirst < 0) A.thirst = Math.max(0, A.thirst + fx.thirst); if (fx.hunger < 0) A.hunger = Math.max(0, A.hunger + fx.hunger);
+  if (fx.heal) { let h = fx.heal; const ps = Object.values(A.parts).filter(q => !q.severed && q.hp < q.max).sort((a, b) => a.hp / a.max - b.hp / b.max); for (const q of ps) { const d = Math.min(h, q.max - q.hp); q.hp += d; h -= d; if (h <= 0) break; } }
+  if (fx.pain) { A.pain = Math.max(0, A.pain - fx.pain); A.painSpike = Math.max(0, (A.painSpike || 0) - fx.pain); }
+  if (fx.stam) A.stam = Math.min(A.stamMax, A.stam + fx.stam); if (fx.warm) A.temp = clamp(A.temp + fx.warm, 33, 39); if (fx.rad) A.rad = Math.max(0, A.rad - fx.rad); if (fx.infect) A.infection = Math.max(0, A.infection - fx.infect);
+  if (fx.trip && G.run) { const was = G.run.trip > 0; G.run.trip = Math.max(G.run.trip || 0, 0) + fx.trip; if (!was) G.say(pick(['Oh. Oh no. The walls...', 'Everything is... humming.', 'Colours. So many colours.', 'Is the floor breathing?']), 3); }
+  return r; };
+// visions: the world shifts colour and sways while it lasts; it also dulls pain and stress a little
+const tickTrip = NE.UI.tick; NE.UI.tick = function (dt) { const r = tickTrip.apply(this, arguments); const cv = G.cv; if (!cv) return r; const R = G.run;
+  if (R && R.trip > 0 && G.state === 'run' && G.player && G.player.alive) { R.trip -= dt; const k = Math.min(1, R.trip / 8); cv.style.filter = 'hue-rotate(' + ((G.t * 50) % 360).toFixed(0) + 'deg) saturate(' + (1 + 0.8 * k).toFixed(2) + ') blur(' + (Math.sin(G.t * 1.7) * 0.4 * k + 0.2 * k).toFixed(2) + 'px)'; cv.style.transform = 'rotate(' + (Math.sin(G.t * 0.9) * 0.6 * k).toFixed(2) + 'deg) scale(' + (1 + 0.01 * k).toFixed(3) + ')';
+    const A = G.player.anat; A.stress = Math.max(0, A.stress - dt * 0.6); A.pain = Math.max(0, A.pain - dt * 0.4); if (R.trip <= 0) { R.trip = 0; G.toast('The visions fade.'); } }
+  else if (cv.style.filter || cv.style.transform) { cv.style.filter = ''; cv.style.transform = ''; }
+  return r; };
+// three of each biome's plants grow on every level of it
+const forB = W_.genFloor; W_.genFloor = function (f) { const fl = forB.call(this, f); if (this.lobby || !fl || fl.town) return fl; const L = NE.WILD[fl.biome.id]; if (!L) return fl;
+  for (let k = 0; k < ri(2, 4); k++) { const tx = ri(8, this.W - 9); const x = (tx + 0.5) * T; fl.objs.push({ type: 'forage', item: pick(L), x, y: this.groundY(fl, x), label: '', act: 'pick' }); } return fl; };
+
 // =====================================================================================================================
 // MAP: drawn from the real tiles and colours of each level, with people, containers, towns and your partner
 // =====================================================================================================================
@@ -950,10 +1001,64 @@ const valid = function (W, fl) {
   const y0 = fl.y0, FH = NE.FH, R = fl._reach; const LQ = t => t === 5 || t === 9 || t === 11;
   const okAt = (x, y, head, ceil) => { const tx = Math.floor(x / T), ty = Math.round(y / T); if (ceil) return W.solid(W.get(tx, ty - 1)) && W.get(tx, ty) === 0; if (!(W.solid(W.get(tx, ty)) || W.get(tx, ty) === 2)) return false; for (let k = 1; k <= head; k++) if (W.get(tx, ty - k) !== 0) return false; for (const dx of [-1, 1]) if (LQ(W.get(tx + dx, ty - 1))) return false; const r = ty - 1 - y0; return !R || r < 0 || r >= FH || R[r * W.W + tx]; };
   const fix = (o, head, ceil) => { if (okAt(o.x, o.y, head, ceil)) return true; const s2 = NE.surfaceNear && NE.surfaceNear(W, fl, Math.floor(o.x / T), Math.round(o.y / T) - y0, ceil, head); if (!s2) return false; o.x = s2.x * T + 4; o.y = ceil ? s2.y * T + 1 : s2.y * T; return true; };
+  medGroup(W, fl, okAt);
   fl.objs = fl.objs.filter(o => { if (o.sealed || o.type === 'hatch' || o.x == null || o.y == null) return true; const ceil = o.type === 'lamp' || o.type === 'icicle' || (o.type === 'crystal' && o.ceil); return fix(o, o.type === 'medtent' || o.type === 'quarter' ? 4 : 2, ceil); });
   fl.spawns = fl.spawns.filter(sp => fix(sp, 3, false));
-  fl.decor = fl.decor.filter(d => { if (d.k === 'vcrack' || d.k === 'stal' || d.k === 'vine' || d.k === 'roots' || d.k === 'chain' || d.k === 'web') return true; if (d.k === 'btent' || d.k === 'bflag') return okAt(d.x, d.y, 2, false); return fix(d, 1, false); });
+  fl.decor = fl.decor.filter(d => { if (d.k === 'vcrack' || d.k === 'stal' || d.k === 'vine' || d.k === 'roots' || d.k === 'chain' || d.k === 'web' || d._grp || d.k === 'medtent') return true; if (d.k === 'btent' || d.k === 'bflag') return okAt(d.x, d.y, 2, false); return fix(d, 1, false); });
+  declutter(W, fl, okAt);
+};
+// ---- the medical tent, its cot, cabinet, water jug (and triage duffel/tent) always move as one unit onto flat, dry ground
+const medGroup = function (W, fl, okAt) {
+  if (!fl.poi || !(fl.poi.kind === 'medic' || fl.poi.kind === 'triage')) return; const cx0 = (fl.poi.x0 + fl.poi.x1) / 2;
+  if (fl._mg == null) { fl._mg = cx0; } const cx = fl._mg; const mem = [];
+  for (const o of fl.objs) { if (o.type === 'table' && /Field Cot/.test(o.label || '')) mem.push([o, -12, 0]); else if (o.ct === 'cabinet' && Math.abs(o.x - cx - 14) < 60) mem.push([o, 14, 0]); else if (o.type === 'dispenser' && o.label === 'Water Jug') mem.push([o, 30, 1]); else if (o.triage) mem.push([o, -30, 1]); }
+  for (const d of fl.decor) { if (d.k === 'medtent') { d._grp = 1; mem.push([d, 0, 0]); } else if (d.k === 'tent' && fl.poi.kind === 'triage' && Math.abs(d.x - (cx - 40)) < 80) { d._grp = 1; mem.push([d, -40, 1]); } }
+  if (!mem.length) return;
+  const fits = (c, list) => { let lo = 1e9, hi = -1e9; for (const [, off] of list) { lo = Math.min(lo, off); hi = Math.max(hi, off); } const a = Math.floor((c + lo - 22) / T), b = Math.floor((c + hi + 8) / T); let row = null;
+    for (let x = a; x <= b; x++) { if (row == null) { const sx = Math.floor(c / T); for (let r = fl.y0 + 5; r < fl.y0 + NE.FH - 1; r++) if (okAt(sx * T + 4, r * T, 4, false) && (row == null || Math.abs(r - Math.round(mem[0][0].y / T)) < Math.abs(row - Math.round(mem[0][0].y / T)))) row = r; if (row == null) return null; }
+      if (!okAt(x * T + 4, row * T, 4, false)) return null; } return row; };
+  const place = (c, row, list) => { for (const [o, off] of list) { o.x = c + off; o.y = row * T; } fl._mg = c; };
+  // already sitting together on good ground? leave it
+  const ok0 = mem.every(([o, off]) => Math.abs(o.x - (cx + off)) < 1 && Math.abs(o.y - mem[0][0].y) < 1) && fits(cx, mem); if (ok0 != null && ok0 === Math.round(mem[0][0].y / T)) return;
+  for (const list of [mem, mem.filter(m => !m[2])]) for (let d = 0; d <= W.W; d++) for (const c of d ? [cx + d * T, cx - d * T] : [cx]) { if (c < 6 * T || c > (W.W - 6) * T) continue; const row = fits(c, list); if (row != null) { place(c, row, list); if (list !== mem) { const drop = new Set(mem.filter(m => m[2]).map(m => m[0])); fl.objs = fl.objs.filter(o => !drop.has(o)); fl.decor = fl.decor.filter(o => !drop.has(o)); } return; } }
+  // nowhere flat enough: dig a level pad for the tent beside the path (never plugging a shaft the path drops through)
+  { const R = fl._reach, Wd = W.W, y0 = fl.y0, FH = NE.FH; const LQ = t => t === 5 || t === 9 || t === 11; const ys = mem.map(m => Math.round(m[0].y / T)).sort((a, b) => a - b); const row0 = clamp(ys[ys.length >> 1], y0 + 6, y0 + FH - 2);
+    let lo = 1e9, hi = -1e9; for (const [, off] of mem) { lo = Math.min(lo, off); hi = Math.max(hi, off); }
+    for (let d = 0; d <= 50 && R; d++) for (const c of d ? [cx + d * T, cx - d * T] : [cx]) for (const row of [row0, row0 - 1, row0 + 1, row0 - 2, row0 + 2]) {
+      if (row < y0 + 6 || row > y0 + FH - 2) continue; const a = Math.floor((c + lo - 22) / T), b = Math.floor((c + hi + 8) / T); if (a < 4 || b > Wd - 5) continue; let ok = true, touch = 0;
+      for (let x = a - 2; x <= b + 2 && ok; x++) for (let r = row - 6; r <= row + 1; r++) if (LQ(W.get(x, r))) { ok = false; break; }
+      for (let x = a; x <= b && ok; x++) { const rr = row - y0; if (W.get(x, row) === 0 && R[rr * Wd + x] && W.get(x, row + 1) === 0) ok = false; if (W.get(x, row + 2) === 0 && W.get(x, row + 1) === 0 && W.get(x, row) === 0) ok = false; for (let r = row - 5; r < row; r++) if (r - y0 >= 0 && R[(r - y0) * Wd + x]) touch++; }
+      if (!ok || touch < 4) continue;
+      for (let x = a; x <= b; x++) { for (let r = row - 5; r < row; r++) { if (W.get(x, r) !== 0 && W.get(x, r) !== 2) W.set(x, r, 0); if (r - y0 >= 0) R[(r - y0) * Wd + x] = 1; } for (let r = row; r <= row + 1; r++) if (!W.solid(W.get(x, r))) W.set(x, r, 1); }
+      place(c, row, mem); return; } }
+  // nowhere flat enough: keep the cabinet and cot where they stand, lose the jug so it can't end up alone
+  { const cab = mem.find(m => m[1] === 14 && m[0].ct); if (cab) for (const [o, off, opt] of mem) { if (o === cab[0] || opt) continue; const x = cab[0].x - 14 + off; if (okAt(x, cab[0].y, 2, false)) { o.x = x; o.y = cab[0].y; } } }
+  const drop = new Set(mem.filter(m => m[2]).map(m => m[0])); fl.objs = fl.objs.filter(o => !drop.has(o)); fl.decor = fl.decor.filter(o => !drop.has(o));
+};
+// ---- nothing generates on top of anything else: important things keep their spot, the rest shuffle along the ground or go
+const OWD = { container: 13, table: 18, bench: 16, bed: 18, fire: 11, dispenser: 8, forage: 9, glowshroom: 7, post: 16, sign: 8, elevator: 22, seep: 8, gasleak: 8, relic: 12, artifact: 10, console: 12, tfeat: 18, ember: 6, dead: 14, quarter: 18, scrapheap: 14 };
+const CSW = { cart: 18, coffin: 18, body: 16, chest: 15, sack: 12, locker: 11, cell: 12, skulls: 14, bindle: 16 };
+const declutter = function (W, fl, okAt) {
+  const ceil = o => o.type === 'lamp' || o.type === 'icicle' || (o.type === 'crystal' && o.ceil) || o.type === 'rad' || o.type === 'hatch' || o.sealed || o.x == null || o.y == null;
+  const wOf = o => o.type === 'container' ? (CSW[(NE.CONTAINERS[o.ct] || {}).shape] || 13) : (OWD[o.type] != null ? OWD[o.type] : 10);
+  const pri = o => grp.has(o) ? 0 : o.type === 'forage' || o.type === 'glowshroom' || o.type === 'ember' ? 3 : o.type === 'prop' || o.type === 'gasleak' || o.type === 'seep' ? 2 : 1;
+  const placed = []; const drop = new Set(); const grp = new Set(fl.objs.filter(o => (o.type === 'table' && /Field Cot/.test(o.label || '')) || o.ct === 'cabinet' || o.label === 'Water Jug' || o.triage));
+  const list = fl.objs.filter(o => !ceil(o)).map((o, i) => [o, i]).sort((a, b) => pri(a[0]) - pri(b[0]) || a[1] - b[1]).map(a => a[0]);
+  const hit = (o, x, y) => placed.some(q => Math.abs(q.x - x) < (wOf(q) + wOf(o)) / 2 + 2 && Math.abs(q.y - y) < 12);
+  for (const o of list) {
+    if (!hit(o, o.x, o.y)) { placed.push(o); continue; }
+    const tx = Math.floor(o.x / T), ty = Math.round(o.y / T); let done = false;
+    for (let d = 1; d <= 40 && !done; d++) for (const sx of [tx + d, tx - d]) { if (sx < 4 || sx > W.W - 5) continue;
+      for (const dy of [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6]) { const x = sx * T + 4, y = (ty + dy) * T; if (okAt(x, y, 2, false) && !hit(o, x, y)) { o.x = x; o.y = y; done = true; break; } } if (done) break; }
+    if (done) { placed.push(o); continue; } if (pri(o) >= 2) { drop.add(o); continue; }
+    // no room anywhere nearby: keep whichever matters more and lose the other
+    const imp = q => grp.has(q) ? 5 : ['hatch', 'elevator', 'post', 'fire', 'bench', 'table', 'bed', 'relic', 'artifact', 'console', 'tfeat', 'sign'].includes(q.type) ? 4 : q.type === 'container' ? (q.locked || q.ct === 'banditchest' || q.ct === 'vault' ? 3 : 2) : 1;
+    const q = placed.find(q => Math.abs(q.x - o.x) < (wOf(q) + wOf(o)) / 2 + 2 && Math.abs(q.y - o.y) < 12);
+    if (q && imp(o) > imp(q)) { drop.add(q); placed.splice(placed.indexOf(q), 1); placed.push(o); } else drop.add(o); }
+  if (drop.size) fl.objs = fl.objs.filter(o => !drop.has(o));
+  // a water jug only makes sense beside a medical tent
+  const tents = fl.decor.filter(d => d.k === 'medtent'); fl.objs = fl.objs.filter(o => !(o.type === 'dispenser' && o.label === 'Water Jug') || tents.some(t => Math.abs(t.x - o.x) < 50 && Math.abs(t.y - o.y) < 16));
 };
 // later floors carve into the band above (drops/connectors), so re-check the previous floor too
-W_.genFloor = function (f) { const fl = valF.call(this, f); if (this.lobby || !fl) return fl; if (fl.delve) valid(this, fl); const pv = this.floors && this.floors[f - 1]; if (pv && pv.delve && !pv.town) valid(this, pv); return fl; };
+NE._valid = valid; W_.genFloor = function (f) { const fl = valF.call(this, f); if (this.lobby || !fl) return fl; if (fl.delve) valid(this, fl); const pv = this.floors && this.floors[f - 1]; if (pv && pv.delve && !pv.town) valid(this, pv); return fl; };
 })(window.NE);

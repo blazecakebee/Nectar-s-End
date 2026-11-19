@@ -109,7 +109,7 @@ const reprofile = function (W, fl) {
 const surfaceNear = (W, fl, tx, ry, ceil, head) => { const FH = NE.FH, y0 = fl.y0, R = fl._reach, Wd = W.W; head = head || 2;
   const reach = (x, r) => !R || (r - y0 >= 0 && r - y0 < FH && R[(r - y0) * Wd + x]);
   for (let dx = 0; dx <= 14; dx++) for (const sx of dx ? [tx + dx, tx - dx] : [tx]) { if (sx < 3 || sx > Wd - 4) continue; let best = null, bd = 1e9;
-    for (let r = 0; r < FH + 1; r++) { const Rr = y0 + r; let ok;
+    for (let r = 0; r < FH - 1; r++) { const Rr = y0 + r; let ok;
       if (ceil) ok = W.solid(W.get(sx, Rr - 1)) && W.get(sx, Rr) === 0 && W.get(sx, Rr + 1) === 0 && reach(sx, Rr);
       else { ok = (W.solid(W.get(sx, Rr)) || W.get(sx, Rr) === 2) && reach(sx, Rr - 1); for (let k = 1; k <= head && ok; k++) if (W.get(sx, Rr - k) !== 0) ok = false; }
       if (!ok) continue; const d = Math.abs(r - ry); if (d < bd) { bd = d; best = Rr; } }
@@ -267,14 +267,30 @@ const pmK = NE.Actor.prototype.physicsMove; NE.Actor.prototype.physicsMove = fun
 
 // ---- Kicks as a weapon slot: Fists -> Kicks -> weapons, cycled with the scroll wheel like any weapon
 const KICKS = NE.KICKS = { id: 'fists', name: 'Kicks', kicks: true, melee: { dmg: 10, kind: 'blunt', reach: 19, stam: 8, cd: 0.85 } };
-const wdK = NE.Player.prototype.weaponDef; NE.Player.prototype.weaponDef = function () { if (!this.equip.weapon && this.kickMode && !this.stats.mand) return KICKS; return wdK.apply(this, arguments); };
+const wdK = NE.Player.prototype.weaponDef;
+const FISTS2 = { id: 'fists', name: 'Fists', melee: { dmg: 5, kind: 'blunt', reach: 9, stam: 4, cd: 0.45 } };
+const JAWS2 = NE.JAWS2 = { id: 'fists', name: 'Mandibles', jaws: true, melee: { dmg: 11, kind: 'bite', reach: 10, stam: 5, cd: 0.55 } };
+// unarmed slots: Fists, Kicks and (with the mandible gift) Mandibles, each picked with the scroll wheel like a weapon
+NE.Player.prototype.weaponDef = function () { if (!this.equip.weapon) { if (this.kickMode) return KICKS; if (this.jawMode && this.stats.mand) return JAWS2; if (this.stats.mand) return FISTS2; } return wdK.apply(this, arguments); };
+
 const atK = NE.Player.prototype.attack; NE.Player.prototype.attack = function () { if (!this.equip.weapon && this.kickMode && !this.armless()) { this.charge = null; return this.kick(); } return atK.apply(this, arguments); };
-const upKM = NE.Player.prototype.update; NE.Player.prototype.update = function () { if (this.equip && this.equip.weapon) this.kickMode = false; return upKM.apply(this, arguments); };
-G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const all = [null, 'KICKS', ...ws];
-  const cur = p.equip.weapon ? all.indexOf(p.equip.weapon) : p.kickMode ? 1 : 0; const i = ((Math.max(0, cur) + dir) % all.length + all.length) % all.length;
-  p.equip.weapon = all[i] === 'KICKS' ? null : all[i]; p.kickMode = all[i] === 'KICKS'; p.charge = null; NE.UI.weaponFlash(all, i); NE.Audio.play('click', 0.7); };
+const upKM = NE.Player.prototype.update; NE.Player.prototype.update = function () { if (this.equip && this.equip.weapon) { this.kickMode = false; this.jawMode = false; } if (this.jawMode && !this.stats.mand) this.jawMode = false; return upKM.apply(this, arguments); };
+G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const all = [null, 'KICKS', ...(p.stats.mand ? ['JAWS'] : []), ...ws];
+  const cur = p.equip.weapon ? all.indexOf(p.equip.weapon) : p.kickMode ? 1 : p.jawMode && p.stats.mand ? 2 : 0; const i = ((Math.max(0, cur) + dir) % all.length + all.length) % all.length;
+  const v = all[i]; p.equip.weapon = typeof v === 'string' ? null : v; p.kickMode = v === 'KICKS'; p.jawMode = v === 'JAWS'; p.charge = null; NE.UI.weaponFlash(all, i); NE.Audio.play(v === 'JAWS' ? 'squelch' : 'click', 0.7); };
 NE.UI.weaponFlash = function (all, i) { const el = document.querySelector('#wsel'); if (!el) return; const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const img = (k, sc) => '<img class="pix" src="' + NE.iconURL(k, null, sc) + '">';
-  el.innerHTML = all.map((e, k) => { const kk = e === 'KICKS'; const icon = kk ? img('boot', 3) : e ? '<img class="pix" src="' + NE.itemIconURL(e.id, 3) + '">' : img('fist', 3); const nm = kk ? 'Kicks' : e ? NE.ITEMS[e.id].name : 'Fists'; return '<div class="ws' + (k === i ? ' on' : '') + '">' + icon + (k === i ? '<b>' + esc(nm) + '</b>' : '') + '</div>'; }).join('');
+  el.innerHTML = all.map((e, k) => { const kk = e === 'KICKS', jj = e === 'JAWS'; const icon = kk ? img('boot', 3) : jj ? img('ab_mand', 3) : e ? '<img class="pix" src="' + NE.itemIconURL(e.id, 3) + '">' : img('fist', 3); const nm = kk ? 'Kicks' : jj ? 'Mandibles' : e ? NE.ITEMS[e.id].name : 'Fists'; return '<div class="ws' + (k === i ? ' on' : '') + '">' + icon + (k === i ? '<b>' + esc(nm) + '</b>' : '') + '</div>'; }).join('');
   el.classList.remove('hide'); clearTimeout(NE.UI._wsT); NE.UI._wsT = setTimeout(() => el.classList.add('hide'), 1100); };
+
+// ---- treatment progress inside the Health menu (the world bar is hidden behind the panel)
+const tickT = NE.UI.tick; NE.UI.tick = function (dt) { const r = tickT.apply(this, arguments); try { const UI = NE.UI, p = G.player; const body = document.querySelector('.pn-body');
+  let el = document.getElementById('hl-prog'); const tr = p && p.treating; const show = UI.panel === 'health' && body && tr;
+  if (!show) { if (el) el.remove(); return r; }
+  if (!el || el.parentNode !== body) { if (el) el.remove(); el = document.createElement('div'); el.id = 'hl-prog'; el.innerHTML = '<div class="hp-l"></div><div class="hp-bar"><div></div></div>'; body.insertBefore(el, body.firstChild); }
+  const k = Math.min(1, tr.t / (tr.dur || 1)); const left = Math.max(0, (tr.dur || 0) - tr.t);
+  const what = tr.op === 'handdig' ? 'Digging out a fragment' : tr.op === 'revive' ? 'Reviving partner' : tr.op === 'removeTq' ? 'Loosening tourniquet' : tr.peer ? 'Treating partner' : (tr.entry ? 'Applying ' + NE.ITEMS[tr.entry.id].name : 'Treating') + (tr.part && NE.PART_NAMES[tr.part] ? ' → ' + NE.PART_NAMES[tr.part] : '');
+  el.firstChild.textContent = what + ' · ' + Math.round(k * 100) + '% · ' + left.toFixed(1) + 's'; el.lastChild.firstChild.style.width = (k * 100) + '%';
+  } catch (e) { } return r; };
+{ const st = document.createElement('style'); st.textContent = '#hl-prog{position:sticky;top:0;z-index:5;background:#1a1612;border:1px solid #6a5a3a;padding:.35em .5em;margin-bottom:.5em}#hl-prog .hp-l{font-size:.8em;color:#e8dcc0;margin-bottom:.25em}#hl-prog .hp-bar{height:.55em;background:#000;border:1px solid #888}#hl-prog .hp-bar div{height:100%;background:var(--honey,#e0a020);transition:width .08s linear}'; document.head.appendChild(st); }
 })(window.NE);

@@ -435,13 +435,20 @@ const texFor0 = W_.texFor; W_.texFor = function (biome) { const had = !!this.tex
 // ----------------------------------------------------------------------- containers: drawn by shape
 NE.CONTAINERS.urn.shape = 'urn';
 const drawObj0 = G.drawObj;
-const SHAPED = new Set(['chest', 'basket', 'sack', 'cart', 'box', 'coffin', 'urn', 'crate', 'body', 'geode', 'cell', 'pod2', 'cocoon', 'barrel', 'skulls', 'locker']);
+const SHAPED = new Set(['bindle', 'chest', 'basket', 'sack', 'cart', 'box', 'coffin', 'urn', 'crate', 'body', 'geode', 'cell', 'pod2', 'cocoon', 'barrel', 'skulls', 'locker']);
 G.drawObj = function (ctx, o) {
   if (o.type !== 'container' || !NE.CONTAINERS[o.ct] || ['crate', 'locker', 'cabinet', 'duffel', 'bag', 'weaponchest', 'stash', 'pod', 'corpse'].includes(o.ct) || !SHAPED.has(NE.CONTAINERS[o.ct].shape)) return drawObj0(ctx, o);
   const C = NE.CONTAINERS[o.ct], c = C.col || '#777', x = Math.round(o.x), y = Math.round(o.y), op = o.searched; const R = (a, b, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(x + a, y + b, w, h); }; const D = s => NE.shade(c, s);
   switch (C.shape) {
     case 'chest': R(-7, -8, 14, 8, D(0.5)); R(-6, -7, 12, 7, c); R(-6, -7, 12, 2, D(1.2)); R(-6, -5, 12, 1, D(0.6)); R(-7, -7, 1, 7, '#8a8a80'); R(6, -7, 1, 7, '#8a8a80'); R(-1, -5, 2, 2, o.locked ? '#e0c050' : '#5a5040'); if (op) R(-6, -10, 12, 2, D(0.8)); break;
     case 'basket': R(-5, -6, 10, 6, D(0.6)); for (let i = 0; i < 5; i++) R(-4 + i * 2, -5, 1, 5, D(1.15)); R(-5, -6, 10, 1, D(1.3)); if (!op) { R(-3, -8, 2, 2, '#a04a30'); R(0, -8, 3, 2, '#c8a050'); } break;
+    case 'bindle': { // a rolled bedroll on the ground, a walking stick propped against it with a patched cloth bundle tied to the end
+      R(-9, -4, 9, 4, '#3e4a2c'); R(-9, -4, 9, 1, '#5e6e44'); R(-9, -3, 1, 3, '#2e3820'); R(-1, -3, 1, 3, '#2e3820'); R(-7, -4, 1, 4, '#4a3018'); R(-4, -4, 1, 4, '#4a3018'); R(-9, -1, 9, 1, '#2a3218');
+      for (let i = 0; i <= 9; i++) { const sx = -2 + i, sy = -1 - Math.round(i * 1.45); R(sx, sy - 1, 1, 2, '#7a5230'); if (i % 3 === 0) R(sx, sy, 1, 1, '#4a3018'); }
+      if (!op) { R(3, -12, 7, 6, c); R(4, -13, 5, 1, c); R(4, -6, 5, 1, D(0.65)); R(2, -11, 1, 4, D(0.6)); R(10, -11, 1, 4, D(0.6)); R(4, -12, 3, 1, D(1.3)); R(3, -10, 1, 2, D(1.15));
+        R(7, -10, 2, 2, '#5a7a8a'); R(7, -10, 1, 1, '#7a9aaa'); R(6, -8, 1, 1, '#d8ccb0'); R(5, -14, 3, 1, D(0.75)); R(4, -15, 1, 1, D(0.75)); R(8, -15, 1, 1, D(0.75)); R(6, -15, 1, 1, '#4a3018'); }
+      else { R(3, -7, 7, 2, D(0.7)); R(2, -6, 9, 1, D(0.55)); }
+      R(7, -15, 1, 2, '#7a5230'); break; }
     case 'sack': R(-4, -6, 9, 6, D(0.6)); R(-3, -7, 7, 7, c); R(-1, -9, 3, 2, D(0.8)); R(0, -10, 1, 1, '#2a2018'); R(-3, -3, 7, 1, D(0.8)); break;
     case 'cart': R(-9, -8, 18, 6, D(0.5)); R(-8, -7, 16, 4, c); R(-8, -7, 16, 1, D(1.25)); R(-6, -2, 3, 2, '#2a2a2a'); R(3, -2, 3, 2, '#2a2a2a'); if (!op) { R(-6, -9, 4, 2, '#7a7068'); R(-1, -10, 5, 3, '#8a7a60'); } break;
     case 'box': R(-5, -6, 10, 6, D(0.55)); R(-4, -5, 8, 5, c); R(-4, -5, 8, 1, D(1.25)); R(-1, -7, 2, 1, '#2a2a2a'); R(-2, -7, 4, 1, D(0.7)); R(-1, -3, 2, 1, '#d8d0b0'); break;
@@ -1776,19 +1783,23 @@ const con0 = NE.consume; NE.consume = function (pl, entry) { const A = pl && pl.
 const sr0 = G.startRun; G.startRun = function (restore) { const r = sr0.apply(this, arguments); try { const p = G.player; if (p && !restore && perk(p) === 'gild') { p.inv.add('silver', 25); G.toast('The Gilded Hive brought its tithe: 25 silver.'); } } catch (e) { } return r; };
 
 // ---- HOST HEIGHT: 4'11" to 6'6". Taller = longer reach, stronger, sturdier, heavier on their feet; shorter = quick and nimble.
-const ms0 = NE.makeSurvivor; NE.makeSurvivor = function () { const s = ms0.apply(this, arguments); const b = s.look.sex === 'm' ? 1.5 : -1.5; s.look.height = clamp(Math.round((ri(59, 78) + ri(59, 78)) / 2 + b), 59, 78); return s; };
+// body types: lean (quick), muscle (strong), fat (lives off reserves, gets hungry slower)
+NE.BODIES = { lean: { name: 'Lean', desc: '+5% speed' }, muscle: { name: 'Muscular', desc: '+5% melee strength' }, fat: { name: 'Heavyset', desc: 'Gets hungry 25% slower (burns fat reserves)' } };
+NE.bodyOf = look => (look && look.body) || (look ? ['lean', 'lean', 'muscle', 'fat'][((look.seed || 0) >>> 0) % 4] : 'lean');
+const ms0 = NE.makeSurvivor; NE.makeSurvivor = function () { const s = ms0.apply(this, arguments); s.look.body = NE.wpick([['lean', 45], ['muscle', 30], ['fat', 25]]); const b = s.look.sex === 'm' ? 1.5 : -1.5; s.look.height = clamp(Math.round((ri(59, 78) + ri(59, 78)) / 2 + b), 59, 78); return s; };
 NE.heightOf = look => (look && look.height) || 69; NE.heightStr = h => Math.floor(h / 12) + '\'' + (h % 12) + '"';
 const cs0 = NE.computeStats; NE.computeStats = function (meta, surv) { const s = cs0.apply(this, arguments); const k = (NE.heightOf(surv && surv.look) - 69) / 9.5;
-  s.melee *= 1 + 0.1 * k; s.carry += 4 * k; s.climb *= 1 - 0.08 * k; s.hpMul = (s.hpMul || 1) * (1 + 0.05 * k); s.height = NE.heightOf(surv && surv.look);
-  // short and quick vs tall and sturdy: 4'11" moves 20% faster, 6'6" shrugs off 20% of incoming damage, sliding linearly between
-  const hb = NE.heightBonus(s.height); s.speed *= 1 + hb.spd; s.heightDef = hb.def; return s; };
-NE.heightBonus = h => { const t = clamp((h - 59) / (78 - 59), 0, 1); return { spd: 0.2 * (1 - t), def: 0.2 * t }; };
+  s.melee *= 1 + 0.04 * k; s.carry += 2 * k; s.climb *= 1 - 0.04 * k; s.hpMul = (s.hpMul || 1) * (1 + 0.02 * k); s.height = NE.heightOf(surv && surv.look);
+  // short and quick vs tall and sturdy: 4'11" moves 8% faster, 6'6" shrugs off 8% of incoming damage, sliding linearly between
+  const hb = NE.heightBonus(s.height); s.speed *= 1 + hb.spd; s.heightDef = hb.def;
+  const bt = NE.bodyOf(surv && surv.look); s.body = bt; if (bt === 'lean') s.speed *= 1.05; else if (bt === 'muscle') s.melee *= 1.05; else if (bt === 'fat') s.hunger *= 0.75; return s; };
+NE.heightBonus = h => { const t = clamp((h - 59) / (78 - 59), 0, 1); return { spd: 0.08 * (1 - t), def: 0.08 * t }; };
 const hurtH = NE.Actor.prototype.hurt; NE.Actor.prototype.hurt = function (part, dmg, kind, src, dir) { if (this.isPlayer && this.stats && this.stats.heightDef > 0 && dmg > 0) dmg *= 1 - this.stats.heightDef; return hurtH.call(this, part, dmg, kind, src, dir); };
 const sc = a => (a && a.look && a.look.height ? a.look.height / 69 : 1);
 const pose0 = NE.ragPose; NE.ragPose = function (a) { const out = pose0(a); const s = sc(a);
   if (a.rag && a._hs !== s) { const k = s / (a._hs || 1); for (const c of a.rag.cons) c.len *= k; a._hs = s; a.hReach = (s - 1) * 12; }
   if (s !== 1 && a.x != null) for (const q of out) { q[0] = a.x + (q[0] - a.x) * (0.6 + 0.4 * s); q[1] = a.y + (q[1] - a.y) * s; } return out; };
-const hs0 = UI0().hudStatic; UI0().hudStatic = function () { hs0.apply(this, arguments); const p = G.player; const el = document.querySelector('.p-occ'); if (p && el && p.look && !/"/.test(el.textContent)) { const h = NE.heightOf(p.look), hb = NE.heightBonus(h); el.textContent += ' • ' + NE.heightStr(h) + ' (' + [hb.spd >= 0.005 ? '+' + Math.round(hb.spd * 100) + '% speed' : '', hb.def >= 0.005 ? '+' + Math.round(hb.def * 100) + '% defense' : ''].filter(Boolean).join(', ') + ')'; } };
+const hs0 = UI0().hudStatic; UI0().hudStatic = function () { hs0.apply(this, arguments); const p = G.player; const el = document.querySelector('.p-occ'); if (p && el && p.look && !/"/.test(el.textContent)) { const h = NE.heightOf(p.look), hb = NE.heightBonus(h); el.textContent += ' • ' + NE.heightStr(h) + ' ' + NE.BODIES[NE.bodyOf(p.look)].name.toLowerCase() + ' (' + [hb.spd >= 0.005 ? '+' + Math.round(hb.spd * 100) + '% speed' : '', hb.def >= 0.005 ? '+' + Math.round(hb.def * 100) + '% defense' : ''].filter(Boolean).join(', ') + ')'; } };
 function UI0() { return NE.UI; }
 })(window.NE);
 

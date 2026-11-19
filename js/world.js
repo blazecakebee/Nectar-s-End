@@ -211,7 +211,7 @@ class World {
     fl.decor.push({ k: 'beam', x: x0 * T + 4 }, { k: 'beam', x: x1 * T - 4 });
     if (poi === 'medic' || poi === 'triage') {
       fl.objs.push({ type: 'table', x: cx - 12, label: 'Field Cot (surgery)', act: 'table' });
-      fl.objs.push(this.container('cabinet', cx + 14, 0, fl.depth)); fl.objs.push({ type: 'dispenser', x: cx + 26, label: 'Water Jug', act: 'drink', uses: ri(2, 4) });
+      fl.objs.push(this.container('cabinet', cx + 14, 0, fl.depth)); fl.objs.push({ type: 'dispenser', x: cx + 30, label: 'Water Jug', act: 'drink', uses: ri(2, 4) });
       if (poi === 'triage') { const d = this.container('duffel', cx - 30, 0, fl.depth); d.triage = true; fl.objs.push(d); fl.decor.push({ k: 'tent', x: cx - 40 }); }
       lamp('#ffe0b0'); fl.medic = true;
     } else if (poi === 'camp') {

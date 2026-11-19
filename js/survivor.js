@@ -456,11 +456,12 @@ NE.drawHuman = function (ctx, rag, look, o) {
     if (P.tq) R(x1 + (x2 - x1) * 0.3 - 1, y1 + (y2 - y1) * 0.3, 3, 1, '#111');
   };
   // limb = 1px dark outline edge + 2px fill (People Playground-ish slim segments)
-  const seg = (a, b, col, back) => { NE.pline(ctx, a.x, a.y, b.x, b.y, 3, OL(back ? BK(col) : col)); NE.pline(ctx, a.x, a.y, b.x, b.y, 2, back ? BK(col) : N(col)); };
+  const BT = NE.bodyOf ? NE.bodyOf(look) : 'lean'; const THK = BT === 'lean' ? 0 : 1; // muscle and fat bodies carry thicker upper arms and thighs
+  const seg = (a, b, col, back, w) => { w = w || 0; NE.pline(ctx, a.x, a.y, b.x, b.y, 3 + w, OL(back ? BK(col) : col)); NE.pline(ctx, a.x, a.y, b.x, b.y, 2 + w, back ? BK(col) : N(col)); };
   const sv = o.sev || {}; const stump = (q, dx) => { R(q.x - 1 + (dx || 0), q.y - 1, 3, 3, '#6a0808'); R(q.x + (dx || 0), q.y, 1, 1, '#ece6d6'); };
   const limb = (i0, i1, i2, c1, c2, part, back) => { const PR = anat && anat.parts[part] && anat.parts[part].severed && anat.parts[part].prost;
     if (PR) { NE.drawProsthetic(ctx, p[i0], p[i1], p[i2], PR, part.endsWith('arm'), back, c1, seg, OL); return; }
-    if (sv[part]) return; seg(p[i0], p[i1], c1, back); seg(p[i1], p[i2], c2, back); partMark(part, p[i0].x, p[i0].y, p[i2].x, p[i2].y); };
+    if (sv[part]) return; seg(p[i0], p[i1], c1, back, THK); seg(p[i1], p[i2], c2, back, BT === 'muscle' && part.endsWith('arm') ? 0.5 : 0); partMark(part, p[i0].x, p[i0].y, p[i2].x, p[i2].y); };
   const foot = (q, back) => { const c = o.shoe ? (back ? NE.shade(o.shoe, 0.6) : N(o.shoe)) : back ? '#141210' : '#221c18'; if (o.shoeSole) R(q.x - (f > 0 ? 1 : 2), q.y, 4, 1, o.shoeSole); R(q.x - (f > 0 ? 1 : 2), q.y - 1, 4, 2, c); R(q.x + (f > 0 ? 2 : -3), q.y, 1, 1, c); };
   const hand = (q, back) => { R(q.x - 1, q.y - 1, 2, 2, o.glove ? (back ? NE.shade(o.glove, 0.6) : N(o.glove)) : back ? BK(skin) : N(skin)); if (o.glove && o.gloveStud) R(q.x, q.y - 1, 1, 1, '#c0c4ca'); };
   // back leg + back arm
@@ -477,6 +478,14 @@ NE.drawHuman = function (ctx, rag, look, o) {
     R(lx(0.3) + f * 2, ly(0.3), 1, 2, OL(tc)); R(lx(0.28) + (f > 0 ? 1 : -1), ly(0.26), 1, 2, N(tc)); R(lx(0.3) + f * 1, ly(0.42), 1, 1, NE.shade(tc, 0.75 * dark));
     NE.pline(ctx, lx(0.82), ly(0.82), p[2].x, p[2].y + 1, 7, OL(pants)); NE.pline(ctx, lx(0.84), ly(0.84), p[2].x, p[2].y + 1, 6, N(pants));
   } else { NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 6, OL(tc)); NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 5, N(tc)); }
+  { // body type silhouette on top of the base torso (works for men and women, under any vest)
+    const lx = (t) => p[1].x + (p[2].x - p[1].x) * t, ly = (t) => p[1].y + (p[2].y - p[1].y) * t; const W0 = FEM ? 0 : 1;
+    if (BT === 'muscle') { NE.pline(ctx, lx(0.02), ly(0.02), lx(0.55), ly(0.55), 8 + W0, OL(tc)); NE.pline(ctx, lx(0.04), ly(0.04), lx(0.52), ly(0.52), 7 + W0, N(tc)); NE.pline(ctx, lx(0.15) + f * 1.5, ly(0.15), lx(0.4) + f * 1.5, ly(0.4), 6, N(tc)); R(lx(0.42) + f * 3, ly(0.42), 1, 1, OL(tc)); R(lx(0.3) + f * (2 + W0), ly(0.3), 1, 2, NE.shade(tc, 0.8 * dark)); R(lx(0.08) - 3 - W0, ly(0.08), 7 + W0 * 2, 1, NE.shade(tc, 1.15 * dark)); }
+    else if (BT === 'fat') { const bx = f * (FEM ? 2.6 : 2.8); const W0 = 1; NE.pline(ctx, p[1].x, p[1].y + 1, p[2].x, p[2].y, 8 + W0, OL(tc)); NE.pline(ctx, p[1].x, p[1].y + 1, p[2].x, p[2].y, 7 + W0, N(tc));
+      NE.pline(ctx, lx(0.36) + bx, ly(0.36), lx(0.84) + bx, ly(0.84), 8 + W0, OL(tc)); NE.pline(ctx, lx(0.38) + bx, ly(0.38), lx(0.82) + bx, ly(0.82), 7 + W0, N(tc)); R(lx(0.95) - 3, ly(0.95), 7, 1, OL(tc));
+      R(lx(0.85) + bx - 2, ly(0.85), 5, 1, NE.shade(tc, 0.7 * dark)); R(lx(0.55) + bx + f * 2, ly(0.5), 1, 2, NE.shade(tc, 1.15 * dark));
+      if (FEM) { NE.pline(ctx, lx(0.82), ly(0.82), p[2].x, p[2].y + 1, 8, OL(pants)); NE.pline(ctx, lx(0.84), ly(0.84), p[2].x, p[2].y + 1, 7, N(pants)); } }
+  }
   NE.pline(ctx, p[1].x + f * 1.5, p[1].y + 1, p[2].x + f * 1.5, p[2].y - 1, 1, NE.shade(tc, 1.12 * dark));
   R(p[2].x - 2, p[2].y - 1, 5, 2, N(pants)); R(p[2].x - 2, p[2].y - 2, 5, 1, '#2a2018');
   if (o.vestId && NE.drawBodyGear) NE.drawBodyGear(ctx, p, f, o.vestId, N, OL, dark); else if (o.vest) { const vl = NE.shade(tc, 1.35); R(p[1].x - 2, p[1].y + 2, 5, 1, vl); R(p[1].x - 2, p[1].y + 5, 5, 1, vl); }
@@ -490,6 +499,7 @@ NE.drawHuman = function (ctx, rag, look, o) {
   if (sv.head) { const n = p[1]; R(n.x - 2, n.y - 3, 4, 3, '#6a0808'); R(n.x, n.y - 3, 1, 1, '#ece6d6'); }
   if (!sv.head) {
   R(hx - 1, hy + 3, 2, 2, BK(skin));
+  if (BT === 'fat') { R(hx - 2 + (f > 0 ? 1 : 0), hy + 3, 4, 2, BK(skin)); R(hx - 1 + f, hy + 3, 2, 1, N(skin)); } else if (BT === 'muscle' && !FEM) R(hx - 2, hy + 3, 4, 2, BK(skin));
   R(X0 - 1, Y0, 8, 6, OL(skin)); R(X0, Y0 - 1, 6, 8, OL(skin)); R(X0, Y0, 6, 6, N(skin)); R(f > 0 ? X0 : X0 + 5, Y0 + 1, 1, 4, BK(skin));
   R(f > 0 ? X0 + 6 : X0 - 1, hy, 1, 1, N(skin)); // nose
   if (!o.mask) R(f > 0 ? X0 + 4 : X0 + 1, hy + 2, 1, 1, NE.shade(skin, 0.6 * dark));
@@ -689,7 +699,7 @@ function buildPortrait(look, o) {
   const R = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
   const ell = (ex, ey, rx, ry, col, clip) => { x.fillStyle = col; for (let j = Math.floor(ey - ry); j <= Math.ceil(ey + ry); j++) for (let i = Math.floor(ex - rx); i <= Math.ceil(ex + rx); i++) { const d = ((i + 0.5 - ex) / rx) ** 2 + ((j + 0.5 - ey) / ry) ** 2; if (d <= 1 && (!clip || clip(i, j))) x.fillRect(i, j, 1, 1); } };
   const rnd = (i, j) => NE.hash(i + look.seed, j * 13 + 7);
-  const wide = { thin: 10, avg: 10.5, broad: 11.5 }[look.build] || 10.5; const jawK = [0.5, 0.6, 0.72][look.jaw] - (F ? 0.06 : 0);
+  const wide = { lean: 10.2, muscle: 11.4, fat: 12.3 }[NE.bodyOf ? NE.bodyOf(look) : ''] || { thin: 10, avg: 10.5, broad: 11.5 }[look.build] || 10.5; const jawK = [0.5, 0.6, 0.72][look.jaw] - (F ? 0.06 : 0);
   const headW = y => { if (y < 28) { const t = (y - 27) / 15; return wide * Math.sqrt(Math.max(0, 1 - t * t)); } const t = (y - 28) / 12; return wide * (1 - (1 - jawK) * t * 1.05) * Math.sqrt(Math.max(0, 1 - Math.pow(t, 4))); };
   const vol = H.vol || 0;
   // ---- back hair (behind head & shoulders)
