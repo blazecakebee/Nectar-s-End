@@ -478,7 +478,7 @@ NE.ragPose = function (a) { const out = poseH(a); if (!a.hang) return out; const
 const puA = NE.Player.prototype.update;
 NE.Player.prototype.update = function (dt) {
   const r = puA.apply(this, arguments); if (!this.alive || !G.world || G.world.lobby) return r;
-  const under = G.world.isWater(this.x, this.y - this.h + 3); const cap = 12 + (has(this, 'air') || 0) + (has(this, 'scuba') ? 15 : 0);
+  const under = G.world.isWater(this.x, this.y - this.h + 3); const cap = 12 + (has(this, 'air') || 0) + (has(this, 'scuba') ? 15 : 0) + (NE.hasGift && NE.hasGift(this, 'deeplungs') ? 10 : 0);
   this.breathMax = cap; if (this.breath == null) this.breath = cap;
   if (under) { this.breath -= dt; if (this.breath <= 0) { this.breath = 0; this.anat.stam -= dt * 20; this.drownT = (this.drownT || 0) + dt; if (this.drownT > 1) { this.drownT = 0; this.hurt('torso', 6, 'blunt', 'Drowning'); this.anat.org.lungs -= 3; G.toast('You\'re drowning — get to the surface!'); } } }
   else { this.breath = Math.min(cap, this.breath + dt * 6); this.drownT = 0; }
@@ -829,4 +829,90 @@ const seepF = W_.genFloor; W_.genFloor = function (f) { const fl = seepF.call(th
   if (chance(ch)) for (let tries = 0; tries < 20; tries++) { const tx = ri(8, this.W - 9); const x = (tx + 0.5) * T; if (fl.objs.some(o => Math.abs(o.x - x) < 16)) continue; fl.objs.push({ type: 'seep', x, y: this.groundY(fl, x), label: 'Rock Seep — drink', act: 'drink', uses: ri(2, 5) }); break; }
   return fl; };
 const drawSeep = G.drawObj; G.drawObj = function (ctx, o) { if (o.type === 'seep') { const x = Math.round(o.x), y = Math.round(o.y); ctx.fillStyle = '#2a3a40'; ctx.fillRect(x - 4, y - 16, 8, 16); ctx.fillStyle = o.uses > 0 ? '#5aa0c0' : '#3a4a50'; ctx.fillRect(x - 1, y - 15, 2, 14); ctx.fillRect(x - 3, y - 2, 6, 2); if (o.uses > 0) { const k = (G.t * 1.5 + x) % 1; ctx.fillStyle = '#9ad8f0'; ctx.fillRect(x, y - 14 + Math.round(k * 12), 1, 2); } return; } return drawSeep.apply(this, arguments); };
+
+// =====================================================================================================================
+// 30 NEW VESPA GIFTS (0.9.3): strain gifts go from 13 to 43, and every strain gets a fresh, wider set
+// =====================================================================================================================
+const NG = [
+  // id, name, icon, tier, mut, desc
+  ['sapblood', 'Sap Blood', 'ab_amber', 1, 'amber', 'Your blood runs thick and slow: -20% bleeding.'],
+  ['nightglow', 'Lantern Eyes', 'ab_eye', 1, 'eyes', 'Your eyes drink the dark: see 25% further, lantern reach +15%.'],
+  ['stilltongue', 'Still Tongue', 'ab_mand', 1, 'mandibles', 'A calm that isn\'t yours: -30% stress.'],
+  ['ironstomach', 'Iron Stomach', 'ab_mand', 1, 'mandibles', 'Toxins hit you half as hard.'],
+  ['cleanblood', 'Clean Blood', 'ab_heart', 1, 'veins', 'The brood eats rot: -40% infection.'],
+  ['mossskin', 'Moss Skin', 'ab_chitin', 1, 'plates', 'A soft green fuzz: -30% cold, -20% radiation.'],
+  ['featherfall', 'Feather Fall', 'ab_wings', 1, 'wings', 'Vestigial wings catch the air: fall damage halved.'],
+  ['deeplungs', 'Deep Lungs', 'ab_pulse', 1, 'veins', '+10 stamina and 10 extra seconds of breath underwater.'],
+  ['packlegs', 'Mule Legs', 'ab_wings', 1, 'plates', 'Thick, knotted thighs: +6kg carry.'],
+  ['scavnose', 'Scavenger\'s Nose', 'ab_mand', 1, 'antennae', 'You smell what\'s hidden: +15% loot, search 15% faster.'],
+  ['nectarnose', 'Nectar Sense', 'ab_eye', 1, 'antennae', 'Relic flowers and sealed vaults show on your map wherever they are.'],
+  ['curseward', 'Abyss-Born', 'ab_goo', 2, 'veins', 'The deep recognises you: the Curse of the Abyss builds 35% slower.'],
+  ['crushjaws', 'Crushing Jaws', 'ab_mand', 2, 'mandibles', 'Your bare-handed blows hit 60% harder.'],
+  ['stingtail', 'Tail Stinger', 'ab_sting', 2, 'stinger', 'Every 8s your next melee hit injects venom: +12 damage and poison.'],
+  ['hardshell', 'Hard Shell', 'ab_chitin', 2, 'plates', 'A plate over your skull and ribs: -15% damage to head and torso.'],
+  ['quickclot', 'Quick Clot', 'ab_amber', 2, 'amber', 'Every 20s your worst bleeding wound seals itself.'],
+  ['secondwind', 'Second Wind', 'ab_heart', 2, 'veins', 'When your stamina runs dry, a gland refills 60% of it (every 40s).'],
+  ['wallcrawl', 'Wall Crawler', 'ab_wings', 2, 'wings', 'Hooked fingertips: wall-climb twice as long, climb 30% faster.'],
+  ['pheromone', 'Calming Musk', 'ab_goo', 2, 'antennae', 'Beasts and ferals that spot you often lose interest — unless you attack them.'],
+  ['acidbloom', 'Acid Bloom', 'ab_goo', 2, 'veins', 'Your kills burst into acid, burning anything else nearby.'],
+  ['wingbuzz', 'Wing Buzz', 'ab_wings', 2, 'wings', 'Running costs 40% less stamina and you run 8% faster.'],
+  ['stonebones', 'Stone Bones', 'ab_chitin', 2, 'plates', 'Bones like rock: fractures 60% rarer, -20% fall damage.'],
+  ['killrush', 'Hunter\'s Rush', 'ab_sting', 2, 'stinger', 'Every kill: 4 seconds of +25% speed and +20% melee.'],
+  ['longarms', 'Long Limbs', 'ab_wings', 2, 'plates', 'Your arms stretch a little too far: +3 reach, +10% melee.'],
+  ['chameleon', 'Chameleon Skin', 'ab_eye', 2, 'plates', 'Crouch and hold still: nothing more than a few steps away can see you.'],
+  ['echoburst', 'Echo Burst', 'ab_pulse', 2, 'antennae', 'Every kill instantly resets your dash and lunge.'],
+  ['broodmother', 'Brood Mother', 'ab_heart', 3, 'amber', 'Every kill has a 25% chance to fully heal your most hurt body part.'],
+  ['jellyveins', 'Royal Jelly Veins', 'ab_amber', 3, 'veins', 'Every body part slowly regenerates (0.4 HP/s).'],
+  ['deathgrip', 'Death Grip', 'ab_chitin', 3, 'plates', 'Below 25% blood you take 35% less damage from everything.'],
+  ['swarmcloak', 'Swarm Cloak', 'ab_pulse', 3, 'wings', 'Every 20s a cloud of drones swirls around you for 4s, stinging anything in reach.'],
+];
+const NGIDS = NG.map(g => g[0]);
+for (const [id, name, icon, tier, mut, desc] of NG) { const g = { id, name, icon, desc, mut, strain: 1 }; NE.STRAIN_GIFTS.push(g); NE.ABILITIES.push(g); NE.GIFT_TIER[id] = tier; }
+// redistribute: every strain gets a fresh mix; low tiers get modest gifts, high tiers get run-defining ones
+{ const tierOf = id => NE.GIFT_TIER[id] || 2; const SG = NE.STRAIN_GIFTS.map(g => g.id);
+  const pools = { 1: SG.filter(id => tierOf(id) === 1), 2: SG.filter(id => tierOf(id) === 2), 3: SG.filter(id => tierOf(id) === 3) }; const ptr = { 1: 0, 2: 0, 3: 0 };
+  const MIX = { common: [1, 2], uncommon: [1, 1, 2], rare: [1, 2, 2], epic: [1, 2, 2, 3], legendary: [2, 2, 3, 3], mythical: [1, 2, 2, 3, 3], secret: [1, 1, 2, 2, 3, 3] };
+  const seen = new Set();
+  NE.VARIANTS.forEach((v, i) => { const mix = MIX[v.tier] || [1, 2]; for (let tries = 0; tries < 8; tries++) { const pow = []; for (const t of mix) { const P = pools[t]; let id; let k = 0; do { id = P[(ptr[t] + k) % P.length]; k++; } while (pow.includes(id) && k < P.length); ptr[t] = (ptr[t] + k + (tries ? 3 : 0)) % P.length; pow.push(id); } const key = pow.slice().sort().join(','); if (!seen.has(key)) { seen.add(key); v.pow = pow; break; } v.pow = pow; } });
+}
+// ---- stat gifts
+const GM = { sapblood: { bleed: 0.8 }, nightglow: { sight: 1.25, lamp: 1.15 }, stilltongue: { stress: 0.7 }, ironstomach: { tox: 0.5 }, cleanblood: { infect: 0.6 }, mossskin: { cold: 0.7, rad: 0.8 }, featherfall: { fall: 0.5 }, scavnose: { loot: 1.15, search: 0.85 }, wallcrawl: { parkour: 2, climb: 1.3 }, wingbuzz: { runCost: 0.6, runSpeed: 1.08 }, stonebones: { fracture: 0.4, fall: 0.8 }, longarms: { melee: 1.1 } };
+const GA = { deeplungs: { stamina: 10 } };
+const saG = NE.Player.prototype.setAbilities;
+NE.Player.prototype.setAbilities = function (list) { const s = this.stats; if (this._gm3) for (const k in this._gm3) s[k] /= this._gm3[k]; if (this._ga3) for (const k in this._ga3) s[k] -= this._ga3[k]; if (this._mule && this.inv) this.inv.carry -= 6;
+  const r = saG.apply(this, arguments); const L2 = list || []; const m = {}, a = {}; for (const id of L2) { for (const k in (GM[id] || {})) m[k] = (m[k] || 1) * GM[id][k]; for (const k in (GA[id] || {})) a[k] = (a[k] || 0) + GA[id][k]; }
+  for (const k in m) s[k] = (s[k] == null ? 1 : s[k]) * m[k]; for (const k in a) s[k] = (s[k] || 0) + a[k]; this._gm3 = m; this._ga3 = a; this._mule = L2.includes('packlegs'); if (this._mule && this.inv) this.inv.carry += 6; return r; };
+const ab = (p, id) => p && p.abil && p.abil.includes(id);
+NE.hasGift = ab;
+// curse & map
+const ctrigG = NE.curseTrigger; NE.curseTrigger = function (p, id, dur, quiet) { if (ab(p, 'curseward') && chance(0.35)) return; return ctrigG.apply(this, arguments); };
+const puCW = NE.Player.prototype.update; NE.Player.prototype.update = function (dt) { const C = G.run && G.run.curse; const v0 = C ? C.v : 0; const r = puCW.apply(this, arguments); if (C && ab(this, 'curseward') && C.v > v0) C.v = v0 + (C.v - v0) * 0.65; return r; };
+// fists
+const smG = NE.styleMul; NE.styleMul = function (a, w) { let k = smG(a, w); if (a && a.isPlayer && w && (w.id === 'fists' || w.id === 'jaws') && ab(a, 'crushjaws')) k *= 1.6; if (a && a.isPlayer && a.rushT > 0) k *= 1.2; return k; };
+// damage taken
+const hurtG = NE.Actor.prototype.hurt;
+NE.Actor.prototype.hurt = function (part, dmg, kind, src, dir) { const p = G.player;
+  if (this.isPlayer && this.abil) { if (ab(this, 'hardshell') && (part === 'head' || part === 'torso')) arguments[1] *= 0.85; if (ab(this, 'deathgrip') && this.anat.blood < 1250) arguments[1] *= 0.65; }
+  const r = hurtG.apply(this, arguments);
+  if (p && this !== p && this.D && this.alive && src === p.surv.first && kind !== 'poison' && kind !== 'burn' && ab(p, 'stingtail') && (p.stingT || 0) <= G.t) { p.stingT = G.t + 8; hurtG.call(this, part, 12, 'sharp', src, dir); this.anat.tox = (this.anat.tox || 0) + 30; for (let i = 0; i < 6; i++) G.addP(this.x, this.y - 10, rf(-20, 20), rf(-40, 0), 0.5, '#a0e040', 'spark', 0.3); }
+  return r; };
+// kills
+const deathG = G.onEnemyDeath;
+G.onEnemyDeath = function (e, cause) { const was = e.alive; deathG.apply(this, arguments); const p = G.player; if (!was || !p || !p.alive || !e.anat || e.anat.lastHit !== p.surv.first) return;
+  if (ab(p, 'killrush')) p.rushT = 4;
+  if (ab(p, 'echoburst')) { p.dashCD = 0; p.lungeCD = 0; }
+  if (ab(p, 'broodmother') && chance(0.25)) { let worst = null; for (const k of NE.PARTS) { const P = p.anat.parts[k]; if (P.severed) continue; if (!worst || P.hp / P.max < worst.hp / worst.max) worst = P; } if (worst) { worst.hp = worst.max; G.toast('Brood Mother — your flesh knits whole.'); } }
+  if (ab(p, 'acidbloom')) { for (let i = 0; i < 18; i++) G.addP(e.x, e.y - 6, rf(-60, 60), rf(-60, 0), rf(0.4, 0.8), i % 2 ? '#a0e040' : '#60a020', 'spark', 0.6); for (const a of G.actors) if (a !== e && a.D && a.alive && NE.dist(a.x, a.y, e.x, e.y) < 40) a.hurt('torso', 12, 'burn', p.surv.first, { x: Math.sign(a.x - e.x), y: -0.3 }); } };
+// per-frame gifts
+const puG = NE.Player.prototype.update;
+NE.Player.prototype.update = function (dt) { const r = puG.apply(this, arguments); if (!this.alive || !this.abil || !this.abil.length || G.state !== 'run') return r; const A = this.anat;
+  if (ab(this, 'quickclot')) { this.clotT = (this.clotT || 20) - dt; if (this.clotT <= 0) { this.clotT = 20; let best = null, bp = null; for (const k of NE.PARTS) for (const w of A.parts[k].wounds) if (!w.closed && (!best || w.bleed > best.bleed)) { best = w; bp = k; } if (best && best.bleed > 0.1) { best.closed = true; best.bleed = 0; G.toast('Quick Clot seals the wound on your ' + NE.PART_NAMES[bp].toLowerCase() + '.'); } } }
+  if (ab(this, 'secondwind') && A.stam <= 1 && (this.windCD || 0) <= G.t) { this.windCD = G.t + 40; A.stam = A.stamMax * 0.6; G.toast('Second wind!'); NE.Audio.play('gasp', 0.6); }
+  if (ab(this, 'jellyveins')) for (const k of NE.PARTS) { const P = A.parts[k]; if (!P.severed) P.hp = Math.min(P.max, P.hp + dt * 0.4); }
+  if (this.rushT > 0) { this.rushT -= dt; } const rush = this.rushT > 0; if (rush !== !!this._rush) { this.stats.speed *= rush ? 1.25 : 1 / 1.25; this._rush = rush; }
+  if (ab(this, 'swarmcloak')) { this.cloakT = (this.cloakT == null ? 20 : this.cloakT) - dt; if (this.cloakT <= 0) { this.cloakT = 20; this.cloakOn = 4; NE.Audio.play('hiss', 0.4); } if (this.cloakOn > 0) { this.cloakOn -= dt; if (Math.random() < dt * 40) G.addP(this.x + rf(-14, 14), this.y - rf(2, 20), rf(-30, 30), rf(-30, 30), 0.3, '#ffd040', 'spark', 0); this.cloakTick = (this.cloakTick || 0) - dt; if (this.cloakTick <= 0) { this.cloakTick = 0.5; for (const a of G.actors) if (a.D && a.alive && NE.dist(a.x, a.y, this.x, this.y) < 22) a.hurt(a.partNear ? a.partNear(a.x, a.y - 10) : 'torso', 2.5, 'sharp', this.surv.first, { x: Math.sign(a.x - this.x), y: 0 }); } } }
+  return r; };
+// beasts lose interest; chameleons vanish
+const euG = NE.Enemy.prototype.update; NE.Enemy.prototype.update = function (dt) { const r = euG.apply(this, arguments); const t = this.target; if (t && t.isPlayer && ab(t, 'pheromone') && !this.provoked && ['feral', 'trog', 'husk', 'stalker', 'burrower', 'swarmling', 'bloater'].includes(this.type) && chance(dt * 0.35)) { this.target = null; this.state = 'idle'; } return r; };
+const seeG = NE.Enemy.prototype.canSee; NE.Enemy.prototype.canSee = function (a) { if (a && a.isPlayer && ab(a, 'chameleon') && a.crouch && Math.abs(a.vx) < 6 && NE.dist(a.x, a.y, this.x, this.y) > 28 && !this.provoked) return false; return seeG.apply(this, arguments); };
 })(window.NE);

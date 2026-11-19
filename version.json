@@ -1,6 +1,16 @@
 {
  "log": [
   {
+   "version": "0.9.3",
+   "date": "2026-11-19",
+   "title": "30 new Vespa gifts",
+   "changes": [
+    "30 new strain gifts take the total from 13 to 43. Modest ones: Sap Blood, Lantern Eyes, Still Tongue, Iron Stomach, Clean Blood, Moss Skin, Feather Fall, Deep Lungs, Mule Legs, Scavenger's Nose and Nectar Sense. Strong ones: Abyss-Born, Crushing Jaws, Tail Stinger, Hard Shell, Quick Clot, Second Wind, Wall Crawler, Calming Musk, Acid Bloom, Wing Buzz, Stone Bones, Hunter's Rush, Long Limbs, Chameleon Skin and Echo Burst. Run-defining ones: Brood Mother, Royal Jelly Veins, Death Grip and Swarm Cloak.",
+    "Every one of the 53 strains has a fresh set of gifts, and no two strains share the same set. Common strains get 2, Uncommon and Rare get 3, Epic and Legendary 4, Mythical 5 and Secret 6. Low-rarity strains lean towards modest gifts; high-rarity strains carry the run-defining ones.",
+    "Each gift now belongs to 3–6 different strains, so every gift turns up regularly."
+   ]
+  },
+  {
    "version": "0.9.2",
    "date": "2026-11-19",
    "title": "Gentler hunger for slow explorers",

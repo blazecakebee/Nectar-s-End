@@ -27,7 +27,7 @@ C.strike = function (a, w, heavy, force) {
 };
 C.tick = function (a, dt, tx, ty, active) {
   const w = active ? C.weaponOf(a) : null; if (!w) { a.wdir = null; a.wext = 0; a.strk = null; return; }
-  const sh = a.rag.pts[1]; const sx = sh.x, sy = sh.y + 1; const L = (WLEN[w.id] || 7) + (a.hReach || 0); const wt = w.w || 0.5;
+  const sh = a.rag.pts[1]; const sx = sh.x, sy = sh.y + 1; const L = (WLEN[w.id] || 7) + (a.hReach || 0) + (a.abil && a.abil.includes('longarms') ? 3 : 0); const wt = w.w || 0.5;
   let target = Math.atan2(ty - sy, tx - sx); if (a.wa == null) a.wa = target;
   let ext = 0, off = 0, boost = 1; const S = a.strk;
   if (S) { S.t += dt; const k = clamp(S.t / S.dur, 0, 1);
