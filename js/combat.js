@@ -255,7 +255,7 @@ Gore.tick = function (dt) {
   for (const a of G.actors) {
     if (!a.rag || Math.abs(a.y - (G.player ? G.player.y : a.y)) > 260) continue; const P = a.rag.pts;
     if (a.sev) for (const part in a.sev) { const age = G.t - a.sev[part]; if (age > (a.alive ? 30 : 9)) continue; const pulse = Math.sin(G.t * 9) > 0.3; if (!pulse || Math.random() > dt * 40) continue; const j = part === 'head' ? P[1] : P[part.endsWith('arm') ? 1 : 2]; const sx = part.endsWith('arm') ? (part[0] === (a.facing > 0 ? 'r' : 'l') ? 1 : -1) * a.facing : 0; G.addP(j.x + sx, j.y - (part === 'head' ? 2 : 0), sx * rf(20, 60) + rf(-15, 15), -rf(20, 70) * (part === 'head' ? 1.4 : 1), rf(0.4, 0.9), pick(['#a01818', '#8a1010']), 'blood'); }
-    if (!a.alive && a.anat && a.anat.blood > 600) { a.deadT = (a.deadT || 0) + dt; if (a.deadT < 30) { const bleed = (a.sev ? Object.keys(a.sev).length * 2 : 0) + (a.gutted ? 3 : 0) + 1; a.anat.blood -= dt * bleed * 15; if (Math.random() < dt * 3) Gore.poolAt(P[2].x + rf(-2, 2), P[2].y, 0.25 * bleed, 10 + bleed * 2); } }
+    if (!a.alive && a.anat && a.anat.blood > 480) { a.deadT = (a.deadT || 0) + dt; if (a.deadT < 30) { const bleed = (a.sev ? Object.keys(a.sev).length * 2 : 0) + (a.gutted ? 3 : 0) + 1; a.anat.blood -= dt * bleed * 15; if (Math.random() < dt * 3) Gore.poolAt(P[2].x + rf(-2, 2), P[2].y, 0.25 * bleed, 10 + bleed * 2); } }
     else if (a.alive && a.anat && a.anat.bleeding > 2 && a.onGround && Math.random() < dt * 0.8) Gore.poolAt(a.x + rf(-2, 2), a.y - 1, 0.6, 5);
   }
   for (const b of G.phys.bodies) {

@@ -105,7 +105,7 @@ G.cycleThrow = function () { const p = G.player; const ids = (NE.THROW_IDS || ['
 G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const cur = p.equip.weapon; const all = [null, ...ws]; const i = ((all.indexOf(cur) + dir) % all.length + all.length) % all.length; p.equip.weapon = all[i]; p.charge = null; NE.UI.weaponFlash(all, i); NE.Audio.play('click', 0.7); };
 G.onClick = function () { if (G.infest) return G.skipInfest(); if (G.player && G.player.alive && G.player.anat.uncon && G.state === 'run') return G.struggle(); if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
 G.startGrab = function () {
-  if (!G.playing() || NE.UI.panel) return; const p = G.player; const m = G.mouse;
+  if (!G.playing() || NE.UI.panel || G.goop) return; const p = G.player; const m = G.mouse;
   if (p && p.alive && p.charge && p.lunge && p.lunge()) return; // full wind-up + RMB = lunge
   if (NE.dist(m.wx, m.wy, p.x, p.cy) > 40) return;
   G.grab = G.phys.nearestPoint(m.wx, m.wy, 9, b => b.owner !== p && !(b.owner && b.owner.alive)); if (G.grab) { G.grab.body.dragBy = p; return; }
@@ -145,7 +145,7 @@ G.decal = function (x, y, col) {
 // knocked down: mash Space / click to claw your way back up and shove off whoever is standing over you
 G.struggle = function () {
   const p = G.player, A = p.anat; const ex = G.actors.find(a => a.alive && a.D && a.exec && a.target === p);
-  if (ex && ex.exec) ex.exec.t = Math.max(0, ex.exec.t - 0.15); p.strug = Math.min(1, (p.strug || 0) + (ex ? 0.2 : 0.17) * (A.blood > 3000 ? 1 : 0.8) * (0.8 + A.org.brain / 500)); G.shake(0.6); NE.Audio.play('step', 0.5);
+  if (ex && ex.exec) ex.exec.t = Math.max(0, ex.exec.t - 0.15); p.strug = Math.min(1, (p.strug || 0) + (ex ? 0.2 : 0.17) * (A.blood > 2400 ? 1 : 0.8) * (0.8 + A.org.brain / 500)); G.shake(0.6); NE.Audio.play('step', 0.5);
   if (p.strug >= 1) { p.strug = 0; A.uncon = false; A.cons = Math.max(A.cons, 45); A.secondWind = 8; A.stam = Math.max(A.stam, 35); A.painSpike *= 0.5; p.knockT = 0;
     const foes = G.actors.filter(a => a.alive && a.D && NE.dist(a.x, a.y, p.x, p.y) < 30);
     for (const e of foes) { e.exec = null; e.charge = null; e.windT = 0; e.stagger = 1.1; e.knockT = 0.4; e.vx += Math.sign(e.x - p.x || 1) * 230; e.vy -= 70; e.onGround = false; e.cd = 1.4; }
@@ -261,7 +261,7 @@ G.update = function (dt, rdt) {
   if (p.alive) {
     p.update(dt, G.state === 'dying' || G.infest ? { mx: 0 } : G.ctl()); G.struggleTick(dt); if (G.infest) G.infestUpdate(dt);
     if (run) { p.anat.update(dt, env); G.handleAnatEvents(p); G.vespaTick(p, dt); if (G.state === 'run' && p.anat.dead) G.playerDeath(); }
-    p.rag.tiles = p.anat.uncon; if (p.anat.uncon) p.rag.collide = false;
+    p.rag.tiles = p.anat.uncon || !!p.rd || p.getUpT > 0; if (p.anat.uncon) p.rag.collide = false; // a limp body always rests on the ground, never sinks into it
     if (run && p.alive) G.hazards(p, dt);
   }
   if (G.goop) G.goopUpdate(dt);
@@ -354,10 +354,10 @@ G.handleAnatEvents = function (p) {
   }
   A.ev.length = 0;
   const per = (k, cond, lines, every) => { G.monoT[k] = (G.monoT[k] || 0) - 1 / 60; if (cond && G.monoT[k] <= 0) { G.monoT[k] = every; G.say(pick(lines), 0.7); } };
-  per('lb', A.blood < 3600, NE.MONO.lowblood, 30); per('hu', A.hunger < 20, NE.MONO.hungry, 60); per('th', A.thirst < 20, NE.MONO.thirsty, 60);
+  per('lb', A.blood < 2880, NE.MONO.lowblood, 30); per('hu', A.hunger < 20, NE.MONO.hungry, 60); per('th', A.thirst < 20, NE.MONO.thirsty, 60);
   per('co', A.temp < 35.6, NE.MONO.cold, 40); per('ht', A.temp > 38.4 && A.infection < 35, NE.MONO.heat, 45); per('pa', A.pain > A.threshold, NE.MONO.pain, 15); per('in', A.infection > 40, NE.MONO.infection, 60); per('dk', G.env.dark, NE.MONO.dark, 90);
   if (A.bleeding > 0.4 && Math.random() < A.bleeding * 0.02) { G.addP(p.x + rf(-2, 2), p.y - rf(4, 10), rf(-5, 5), 0, 1, '#7a0e0e', 'blood'); }
-  if (A.blood < 3200 && Math.random() < 0.016) NE.Audio.play('heart', clamp((3800 - A.blood) / 1500, 0.3, 1));
+  if (A.blood < 2560 && Math.random() < 0.016) NE.Audio.play('heart', clamp((3040 - A.blood) / 1200, 0.3, 1));
   if (A.stam < 15 && Math.random() < 0.02) NE.Audio.play('breath', 0.8);
 };
 G.hazards = function (p, dt) {
@@ -465,7 +465,7 @@ G.interact = function () {
     case 'harvest': return G.harvestRelic(o);
     case 'table': G.toast('Surgical table: treatments are faster and hurt less here.'); return UI.open('health');
     case 'treatPeer': return UI.peerTriage();
-    case 'raisePeer': { if (p.anat.blood < 3200) return G.toast('You\'re too drained to feed it. (Needs some of your blood.)'); p.treating = { t: 0, dur: 2.5, peer: true, op: 'raise', part: 'torso', x: o.x, y: o.y - 3 }; G.toast('Your Vespa bleeds a little of itself into the corpse...'); return; }
+    case 'raisePeer': { if (p.anat.blood < 2560) return G.toast('You\'re too drained to feed it. (Needs some of your blood.)'); p.treating = { t: 0, dur: 2.5, peer: true, op: 'raise', part: 'torso', x: o.x, y: o.y - 3 }; G.toast('Your Vespa bleeds a little of itself into the corpse...'); return; }
     case 'water': {
       const A = p.anat;
       if (G.kd('crouch') && p.inv.count('rag')) { // scrub dirty / bloody rags
@@ -529,7 +529,7 @@ G.dropEntry = function (e) { const p = G.player; p.inv.remove(e); if (p.equip.we
 G.onEnemyDeath = function (e, cause) {
   if (!e.alive) return; e.die(cause);
   const byPlayer = G.player && e.anat.lastHit === G.player.surv.first;
-  if (byPlayer && G.player && G.player.abil && G.player.abil.includes('frenzy')) { const A = G.player.anat; A.stam = A.stamMax; A.blood = Math.min(5000, A.blood + 250); G.addP && G.addP(G.player.x, G.player.cy, 0, -20, 0.6, '#ff4040', 'glow', 0); }
+  if (byPlayer && G.player && G.player.abil && G.player.abil.includes('frenzy')) { const A = G.player.anat; A.stam = A.stamMax; A.blood = Math.min(NE.BLOOD, A.blood + 200); G.addP && G.addP(G.player.x, G.player.cy, 0, -20, 0.6, '#ff4040', 'glow', 0); }
   if (byPlayer && G.run) { const kx = Math.round(10 * (NE.THREAT[e.type] || 1) + Math.min(25, (e.depth || 0) / 60)); G.run.killXP = (G.run.killXP || 0) + kx; G.toast('+' + kx + ' XP'); G.run.kills++; if (e.type === 'specops') G.run.specops = true; G.say(pick(NE.MONO.kill), 0.6); }
   const items = e.dropLoot ? e.dropLoot() : (e.kind === 'trader' ? (e.stock || []).map(s => ({ id: s.id, n: s.n })) : [{ id: 'rag', n: 1 }, { id: 'trinket', n: 1 }]);
   e.gear = {};
@@ -804,16 +804,16 @@ G.drawLighting = function (cx, cy, fl) {
 function hexA(h, a) { const n = parseInt(h.slice(1), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
 G.drawFX = function () {
   const ctx = G.ctx, p = G.player, A = p.anat; if (G.state === 'lobby') return;
-  if (G.flashT > 0) { ctx.fillStyle = 'rgba(255,200,50,' + Math.min(0.55, G.flashT * 0.45) + ')'; ctx.fillRect(0, 0, VW, VH); }
+  if (G.flashT > 0) { ctx.fillStyle = ((G.goop || G.emerge || G.state === 'burst') && NE.VC ? NE.VC.rgba : 'rgba(255,200,50,') + Math.min(0.55, G.flashT * 0.45) + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (G.pulseFx) { const f = G.pulseFx; f.t += 1 / 60; if (f.t > 0.5) G.pulseFx = null; else { ctx.strokeStyle = 'rgba(255,210,60,' + (1 - f.t * 2) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(f.x - G.cam.x, f.y - G.cam.y, f.t * 160, 0, 7); ctx.stroke(); } }
-  if (G.goop) { const k = 0.12 + 0.06 * Math.sin(G.t * 8); const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.3, VW / 2, VH / 2, VH * 0.9); gr.addColorStop(0, 'rgba(255,190,30,0)'); gr.addColorStop(1, 'rgba(255,170,20,' + (k * 2) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); return; }
-  const bp = A.blood / 5000;
+  if (G.goop) { const k = 0.12 + 0.06 * Math.sin(G.t * 8); const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.3, VW / 2, VH / 2, VH * 0.9); gr.addColorStop(0, (NE.VC ? NE.VC.rgba : 'rgba(255,190,30,')+'0)'); gr.addColorStop(1, (NE.VC ? NE.VC.rgba : 'rgba(255,170,20,') + (k * 2) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); return; }
+  const bp = A.blood / NE.BLOOD;
   if (bp < 0.8) { const k = clamp((0.8 - bp) / 0.35, 0, 1); const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * (0.5 - k * 0.3), VW / 2, VH / 2, VH * 0.85); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,' + (0.5 + k * 0.45) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); }
   const pk = clamp((A.pain - A.threshold * 0.5) / A.threshold, 0, 1); if (pk > 0) { const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.3, VW / 2, VH / 2, VH * 0.8); gr.addColorStop(0, 'rgba(120,0,0,0)'); gr.addColorStop(1, 'rgba(140,10,10,' + (pk * 0.45 + Math.sin(G.t * 6) * 0.05 * pk) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); }
   if (p.hurtT > 0) { ctx.fillStyle = 'rgba(160,20,20,' + p.hurtT * 0.4 + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (A.gas > 0) { ctx.fillStyle = 'rgba(120,160,40,' + A.gas * 0.18 + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (A.temp < 35.5) { ctx.fillStyle = 'rgba(140,180,220,' + Math.min(0.2, (35.5 - A.temp) * 0.06) + ')'; ctx.fillRect(0, 0, VW, VH); }
-  const c = A.cons; if (c < 45 || A.uncon) { ctx.fillStyle = 'rgba(0,0,0,' + (A.uncon ? 0.93 : (45 - c) / 45 * 0.6 * (0.8 + 0.2 * Math.sin(G.t * 2))) + ')'; ctx.fillRect(0, 0, VW, VH); }
+  const c = A.cons; if (c < 45 || A.uncon) { ctx.fillStyle = 'rgba(0,0,0,' + (A.uncon ? 0.72 + 0.06 * Math.sin(G.t * 1.3) : (45 - c) / 45 * 0.5 * (0.8 + 0.2 * Math.sin(G.t * 2))) + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (G.state === 'dying') { ctx.fillStyle = 'rgba(0,0,0,' + clamp(1 - G.dieT / 3.2, 0, 0.9) + ')'; ctx.fillRect(0, 0, VW, VH); }
 };
 

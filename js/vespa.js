@@ -73,7 +73,7 @@ G.finishRelic = function (o) {
 G.drinkNectar = function (p) {
   const R = G.run; if (!R) return; R.abil = R.abil || []; G.meta.nectars = (G.meta.nectars || 0) + 1;
   const pow = NE.variantOf(p.surv.variant).pow || []; const left = NE.ABILITIES.filter(a => (!a.strain || pow.includes(a.id)) && !R.abil.includes(a.id));
-  p.anat.blood = Math.min(5000, p.anat.blood + 600); p.anat.pain *= 0.4; p.anat.stam = p.anat.stamMax; p.anat.infection *= 0.5; for (const k of NE.PARTS) p.anat.parts[k].hp = Math.min(p.anat.parts[k].max, p.anat.parts[k].hp + 25);
+  p.anat.blood = Math.min(NE.BLOOD, p.anat.blood + 480); p.anat.pain *= 0.4; p.anat.stam = p.anat.stamMax; p.anat.infection *= 0.5; for (const k of NE.PARTS) p.anat.parts[k].hp = Math.min(p.anat.parts[k].max, p.anat.parts[k].hp + 25);
   G.flashT = 1.2; NE.Audio.play('nectar'); NE.Audio.play('respawn', 0.6); G.shake(3); G.sayCD = 0; G.say(pick(NE.MONO.nectar)); G.nectarFx = { t: 0, col: p.vglow || '#ffd040' }; G.slowmo = 0.9;
   for (let i = 0; i < 40; i++) G.addP(p.x, p.cy, rf(-60, 60), rf(-80, 20), rf(0.6, 1.6), pick(['#ffd040', '#fff0a0', '#ffb020']), 'glow', 0.1);
   if (!left.length) { G.meta.xp += 120; NE.UI.banner('THE VESPA IS SATED', 'Every gift already awakened. +120 XP.'); G.log('The nectar heals the host completely.', 'good'); return; }
@@ -89,14 +89,18 @@ G.hivePulse = function (p) {
 };
 
 // ---------- death: the Vespa bursts out for 10 seconds ----------
-G.startBurst = function (p) {
+// the Vespa wears its strain's colour
+NE.VC = { main: '#ffc21a', mid: '#ffd84a', dark: '#d08a10', light: '#fff0a0', stripe: '#3a2408', rgba: 'rgba(255,200,40,' };
+NE.setVespaColours = function (c) { c = c || '#ffc21a'; const h = c.replace('#', ''); const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16); const mix = (k, w) => '#' + [r, g, b].map(v => Math.round(Math.min(255, v * k + 255 * w))).map(v => v.toString(16).padStart(2, '0')).join('');
+  NE.VC = { main: c, mid: mix(1, 0.18), dark: mix(0.68, 0), light: mix(0.6, 0.45), stripe: mix(0.22, 0), rgba: 'rgba(' + r + ',' + g + ',' + b + ',' }; };
+G.startBurst = function (p) { NE.setVespaColours(p.vglow);
   G.state = 'burst'; const g = Object.create(NE.Actor.prototype); Object.assign(g, { g: G, x: p.x, y: p.y - 1, vx: 0, vy: -140, w: 7, h: 6, onGround: false, dropT: 0, climbing: false, t: 10, cd: 0, lashT: 0, tgt: null, kills: 0, facing: p.facing, wob: 0 });
   G.goop = g; G.sayCD = 0; G.say(pick(NE.MONO.burst)); NE.Audio.play('screech'); NE.Audio.play('burst'); G.shake(9); NE.Audio.music('burst');
   // rupture: blinding light, a ring of gore and glowing ichor
-  const vc = p.vglow || '#ffc21a'; G.flashT = 1.1; G.burstFx = { x: p.x, y: p.cy, t: 1, col: vc }; G.slowmo = 0.35;
-  for (let i = 0; i < 70; i++) { const a = i / 70 * Math.PI * 2; const sp = rf(80, 220); G.addP(p.x, p.cy, Math.cos(a) * sp, Math.sin(a) * sp - 40, rf(0.6, 1.5), pick([vc, '#ffc21a', '#e09010', '#fff6c0']), i % 3 ? 'goo' : 'glow', i % 3 ? undefined : 0); }
+  const vc = p.vglow || NE.VC.main; G.flashT = 1.1; G.burstFx = { x: p.x, y: p.cy, t: 1, col: vc }; G.slowmo = 0.35;
+  for (let i = 0; i < 70; i++) { const a = i / 70 * Math.PI * 2; const sp = rf(80, 220); G.addP(p.x, p.cy, Math.cos(a) * sp, Math.sin(a) * sp - 40, rf(0.6, 1.5), pick([vc, NE.VC.main, NE.VC.dark, NE.VC.light]), i % 3 ? 'goo' : 'glow', i % 3 ? undefined : 0); }
   if (NE.Combat) NE.Combat.spray(p.x, p.cy, 0, -1, 30);
-  NE.UI.banner('THE VESPA ERUPTS', 'Ten seconds. [LMB] lash  •  [E] SWALLOW someone close for big points  •  climb walls');
+  NE.UI.banner('THE VESPA ERUPTS', 'Ten seconds. [LMB] lash  •  [RMB] grapple  •  [E] SWALLOW someone close  •  climb walls');
   for (const a of G.actors) if (a.alive && a.D && NE.dist(a.x, a.y, p.x, p.y) < 90 && chance(0.5)) { a.state = 'flee'; a.target = p; }
   if (G.net && G.net.on) G.net.send({ t: 'burst' });
 };
@@ -111,21 +115,21 @@ G.goopUpdate = function (dt) {
   if (g.bumped && mx === g.bumped && U) g.vy = -90; // sticky goo climbs walls
   const py = g.y; g.y += g.vy * dt; g.collideY(py, false);
   g.t -= dt; g.cd = Math.max(0, g.cd - dt); g.lashT = Math.max(0, g.lashT - dt); g.wob += dt;
-  if (Math.random() < dt * 14) G.addP(g.x + rf(-3, 3), g.y - 2, rf(-15, 15), rf(-20, 5), rf(0.4, 0.9), pick(['#ffc21a', '#d08a10']), 'goo');
+  if (Math.random() < dt * 14) G.addP(g.x + rf(-3, 3), g.y - 2, rf(-15, 15), rf(-20, 5), rf(0.4, 0.9), pick([NE.VC.main, NE.VC.dark]), 'goo');
   // swallow: press [E] on anyone close — the Vespa engulfs them whole for big points (the weaker they are, the faster it goes)
   g.sw = g.sw || null; const eKey = !block && G.kd('interact');
   if (!g.sw) { let best = null, bd = 16; for (const a of G.actors) { if (!a.alive || a.isPlayer || a.isRemote || a.town || a.gone) continue; const d = Math.hypot(a.x - g.x, a.cy - (g.y - 3)); if (d < bd) { bd = d; best = a; } }
     g.swTarget = best; if (best && eKey && !g._eh) { const A = best.anat; const hpk = (A.parts.torso.hp / A.parts.torso.max + A.parts.head.hp / A.parts.head.max) / 2; g.sw = { a: best, t: 0, dur: clamp(0.5 + hpk * 0.9 * (best.D && best.D.hpMul || 1), 0.45, 1.6) }; best.stagger = 3; if (best.onAggro) best.onAggro(G.player); NE.Audio.play('latch'); NE.Audio.play('squelch', 1); G.shake(2); } }
   g._eh = eKey;
   if (g.sw) { const S = g.sw, a = S.a; if (!a.alive && !a.anat.dead) { g.sw = null; } else { S.t += dt; a.stagger = Math.max(a.stagger || 0, 0.4); a.vx = lerp(a.vx, (g.x - a.x) * 8, 0.3); g.vx *= 0.5; g.facing = a.x > g.x ? 1 : -1;
-      if (Math.random() < dt * 30) G.addP(a.x + rf(-3, 3), a.cy + rf(-6, 6), rf(-20, 20), rf(-30, 10), 0.5, G.player.vglow || '#ffc21a', 'goo'); g.lashT = 0.1; g.tgt = { x: a.x + rf(-2, 2), y: a.cy + rf(-4, 4) };
+      if (Math.random() < dt * 30) G.addP(a.x + rf(-3, 3), a.cy + rf(-6, 6), rf(-20, 20), rf(-30, 10), 0.5, G.player.vglow || NE.VC.main, 'goo'); g.lashT = 0.1; g.tgt = { x: a.x + rf(-2, 2), y: a.cy + rf(-4, 4) };
       if (S.t >= S.dur) { const pts = Math.round(40 * (NE.THREAT[a.type] || 1)); g.sw = null; g.eaten = (g.eaten || 0) + 1; g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; G.run.swallowXP = (G.run.swallowXP || 0) + pts; G.run.killXP = (G.run.killXP || 0) + pts;
         if (a.isPuppet) { a.hurt('head', 900, 'sharp', 'The Vespa'); a.hurt('torso', 900, 'sharp', 'The Vespa'); } else if (a.alive) { a.anat.cause = 'Swallowed by the Vespa'; G.onEnemyDeath ? (a.D ? G.onEnemyDeath(a, 'Swallowed by the Vespa') : a.die('Swallowed by the Vespa')) : a.die('Swallowed'); }
         a.hidden = true; a.gone = true; if (a.rag) { a.rag.remove = true; } G.dyn = G.dyn.filter(o => o.actor !== a); NE.Audio.play('gobble'); NE.Audio.play('gulp', 0.8); G.shake(4); G.slowmo = 0.2;
-        for (let i = 0; i < 24; i++) G.addP(g.x, g.y - 3, rf(-70, 70), rf(-90, 10), rf(0.4, 0.9), pick(['#ffc21a', '#d08a10', '#7a0c0c']), 'goo');
+        for (let i = 0; i < 24; i++) G.addP(g.x, g.y - 3, rf(-70, 70), rf(-90, 10), rf(0.4, 0.9), pick([NE.VC.main, NE.VC.dark, '#7a0c0c']), 'goo');
         g.t = Math.min(14, g.t + 1.5); G.toast('SWALLOWED! +' + pts + ' XP  (+1.5s)'); } } }
   if (G.mouse.l && g.cd <= 0 && !g.sw) G.goopLash();
-  if (g.t <= 0) { G.domText('burst-t', null); G.goop = null; G.state = 'dying'; G.dieT = 2.4; NE.Audio.play('retract'); NE.Audio.play('death'); G.burstFx = { x: g.x, y: g.y - 3, t: 0.5, col: '#a07010' }; for (let i = 0; i < 30; i++) G.addP(g.x, g.y - 3, rf(-50, 50), rf(-70, 0), rf(0.6, 1.2), '#a07010', 'goo'); G.log('The Vespa dissolves into the rock.' + (g.kills ? ' It took ' + g.kills + ' with it.' : ''), 'bad'); if (G.net && G.net.on) G.net.send({ t: 'burstend' }); }
+  if (g.t <= 0) { G.domText('burst-t', null); G.goop = null; G.state = 'dying'; G.dieT = 2.4; NE.Audio.play('retract'); NE.Audio.play('death'); G.burstFx = { x: g.x, y: g.y - 3, t: 0.5, col: NE.VC.dark }; for (let i = 0; i < 30; i++) G.addP(g.x, g.y - 3, rf(-50, 50), rf(-70, 0), rf(0.6, 1.2), NE.VC.dark, 'goo'); G.log('The Vespa dissolves into the rock.' + (g.kills ? ' It took ' + g.kills + ' with it.' : ''), 'bad'); if (G.net && G.net.on) G.net.send({ t: 'burstend' }); }
 };
 G.goopLash = function () {
   const g = G.goop; if (!g || g.cd > 0) return; g.cd = 0.32; g.lashT = 0.18; const m = G.mouse; let dx = m.wx - g.x, dy = m.wy - (g.y - 3); const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; const reach = 38;
@@ -133,26 +137,28 @@ G.goopLash = function () {
   for (const a of G.actors) {
     if (!a.alive || a.isPlayer || a.isRemote) continue; const px = a.x - g.x, py = a.cy - (g.y - 3); const along = px * dx + py * dy; if (along < -2 || along > reach + 3) continue; const perp = Math.abs(px * dy - py * dx); if (perp > 7) continue;
     const part = pick(['torso', 'torso', 'head', 'larm', 'rarm', 'lleg', 'rleg']); const wasAlive = a.alive;
-    a.hurt(part, rf(30, 44), 'sharp', 'The Vespa', { x: dx, y: dy }); a.vx += dx * 160; a.vy -= 60; if (a.onAggro) a.onAggro(G.player);
-    for (let i = 0; i < 8; i++) G.addP(a.x, a.cy, dx * rf(20, 70), rf(-50, 10), 0.8, '#d8a020', 'goo');
+    a.hurt(part, rf(46, 64), 'sharp', 'The Vespa', { x: dx, y: dy });
+    // the tendril can coil round a neck and tear the head clean off
+    if (a.anat && a.anat.parts.head && !a.anat.parts.head.severed && !a.gone && chance(part === 'head' ? 0.45 : 0.14)) { NE.Gore.sever(a, 'head', { x: dx, y: -0.6 }); if (a.anat) a.anat.cause = 'Head torn off by the Vespa'; if (a.alive && a.die) { if (a.D && G.onEnemyDeath) G.onEnemyDeath(a, 'Head torn off by the Vespa'); else a.die('Head torn off by the Vespa'); } NE.Audio.play('crack', 1); NE.Audio.play('squelch', 1); G.shake(4); G.slowmo = Math.max(G.slowmo || 0, 0.15); G.toast('DECAPITATED'); } a.vx += dx * 160; a.vy -= 60; if (a.onAggro) a.onAggro(G.player);
+    for (let i = 0; i < 8; i++) G.addP(a.x, a.cy, dx * rf(20, 70), rf(-50, 10), 0.8, NE.VC.main, 'goo');
     if (a.anat.dead && wasAlive) { g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; G.toast('+35 XP — Vespa kill'); } G.shake(2);
   }
   G.phys.impulse(g.tgt.x, g.tgt.y, 14, 300);
 };
-const goopCol = ['#ffc21a', '#ffd84a', '#e8a010'];
+const goopColF = () => [NE.VC.main, NE.VC.mid, NE.VC.dark];
 G.drawGoop = function (ctx) {
-  { const g0 = G.goop, a = g0 && !g0.sw && g0.swTarget; if (a && a.alive) { const k = 0.5 + 0.5 * Math.sin(G.t * 10); ctx.strokeStyle = 'rgba(255,200,40,' + (0.4 + k * 0.5) + ')'; ctx.lineWidth = 1; ctx.strokeRect(Math.round(a.x) - 5.5, Math.round(a.y - a.h) - 2.5, 11, a.h + 3); ctx.fillStyle = '#ffd23a'; ctx.fillRect(Math.round(a.x) - 1, Math.round(a.y - a.h) - 7 - Math.round(k), 3, 3); ctx.fillStyle = '#2a1a04'; ctx.fillRect(Math.round(a.x), Math.round(a.y - a.h) - 6 - Math.round(k), 1, 1); } }
+  { const g0 = G.goop, a = g0 && !g0.sw && g0.swTarget; if (a && a.alive) { const k = 0.5 + 0.5 * Math.sin(G.t * 10); ctx.strokeStyle = NE.VC.rgba + (0.4 + k * 0.5) + ')'; ctx.lineWidth = 1; ctx.strokeRect(Math.round(a.x) - 5.5, Math.round(a.y - a.h) - 2.5, 11, a.h + 3); ctx.fillStyle = NE.VC.main; ctx.fillRect(Math.round(a.x) - 1, Math.round(a.y - a.h) - 7 - Math.round(k), 3, 3); ctx.fillStyle = '#2a1a04'; ctx.fillRect(Math.round(a.x), Math.round(a.y - a.h) - 6 - Math.round(k), 1, 1); } }
   const g = G.goop; const x = Math.round(g.x), y = Math.round(g.y); const w = g.wob;
   // tendrils
-  for (let i = 0; i < 6; i++) { const base = -Math.PI / 2 + (i - 2.5) * 0.55 + Math.sin(w * 3 + i) * 0.25; const len = 7 + Math.sin(w * 5 + i * 2) * 3; let px = x, py = y - 3; for (let k = 1; k <= len; k++) { const a = base + Math.sin(w * 6 + i + k * 0.5) * 0.4; px += Math.cos(a); py += Math.sin(a); ctx.fillStyle = k > len - 2 ? '#fff0a0' : goopCol[(i + k) % 3]; ctx.fillRect(Math.round(px), Math.round(py), 1, 1); } }
-  if (g.lashT > 0 && g.tgt) { const k = g.lashT / 0.18; const tx = lerp(g.tgt.x, x, 1 - k), ty = lerp(g.tgt.y, y - 3, 1 - k); NE.pline(ctx, x, y - 3, tx, ty, 2, '#ffc21a'); NE.pline(ctx, x, y - 3, tx, ty, 1, '#fff0a0'); }
+  for (let i = 0; i < 6; i++) { const base = -Math.PI / 2 + (i - 2.5) * 0.55 + Math.sin(w * 3 + i) * 0.25; const len = 7 + Math.sin(w * 5 + i * 2) * 3; let px = x, py = y - 3; for (let k = 1; k <= len; k++) { const a = base + Math.sin(w * 6 + i + k * 0.5) * 0.4; px += Math.cos(a); py += Math.sin(a); ctx.fillStyle = k > len - 2 ? NE.VC.light : goopColF()[(i + k) % 3]; ctx.fillRect(Math.round(px), Math.round(py), 1, 1); } }
+  if (g.lashT > 0 && g.tgt) { const k = g.lashT / 0.18; const tx = lerp(g.tgt.x, x, 1 - k), ty = lerp(g.tgt.y, y - 3, 1 - k); NE.pline(ctx, x, y - 3, tx, ty, 2, NE.VC.main); NE.pline(ctx, x, y - 3, tx, ty, 1, NE.VC.light); }
   // body: pulsing blob with bee stripes
   const r = 4 + Math.sin(w * 7) * 0.6;
-  for (let j = -6; j <= 0; j++) for (let i = -5; i <= 5; i++) { const d = (i / (r + 1)) ** 2 + ((j + 3) / 3.4) ** 2; if (d > 1) continue; ctx.fillStyle = (Math.floor((i + 8 + Math.sin(w * 4)) / 2.5) % 2) ? '#3a2408' : goopCol[(i + j + 12) % 3]; ctx.fillRect(x + i, y + j, 1, 1); }
-  ctx.fillStyle = '#fff6c0'; ctx.fillRect(x + g.facing * 2, y - 4, 1, 1); ctx.fillRect(x + g.facing * 2 - 2, y - 4, 1, 1);
+  for (let j = -6; j <= 0; j++) for (let i = -5; i <= 5; i++) { const d = (i / (r + 1)) ** 2 + ((j + 3) / 3.4) ** 2; if (d > 1) continue; ctx.fillStyle = (Math.floor((i + 8 + Math.sin(w * 4)) / 2.5) % 2) ? NE.VC.stripe : goopColF()[(i + j + 12) % 3]; ctx.fillRect(x + i, y + j, 1, 1); }
+  ctx.fillStyle = NE.VC.light; ctx.fillRect(x + g.facing * 2, y - 4, 1, 1); ctx.fillRect(x + g.facing * 2 - 2, y - 4, 1, 1);
 };
 G.drawGoopGlow = function (ctx) {
-  const g = G.goop; ctx.fillStyle = '#fff1a0'; ctx.fillRect(Math.round(g.x) + g.facing * 2, Math.round(g.y) - 4, 1, 1); ctx.fillRect(Math.round(g.x) + g.facing * 2 - 2, Math.round(g.y) - 4, 1, 1);
+  const g = G.goop; ctx.fillStyle = NE.VC.light; ctx.fillRect(Math.round(g.x) + g.facing * 2, Math.round(g.y) - 4, 1, 1); ctx.fillRect(Math.round(g.x) + g.facing * 2 - 2, Math.round(g.y) - 4, 1, 1);
   G.domText('burst-t', Math.max(0, g.t).toFixed(1), 0.06, 'big' + (g.t < 3 && Math.sin(G.t * 12) > 0 ? ' hot' : ''));
 };
 
@@ -266,3 +272,61 @@ G.rest = function () {
   });
 };
 })(window.NE);
+
+// ---------- Vespa grapple: right-click fires a tendril into any wall; hold to swing and reel in, let go to fling ----------
+(function () { const G = NE.G, T = NE.T;
+  const upG = G.goopUpdate; G.goopUpdate = function (dt) { const g = G.goop; const r0 = upG.apply(this, arguments); if (!G.goop || G.goop !== g) return r0;
+    const W = G.world, R = G.mouse.r && !NE.UI.modalOpen();
+    if (R && !g._rh && !g.hook) { const ox = g.x, oy = g.y - 3; let dx = G.mouse.wx - ox, dy = G.mouse.wy - oy; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+      for (let d = 4; d <= 130; d += 2) { const x = ox + dx * d, y = oy + dy * d; if (W.solid(W.get(Math.floor(x / T), Math.floor(y / T)))) { g.hook = { x, y, len: d }; NE.Audio.play('latch'); NE.Audio.play('squelch', 0.6); for (let i = 0; i < 6; i++) G.addP(x, y, NE.rf(-30, 30), NE.rf(-30, 10), 0.5, NE.VC.main, 'goo'); break; } }
+      if (!g.hook) { g.miss = { x: ox + dx * 130, y: oy + dy * 130, t: 0.15 }; NE.Audio.play('whoosh', 0.5); } }
+    g._rh = R; if (g.miss) { g.miss.t -= dt; if (g.miss.t <= 0) g.miss = null; }
+    if (g.hook && !R) { g.hook = null; g.vy = Math.min(g.vy, g.vy * 1.1); } // let go: keep the swing's momentum
+    if (g.hook) { const H = g.hook; H.len = Math.max(8, H.len - dt * 80); const cx = g.x, cy = g.y - 3; let ex = cx - H.x, ey = cy - H.y; const d = Math.hypot(ex, ey) || 1;
+      if (d > H.len) { ex /= d; ey /= d; const vr = g.vx * ex + g.vy * ey; if (vr > 0) { g.vx -= vr * ex; g.vy -= vr * ey; } const mx = H.x + ex * H.len - cx, my = H.y + ey * H.len - cy;
+        g.x += mx; g.collideX(); const py = g.y; g.y += my; g.collideY(py, false); }
+      g.vx += (G.kd('right') ? 1 : 0) * 160 * dt - (G.kd('left') ? 1 : 0) * 160 * dt; // pump the swing
+      if (H.len > 130) g.hook = null; }
+    return r0; };
+  const drG = G.drawGoop; G.drawGoop = function (ctx) { const r = drG.apply(this, arguments); const g = G.goop; if (!g) return r; const x = Math.round(g.x), y = Math.round(g.y) - 3;
+    const H = g.hook || g.miss; if (H) { const wob = Math.sin(G.t * 30) * (g.hook ? 0.4 : 1.2); NE.pline(ctx, x, y, H.x + wob, H.y, 2, NE.VC.dark); NE.pline(ctx, x, y, H.x, H.y, 1, NE.VC.light); if (g.hook) { ctx.fillStyle = NE.VC.light; ctx.fillRect(Math.round(H.x) - 1, Math.round(H.y) - 1, 2, 2); } }
+    return r; };
+})();
+
+// ---------- death: the Vespa claws its way out of the host before it erupts ----------
+// stirring (twitches, a heartbeat, light moving under the skin) -> bulging (convulsions, glowing cracks spreading over the chest)
+// -> tendrils (feelers push out of the wounds, the body arches, two eyes open in the gap) -> rupture (the original burst)
+(function () { const G = NE.G, rf = NE.rf, pick = NE.pick, clamp = NE.clamp;
+  const sb0 = G.startBurst; const DUR = 3.2;
+  G.startBurst = function (p) { if (!p || !p.rag || G.emerge) return sb0.apply(this, arguments);
+    NE.setVespaColours(p.vglow); G.state = 'burst'; G.emerge = { p, t: 0, beats: 0, twT: 0, cracks: [...Array(6)].map((_, i) => ({ a: -Math.PI / 2 + (i - 2.5) * 0.62 + rf(-0.2, 0.2), segs: [...Array(6)].map(() => rf(-0.7, 0.7)) })), stage: 0 };
+    G.say(pick(['Something is moving...', 'No— not yet—', 'It\'s waking up inside me.']), 2); };
+  const tickE = NE.UI.tick; NE.UI.tick = function (dt) { const r = tickE.apply(this, arguments); const E = G.emerge; if (!E) return r; const p = E.p; E.t += dt; const k = E.t / DUR; const P = p.rag.pts; const torso = { x: (P[1].x + P[2].x) / 2, y: (P[1].y + P[2].y) / 2 };
+    const kick = (q, s) => { q.ox -= rf(-s, s) / 60; q.oy -= rf(-s * 1.4, s * 0.3) / 60; };
+    // heartbeat that speeds up
+    const beatEvery = k < 0.3 ? 0.55 : k < 0.6 ? 0.32 : 0.18; E.bT = (E.bT || 0) - dt; if (E.bT <= 0 && k < 0.92) { E.bT = beatEvery; NE.Audio.play('heart', 0.4 + k * 0.7); E.pulse = 1; }
+    E.pulse = Math.max(0, (E.pulse || 0) - dt * 4);
+    // twitches, then full convulsions
+    E.twT -= dt; if (E.twT <= 0) { E.twT = k < 0.3 ? rf(0.2, 0.45) : rf(0.06, 0.16); const n = k < 0.3 ? 1 : k < 0.6 ? 2 : 3; for (let i = 0; i < n; i++) kick(pick(P), 40 + k * 140); if (k > 0.35) { P[1].oy += 0.8 + k; P[2].oy += 0.5; } G.shake(0.3 + k * 2.2); }
+    if (k > 0.33 && E.stage < 1) { E.stage = 1; NE.Audio.play('crack', 0.8); NE.Audio.play('squelch', 0.7); G.say(pick(['AAGH—', 'It\'s tearing—', 'Get out get OUT—']), 1.5); }
+    if (k > 0.62 && E.stage < 2) { E.stage = 2; NE.Audio.play('squelch', 1); NE.Audio.play('screech', 0.35); }
+    if (k > 0.62) { P[1].oy += dt * 60 * 0.9; } // the chest arches up as something pushes from inside
+    if (k > 0.35 && Math.random() < dt * (6 + k * 26)) G.addP(torso.x + rf(-3, 3), torso.y + rf(-3, 2), rf(-30, 30), rf(-60, -5), rf(0.4, 0.9), pick([NE.VC.main, NE.VC.dark, '#7a0c0c', '#5a0606']), pick(['goo', 'blood']));
+    G.burstFx = { x: torso.x, y: torso.y, t: 0.12 + k * 0.35 + (E.pulse || 0) * 0.12, col: p.vglow || NE.VC.main };
+    if (k > 0.9) G.flashT = Math.max(G.flashT || 0, (k - 0.9) * 6);
+    if (E.t >= DUR) { G.emerge = null; G.state = 'dying'; sb0.call(G, p); if (NE._burstPerk) NE._burstPerk(); }
+    return r; };
+  const glowE = G.drawGlow; G.drawGlow = function (ctx) { const r = glowE.apply(this, arguments); const E = G.emerge; if (!E) return r; const p = E.p, P = p.rag.pts, k = E.t / DUR; const C = NE.VC;
+    const tx = (P[1].x + P[2].x) / 2, ty = (P[1].y + P[2].y) / 2; const ang = Math.atan2(P[1].y - P[2].y, P[1].x - P[2].x); const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); };
+    // light moving under the skin
+    const lk = clamp(k * 1.6, 0, 1) * (0.55 + 0.45 * (E.pulse || 0)); for (let i = 0; i < 5; i++) { const t = (G.t * 1.7 + i * 0.37) % 1; const x = P[2].x + (P[1].x - P[2].x) * t + Math.sin(G.t * 5 + i) * 1.2, y = P[2].y + (P[1].y - P[2].y) * t + Math.cos(G.t * 4 + i) * 1.2; ctx.globalAlpha = 0.35 * lk; ctx.fillStyle = C.main; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 2, 2); }
+    ctx.globalAlpha = 1;
+    // glowing cracks spreading over the chest
+    if (k > 0.33) { const ck = clamp((k - 0.33) / 0.35, 0, 1); for (const c of E.cracks) { let x = tx, y = ty, a = c.a + ang + Math.PI / 2; const n = Math.round(ck * 6); for (let s = 0; s < n; s++) { a += c.segs[s] * 0.6; x += Math.cos(a) * 1.1; y += Math.sin(a) * 1.1; px(x, y, s < 2 ? C.light : C.main); if (E.pulse > 0.5 && s < 3) px(x + 1, y, C.light); } } }
+    // feelers push out of the wounds and taste the air; two eyes open in the gap
+    if (k > 0.62) { const fk = clamp((k - 0.62) / 0.3, 0, 1); for (let i = 0; i < 6; i++) { const base = ang + Math.PI / 2 + (i - 2.5) * 0.45; const len = 2 + fk * (5 + i % 3 * 2) + Math.sin(G.t * 9 + i) * 1.2; let x = tx, y = ty; for (let s = 1; s <= len; s++) { const a = base + Math.sin(G.t * 8 + i * 1.7 + s * 0.6) * 0.5; x += Math.cos(a); y += Math.sin(a); px(x, y, s > len - 1.5 ? C.light : (i + s) % 2 ? C.main : C.dark); } }
+      ctx.globalAlpha = clamp((k - 0.62) * 3, 0, 1); ctx.fillStyle = C.dark; ctx.fillRect(Math.round(tx) - 2, Math.round(ty) - 1, 5, 3); ctx.globalAlpha = 1;
+      if (k > 0.75) { const bl = Math.sin(G.t * 3) > 0.92 ? 0 : 1; if (bl) { px(tx - 1, ty, C.light); px(tx + 1, ty, C.light); } } }
+    return r; };
+})();
+(function () { const G = NE.G; const cw = G.clearWorld; G.clearWorld = function () { G.emerge = null; return cw.apply(this, arguments); }; })();

@@ -575,7 +575,7 @@ const puC = NE.Player.prototype.update;
 NE.Player.prototype.update = function (dt, input) {
   const A = this.anat;
   // Eternal Fortune: cheat death once
-  if (this.alive && wearing(this, 'eternalfortune') && (A.blood < 900 || A.parts.head.hp < 6 || A.parts.torso.hp < 6)) { A.blood = Math.max(A.blood, 3600); for (const k of NE.PARTS) { const P = A.parts[k]; if (!P.severed) P.hp = Math.max(P.hp, P.max * 0.45); for (const w of P.wounds) { w.bleed *= 0.2; } } A.uncon = false; A.cons = 100; for (const k in this.gear) if (this.gear[k] && this.gear[k].id === 'eternalfortune') this.gear[k] = null; NE.UI.banner('ETERNAL FORTUNE', 'Death passes you by. The charm crumbles to dust.'); NE.Audio.play('chime'); G.flashT = 0.8; }
+  if (this.alive && wearing(this, 'eternalfortune') && (A.blood < 720 || A.parts.head.hp < 6 || A.parts.torso.hp < 6)) { A.blood = Math.max(A.blood, 2880); for (const k of NE.PARTS) { const P = A.parts[k]; if (!P.severed) P.hp = Math.max(P.hp, P.max * 0.45); for (const w of P.wounds) { w.bleed *= 0.2; } } A.uncon = false; A.cons = 100; for (const k in this.gear) if (this.gear[k] && this.gear[k].id === 'eternalfortune') this.gear[k] = null; NE.UI.banner('ETERNAL FORTUNE', 'Death passes you by. The charm crumbles to dust.'); NE.Audio.play('chime'); G.flashT = 0.8; }
   const r = puC.apply(this, arguments);
   if (!this.alive || !G.world || G.world.lobby || G.state !== 'run' || !G.run) return r;
   const C = CS(); const d = NE.depthOfY(this.y); const L = NE.curseLayer(d); C.L = L;
@@ -606,7 +606,7 @@ NE.Player.prototype.update = function (dt, input) {
   if (wearing(this, 'sunsphere')) { A.temp = Math.max(A.temp, 36.8); for (const k of NE.PARTS) { const P = A.parts[k]; if (!P.severed) P.hp = Math.min(P.max, P.hp + dt * 0.35); } }
   if (wearing(this, 'stillward')) A.pain *= Math.pow(0.5, dt);
   if (wearing(this, 'invlantern')) this.light.bat = 100;
-  if (this.tonicT > 0) { this.tonicT -= dt; A.blood = Math.min(5000, A.blood + dt * 10); }
+  if (this.tonicT > 0) { this.tonicT -= dt; A.blood = Math.min(NE.BLOOD, A.blood + dt * 8); }
   NE.curseFX(this, C);
   return r;
 };
@@ -719,7 +719,7 @@ NE.Player.prototype.poke = function () { const w = this.weaponDef(); if (!w.beam
 const drawBm = NE.Actor.prototype.draw; NE.Actor.prototype.draw = function (ctx) { const r = drawBm.apply(this, arguments); if (this.isPlayer && NE._beams && NE._beams.length) { for (const b of NE._beams) { b.t -= 1 / 60; ctx.globalAlpha = Math.max(0, b.t / 0.25); ctx.strokeStyle = '#e8f6ff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(b.x0, b.y0); ctx.lineTo(b.x1, b.y1); ctx.stroke(); ctx.strokeStyle = '#60b0ff'; ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1; } NE._beams = NE._beams.filter(b => b.t > 0); } return r; };
 // carry & blood adjustments for some artifacts
 const csA = NE.Player.prototype.setAbilities; NE.Player.prototype.setAbilities = function () { return csA.apply(this, arguments); };
-const puE = NE.Player.prototype.update; NE.Player.prototype.update = function (dt) { const r = puE.apply(this, arguments); const pins = Object.values(this.gear || {}).some(e => e && e.id === 'thousandpins'); if (pins !== !!this._pins) { this.inv.carry += pins ? 12 : -12; this._pins = pins; } const hh = Object.values(this.gear || {}).some(e => e && e.id === 'hollowheart'); if (hh && this.anat.blood > 4250) this.anat.blood = 4250; return r; };
+const puE = NE.Player.prototype.update; NE.Player.prototype.update = function (dt) { const r = puE.apply(this, arguments); const pins = Object.values(this.gear || {}).some(e => e && e.id === 'thousandpins'); if (pins !== !!this._pins) { this.inv.carry += pins ? 12 : -12; this._pins = pins; } const hh = Object.values(this.gear || {}).some(e => e && e.id === 'hollowheart'); if (hh && this.anat.blood > 3400) this.anat.blood = 3400; return r; };
 
 // =====================================================================================================================
 // HUD: curse meter in the vitals, correct "next town" marker
@@ -969,7 +969,7 @@ const smG = NE.styleMul; NE.styleMul = function (a, w) { let k = smG(a, w); if (
 // damage taken
 const hurtG = NE.Actor.prototype.hurt;
 NE.Actor.prototype.hurt = function (part, dmg, kind, src, dir) { const p = G.player;
-  if (this.isPlayer && this.abil) { if (ab(this, 'hardshell') && (part === 'head' || part === 'torso')) arguments[1] *= 0.85; if (ab(this, 'deathgrip') && this.anat.blood < 1250) arguments[1] *= 0.65; }
+  if (this.isPlayer && this.abil) { if (ab(this, 'hardshell') && (part === 'head' || part === 'torso')) arguments[1] *= 0.85; if (ab(this, 'deathgrip') && this.anat.blood < 1000) arguments[1] *= 0.65; }
   const r = hurtG.apply(this, arguments);
   if (p && this !== p && this.D && this.alive && src === p.surv.first && kind !== 'poison' && kind !== 'burn' && ab(p, 'stingtail') && (p.stingT || 0) <= G.t) { p.stingT = G.t + 8; hurtG.call(this, part, 12, 'sharp', src, dir); this.anat.tox = (this.anat.tox || 0) + 30; for (let i = 0; i < 6; i++) G.addP(this.x, this.y - 10, rf(-20, 20), rf(-40, 0), 0.5, '#a0e040', 'spark', 0.3); }
   return r; };

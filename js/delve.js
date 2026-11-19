@@ -293,4 +293,32 @@ const tickT = NE.UI.tick; NE.UI.tick = function (dt) { const r = tickT.apply(thi
   el.firstChild.textContent = what + ' · ' + Math.round(k * 100) + '% · ' + left.toFixed(1) + 's'; el.lastChild.firstChild.style.width = (k * 100) + '%';
   } catch (e) { } return r; };
 { const st = document.createElement('style'); st.textContent = '#hl-prog{position:sticky;top:0;z-index:5;background:#1a1612;border:1px solid #6a5a3a;padding:.35em .5em;margin-bottom:.5em}#hl-prog .hp-l{font-size:.8em;color:#e8dcc0;margin-bottom:.25em}#hl-prog .hp-bar{height:.55em;background:#000;border:1px solid #888}#hl-prog .hp-bar div{height:100%;background:var(--honey,#e0a020);transition:width .08s linear}'; document.head.appendChild(st); }
+
+// ---- post-mortem: every body keeps a record of what happened to it, shown when you search the corpse
+const PM_KIND = { sharp: 'cut', blunt: 'blunt trauma', bullet: 'gunshot', bite: 'bite', burn: 'burn', fall: 'fall', frag: 'shrapnel', acid: 'acid', gas: 'gas', explosion: 'blast' };
+const hurtPM = NE.Actor.prototype.hurt; NE.Actor.prototype.hurt = function (part, dmg, kind, src, dir) { const A = this.anat; const P = A && A.parts && A.parts[part];
+  const hp0 = P ? P.hp : 0, fr0 = P ? !!P.frac : false, sv0 = P ? !!P.severed : false, al0 = this.alive;
+  const r = hurtPM.apply(this, arguments);
+  try { const dd = Math.max(0, hp0) - Math.max(0, P ? P.hp : 0); if (P && (al0 || !!P.severed !== sv0) && (dd >= 0.5 || !!P.frac !== fr0 || !!P.severed !== sv0)) { const L = this.pmLog = this.pmLog || []; const by = typeof src === 'string' ? src : src && src.name ? src.name : '';
+      L.push({ t: G.t, part, d: dd, kind, by, frac: !!P.frac && !fr0, sev: !!P.severed && !sv0, kill: al0 && !this.alive }); if (L.length > 40) L.shift(); }
+    if (al0 && !this.alive) this.pmT = G.t; } catch (e) { }
+  return r; };
+const dieA = NE.Actor.prototype.die; NE.Actor.prototype.die = function (cause) { if (this.alive) { this.pmT = G.t; this.pmCause = cause; } return dieA.apply(this, arguments); };
+NE.postMortemHTML = function (a) { const A = a.anat; if (!A || !A.parts) return ''; const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const PN = NE.PART_NAMES; const tD = a.pmT != null ? a.pmT : G.t; const cause = A.cause || a.pmCause || 'Unknown';
+  let h = '<div class="pm"><h4>POST-MORTEM</h4><div class="pm-cause">Cause of death: <b>' + esc(cause) + '</b></div><div class="pm-parts">';
+  for (const k of NE.PARTS) { const P = A.parts[k]; const pc = P.severed ? 0 : Math.max(0, Math.round(P.hp / P.max * 100)); const tags = [];
+    if (P.severed) tags.push('<i class="bad">severed</i>'); else if (P.hp <= 0) tags.push('<i class="bad">destroyed</i>'); if (P.frac) tags.push('<i class="bad">broken</i>'); const ow = (P.wounds || []).filter(w => !w.closed).length; if (ow) tags.push('<i class="warn">' + ow + ' open wound' + (ow > 1 ? 's' : '') + '</i>');
+    if (P.dislocated) tags.push('<i class="warn">dislocated</i>'); if (P.bandage) tags.push('<i>bandaged</i>');
+    h += '<div class="pm-p"><span>' + PN[k] + '</span><span class="pm-bar"><span style="width:' + pc + '%;background:' + (pc > 60 ? '#7ab04a' : pc > 25 ? '#d0a030' : '#c03a2a') + '"></span></span><span class="pm-t">' + (tags.join(' ') || '<i class="dim">intact</i>') + '</span></div>'; }
+  h += '</div><div class="pm-blood">Blood left: ' + Math.max(0, Math.round(A.blood)) + ' mL (' + Math.max(0, Math.round(A.blood / NE.BLOOD * 100)) + '%)</div>';
+  const L = (a.pmLog || []).slice(-12); if (L.length && !L.some(e => e.kill)) { let k = -1; for (let i = 0; i < L.length; i++) if (L[i].t <= tD + 0.05) k = i; if (k >= 0 && !/bled|blood|starv|thirst|cold|hollow|swallow/i.test(cause)) L[k] = Object.assign({}, L[k], { kill: true }); }
+  if (L.length) { h += '<div class="pm-log"><b>Last moments</b>';
+    for (const e of L) { const dt = e.t - tD; const when = (dt <= 0 ? '' : '+') + dt.toFixed(1) + 's'; let line = PN[e.part] + ': ' + (e.d >= 0.5 ? Math.round(e.d) + ' ' : '') + (PM_KIND[e.kind] || e.kind || 'damage');
+      if (e.frac) line += ' — <b class="warn">bone broken</b>'; if (e.sev) line += ' — <b class="bad">torn off</b>'; if (e.by) line += ' <span class="dim">(' + esc(e.by) + ')</span>'; if (e.kill) line += ' <b class="bad">✝ fatal</b>';
+      h += '<div class="pm-e"><span class="dim">' + when + '</span> ' + line + '</div>'; } h += '</div>'; }
+  else h += '<div class="pm-log dim">No marks of a fight. Something else did this.</div>';
+  return h + '</div>'; };
+const rlPM = NE.UI.render.loot; NE.UI.render.loot = function (b, o) { const r = rlPM.apply(this, arguments); try { const a = o && o.actor; if (a && a.anat && !a.alive) { const col = b.querySelector('.loot > div:last-child'); if (col) col.insertAdjacentHTML('beforeend', NE.postMortemHTML(a)); } } catch (e) { } return r; };
+{ const st = document.createElement('style'); st.textContent = '.pm{margin-top:.8em;border-top:1px solid #4a3e2c;padding-top:.5em;font-size:.82em}.pm h4{margin:.1em 0 .3em}.pm-cause{margin-bottom:.4em}.pm-p{display:grid;grid-template-columns:5.5em 4em 1fr;gap:.4em;align-items:center;margin:.12em 0}.pm-bar{height:.45em;background:#1a1410;border:1px solid #4a3e2c;display:block}.pm-bar span{display:block;height:100%}.pm-t i{font-style:normal;margin-right:.35em}.pm i.bad,.pm b.bad{color:#e05a40}.pm i.warn,.pm b.warn{color:#e0b040}.pm-blood{margin:.35em 0}.pm-log{margin-top:.3em;max-height:11em;overflow:auto}.pm-e{margin:.1em 0}'; document.head.appendChild(st); }
 })(window.NE);

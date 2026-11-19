@@ -247,7 +247,7 @@ Object.assign(NE.THREAT, { spitter: 1.6, brute: 2.8, swarmling: 0.6, warden: 2.4
 NE.MOB_VARIANTS = [
   { id: 'armored', pre: 'Armoured', w: 3, min: 150, fn: e => { const pool = NE.ARMOR2.filter(id => IT[id]); const b = pool.filter(id => IT[id].slot === 'body'), h = pool.filter(id => IT[id].slot === 'head'); if (!e.gear.body) { const id = pick(b); e.gear.body = { id, n: 1, dur: IT[id].dur }; } if (!e.gear.head && chance(0.7)) { const id = pick(h); e.gear.head = { id, n: 1, dur: IT[id].dur }; } } },
   { id: 'frenzied', pre: 'Frenzied', w: 3, min: 100, fn: e => { e.speedMul *= 1.3; e.D.cd = (e.D.cd || 1) * 0.8; e.vglow = '#ff4040'; } },
-  { id: 'hulking', pre: 'Hulking', w: 2, min: 250, fn: e => { for (const k in e.anat.parts) { const P = e.anat.parts[k]; P.max *= 1.6; P.hp = P.max; } e.speedMul *= 0.9; e.anat.blood = 6000; } },
+  { id: 'hulking', pre: 'Hulking', w: 2, min: 250, fn: e => { for (const k in e.anat.parts) { const P = e.anat.parts[k]; P.max *= 1.6; P.hp = P.max; } e.speedMul *= 0.9; e.anat.blood = 4800; } },
   { id: 'veteran', pre: 'Veteran', w: 2, min: 300, fn: e => { e.D.block = Math.min(0.8, (e.D.block || 0) + 0.3); e.D.lunge = 1; } },
   { id: 'nectar', pre: 'Nectar-Touched', w: 1, min: 500, fn: e => { e.D.eyeGlow = '#ffd23a'; for (const k in e.anat.parts) { const P = e.anat.parts[k]; P.max *= 1.25; P.hp = P.max; } e.D.loot = (e.D.loot || []).concat([['nectar', 0.5]]); e.nectarGlow = true; } },
 ];
@@ -604,7 +604,7 @@ NE.Player.prototype.update = function (dt, input) {
 const pdeath0 = G.playerDeath;
 G.playerDeath = function () {
   const p = G.player, A = p && p.anat, R = G.run;
-  if (p && A && p.abil && p.abil.includes('molt') && R && !R.molted && A.parts.head.hp > 0 && A.org.brain > 0) { R.molted = true; A.dead = false; A.cause = ''; A.blood = Math.max(A.blood, 2600); for (const k in A.org) A.org[k] = Math.max(A.org[k], 25); A.cons = 40; A.uncon = false; A.drugs.adrenaline = 1; for (const k of NE.PARTS) { const P = A.parts[k]; P.wounds = P.wounds.filter(w => w.closed); P.hp = Math.max(P.hp, P.max * 0.3); }
+  if (p && A && p.abil && p.abil.includes('molt') && R && !R.molted && A.parts.head.hp > 0 && A.org.brain > 0) { R.molted = true; A.dead = false; A.cause = ''; A.blood = Math.max(A.blood, 2080); for (const k in A.org) A.org[k] = Math.max(A.org[k], 25); A.cons = 40; A.uncon = false; A.drugs.adrenaline = 1; for (const k of NE.PARTS) { const P = A.parts[k]; P.wounds = P.wounds.filter(w => w.closed); P.hp = Math.max(P.hp, P.max * 0.3); }
     NE.Audio.play('squelch', 1); NE.Audio.play('screech', 0.6); G.flashT = 0.8; G.shake(6); for (let i = 0; i < 40; i++) G.addP(p.x, p.cy, rf(-80, 80), rf(-100, 10), rf(0.6, 1.2), pick(['#c8b890', '#ffd040', '#8a6a40']), 'goo'); NE.UI.banner('EMERGENCY MOLT', 'You tear free of your dying skin. That trick only works once.'); G.log('Emergency Molt: you shed your ruined skin and live.', 'good'); return; }
   return pdeath0.call(this);
 };
@@ -740,7 +740,7 @@ UI.partyHud = function () {
   if (!show) { if (box) box.innerHTML = ''; const t = $('#ptag'); if (t) t.style.display = 'none'; return; }
   if (!box) { box = document.createElement('div'); box.id = 'party'; port.appendChild(box); }
   const m = N.peerMed || {}; const s = N.peerSurv || {}; const alive = peer.alive && m.al !== 0; const down = alive && m.u === 1;
-  const hp = m.hp != null ? m.hp / 100 : 1, bl = m.b != null ? m.b / 5000 : 1, st = m.st != null ? m.st / 100 : 1;
+  const hp = m.hp != null ? m.hp / 100 : 1, bl = m.b != null ? m.b / NE.BLOOD : 1, st = m.st != null ? m.st / 100 : 1;
   const dy = Math.round((peer.y - g.player.y) / NE.T * NE.MPT); const where = Math.abs(dy) < 6 ? (Math.abs(peer.x - g.player.x) < 40 ? 'here' : (peer.x > g.player.x ? '→ ' : '← ') + Math.round(Math.abs(peer.x - g.player.x) / NE.T) + 't') : (dy > 0 ? '↓' : '↑') + Math.abs(dy) + 'm';
   const tags = []; if (!alive) tags.push('<span>DEAD</span>'); else { if (down) tags.push('<span>DOWN — revive!</span>'); if (m.bl > 0.05) tags.push('<span>bleeding ' + m.bl + '/s</span>'); for (const c of (m.cond || [])) if (!/bleeding/i.test(c) && tags.length < 4) tags.push('<span>' + esc(c) + '</span>'); if (tags.length === 0) tags.push('<span class="ok">stable</span>'); }
   const html = '<div class="pm' + (down ? ' down' : '') + (alive ? '' : ' dead') + '"><div class="pn"><span>' + esc(s.first || s.name || 'Partner') + '</span><small>' + where + '</small></div><div class="bars">' +
@@ -1452,7 +1452,7 @@ NE.quickPlan = function (p) {
   // 5. dislocated joint: pop it back
   for (const k of LIMBS) if (P[k].disl) return { e: null, part: k, op: 'reset', label: 'Pop ' + pn(k) + ' back in' };
   // 6. blood loss: transfusion
-  if (A.blood < 3500) { const e = have(p, ['bloodbag']); if (e) return { e, part: 'torso', label: 'Transfuse blood' }; }
+  if (A.blood < 2800) { const e = have(p, ['bloodbag']); if (e) return { e, part: 'torso', label: 'Transfuse blood' }; }
   // 7. infection
   if (A.infection > 30) { const e = have(p, ['antibiotics']); if (e) return { e, part: 'torso', label: 'Antibiotics (infection)' }; }
   for (const k of NE.PARTS) if (P[k].wounds.some(w => w.dirty > 0.35 && !w.closed)) { const e = have(p, ['antiseptic', 'alcohol']); if (e && NE.canTreat(p, e.id, k) === true) return { e, part: k, label: 'Disinfect ' + pn(k) }; }
@@ -1729,7 +1729,7 @@ const NV = [
   { id: 'lanternmoth', tier: 'common', name: 'Lantern Moth', eye: '#ffe9a8', glow: '#fff2c4', desc: 'Drawn to light: lantern oil lasts 25% longer, +10% lantern reach.', mul: { battery: 1.25, lamp: 1.1 } },
   { id: 'gnawer', tier: 'common', name: 'Scrap Gnawer', eye: '#b8a888', glow: '#c8b898', desc: 'Searches 12% faster and spots 8% more loot.', mul: { search: 0.88, loot: 1.08 } },
   { id: 'packmite', tier: 'common', name: 'Pack Mite', eye: '#a8c080', glow: '#b8d090', desc: 'Sturdy back: +4kg carry.', add: { carry: 4 } },
-  { id: 'leech', tier: 'common', name: 'Leech Brood', eye: '#c04050', glow: '#d05060', desc: 'Every kill feeds you 150ml of blood.', perk: 'leech' },
+  { id: 'leech', tier: 'common', name: 'Leech Brood', eye: '#c04050', glow: '#d05060', desc: 'Every kill feeds you 120ml of blood.', perk: 'leech' },
   { id: 'nightsinger', tier: 'common', name: 'Nightsinger', eye: '#a0e070', glow: '#b0f080', desc: 'Chirps in the dark: you see 12% further beyond your lantern.', mul: { sight: 1.12 } },
   // uncommon
   { id: 'needle', tier: 'uncommon', name: 'Needle Wasp', eye: '#e0e0f0', glow: '#f0f0ff', desc: 'Thrown weapons hit 30% harder.', perk: 'throw' },
@@ -1757,7 +1757,7 @@ for (const v of NV) { if (NE.VARIANTS.some(x => x.id === v.id)) continue; const 
 const perk = p => p && p.surv ? (NE.variantOf(p.surv.variant).perk || null) : null; NE.vperk = perk;
 // ---- perk hooks
 const death0 = G.onEnemyDeath; G.onEnemyDeath = function (e, cause) { const was = e.alive; death0.apply(this, arguments); const p = G.player; if (!was || !p || !p.alive || !e.anat || e.anat.lastHit !== p.surv.first) return; const k = perk(p);
-  if (k === 'leech') { p.anat.blood = Math.min(5000, p.anat.blood + 150); for (let i = 0; i < 6; i++) G.addP && G.addP(p.x, p.y - 8, NE.rf(-15, 15), NE.rf(-30, -5), 0.6, '#d03040', 'glow', 0); }
+  if (k === 'leech') { p.anat.blood = Math.min(NE.BLOOD, p.anat.blood + 120); for (let i = 0; i < 6; i++) G.addP && G.addP(p.x, p.y - 8, NE.rf(-15, 15), NE.rf(-30, -5), 0.6, '#d03040', 'glow', 0); }
   if (k === 'warlord') p.warT = 5; };
 NE.thrMul = q => (q && q.by && q.by.isPlayer && perk(q.by) === 'throw') ? 1.3 : 1;
 const imp0 = NE.tryImpale; NE.tryImpale = function (a) { const r = imp0.apply(this, arguments); if (!r && a && a.isPlayer && perk(a) === 'warlord' && !a._wimp) { a._wimp = true; try { return imp0.apply(this, arguments); } finally { a._wimp = false; } } return r; };
@@ -1766,11 +1766,11 @@ const rest0 = G.rest; G.rest = function () { const p = G.player; const r = rest0
 const lunge0 = NE.Player.prototype.lunge; NE.Player.prototype.lunge = function () { const cd = this.lungeCD || 0; const r = lunge0.apply(this, arguments); if (perk(this) === 'lunge' && this.lungeCD > cd + 0.5) this.lungeCD *= 0.5; return r; };
 const dash0 = NE.Player.prototype.dash; NE.Player.prototype.dash = function () { const cd = this.dashCD || 0; dash0.apply(this, arguments); if (perk(this) === 'dash' && this.dashCD > 0 && !(cd > 0)) { this.dashCD *= 0.5; this.dashIF *= 1.5; } };
 const hurt0 = NE.Actor.prototype.hurt; NE.Actor.prototype.hurt = function (part, dmg) { if (NE._dmgMul) arguments[1] = dmg * NE._dmgMul; const r = hurt0.apply(this, arguments); if (this.isPlayer && perk(this) === 'nolodge' && this.anat && this.anat.parts[part]) for (const w of this.anat.parts[part].wounds) w.bullet = false; return r; };
-const burst0 = G.startBurst; G.startBurst = function (p) { const r = burst0.apply(this, arguments); if (perk(p || G.player) === 'burst' && G.goop) G.goop.t = Math.max(G.goop.t, 18); return r; };
+const burst0 = G.startBurst; G.startBurst = function (p) { const r = burst0.apply(this, arguments); NE._burstPerk = () => { if (perk(p || G.player) === 'burst' && G.goop) G.goop.t = Math.max(G.goop.t, 18); }; NE._burstPerk(); return r; }; // runs again once the emergence finishes
 const pu0 = NE.Player.prototype.update;
 NE.Player.prototype.update = function (dt) {
   const k = perk(this); const A = this.anat; const s = this.stats;
-  const bz = k === 'berserk' && this.alive && A.blood < 2000; if (bz !== !!this._bz) { s.melee *= bz ? 1.4 : 1 / 1.4; s.painTol += bz ? 40 : -40; this._bz = bz; if (bz) G.toast('BERSERK — the pain is very far away.'); }
+  const bz = k === 'berserk' && this.alive && A.blood < 1600; if (bz !== !!this._bz) { s.melee *= bz ? 1.4 : 1 / 1.4; s.painTol += bz ? 40 : -40; this._bz = bz; if (bz) G.toast('BERSERK — the pain is very far away.'); }
   const wr = (this.warT || 0) > 0; if (wr) this.warT -= dt; if (wr !== !!this._wr) { s.speed *= wr ? 1.2 : 1 / 1.2; this._wr = wr; }
   if (k === 'regen' && this.alive) for (const pk of NE.PARTS) { const P = A.parts[pk]; if (!P.severed) P.hp = Math.min(P.max, P.hp + dt); }
   if (k === 'regrow' && this.alive) for (const pk of ['larm', 'rarm', 'lleg', 'rleg']) { const P = A.parts[pk]; if (P.severed && !P.prost) { P.regrowT = (P.regrowT || 0) + dt; if (P.regrowT >= 180) { P.severed = false; P.hp = P.max * 0.3; P.wounds = []; P.tq = false; P.bandage = null; P.regrowT = 0; if (this.sev) delete this.sev[pk]; G.toast('Your ' + NE.PART_NAMES[pk].toLowerCase() + ' has grown back. Pale and tender, but yours.'); NE.Audio.play('squelch'); } } }

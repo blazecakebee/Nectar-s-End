@@ -134,12 +134,12 @@ class Anatomy {
     o = o || {}; this.npc = !!o.npc; this.s = o.stats || NE.computeStats(null, null); this.hpMul = o.hpMul || 1;
     this.parts = {}; for (const p of PARTS) { const m = PMAX[p] * this.hpMul; this.parts[p] = { hp: m, max: m, wounds: [], frac: false, splint: false, fracT: 0, bandage: null, tq: false, tqT: 0 }; }
     this.org = { brain: 100, eyes: 100, lungs: this.s.lungs || 100, heart: 100, stomach: 100, liver: 100 };
-    this.blood = 5000; this.pain = 0; this.painSpike = 0; this.cons = 100; this.stam = 100; this.hunger = 100; this.thirst = 100; this.temp = 37;
+    this.blood = NE.BLOOD; this.pain = 0; this.painSpike = 0; this.cons = 100; this.stam = 100; this.hunger = 100; this.thirst = 100; this.temp = 37;
     this.infection = 0; this.rad = 0; this.tox = 0; this.wet = 0; this.stress = 0; this.bpm = 72; this.gas = 0;
     this.drugs = { painkiller: 0, morphine: 0, antibiotic: 0, antirad: 0, adrenaline: 0, blood: 0, herb: 0 };
     this.uncon = false; this.dead = false; this.cause = ''; this.lastHit = ''; this.flags = {}; this.ev = [];
   }
-  get stamMax() { return Math.max(30, (100 + this.s.stamina) * (0.4 + 0.6 * this.org.lungs / 100) * (this.blood > 3800 ? 1 : 0.7)); }
+  get stamMax() { return Math.max(30, (100 + this.s.stamina) * (0.4 + 0.6 * this.org.lungs / 100) * (this.blood > 3040 ? 1 : 0.7)); }
   get threshold() { return 60 + this.s.painTol + (this.s.coldblood ? 10 : 0); }
   bleedRate() {
     let tot = 0;
@@ -184,7 +184,7 @@ class Anatomy {
   }
   armFactor() { let f = 1; for (const p of ['larm', 'rarm']) { const P = this.parts[p]; if (P.severed) { f *= P.prost ? P.prost.eff : 0.45; continue; } if (P.frac) f *= P.splint ? 0.8 : 0.5; if (P.disl) f *= 0.55; f *= 0.6 + 0.4 * P.hp / P.max; } return f; }
   tremor() { let t = Math.max(0, this.pain - this.threshold * 0.6) / 60 + Math.max(0, 35.5 - this.temp) * 0.4 + (this.s.coldblood ? 0 : Math.max(0, this.stress - 55) / 80) + this.drugs.adrenaline * 0.2; return clamp(t, 0, 1.6); }
-  update(dt, env) {
+  update(dt, env) { if (!this.npc && this.blood > NE.BLOOD) this.blood = NE.BLOOD; // saves from before 0.10.1 carried 5000 mL
     if (this.dead) return; const s = this.s; env = env || {};
     // ----- wounds & bleeding
     let bleed = 0, painW = 0, maxInf = 0, open = 0;
@@ -215,8 +215,8 @@ class Anatomy {
     }
     bleed *= s.bleed * (env.bleedMul || 1); if (s.coldblood && this.stress > 40) bleed *= 0.8;
     this.bleeding = bleed; this.blood -= bleed * dt;
-    if (bleed < 0.05 && this.thirst > 15) this.blood = Math.min(5000, this.blood + dt * 0.6 * (s.heart ? 4 : 1) * (1 + (s.clot || 0)));
-    if (this.drugs.blood > 0) this.blood = Math.min(5000, this.blood + dt * 8.5);
+    if (bleed < 0.05 && this.thirst > 15) this.blood = Math.min(NE.BLOOD, this.blood + dt * 0.48 * (s.heart ? 4 : 1) * (1 + (s.clot || 0)));
+    if (this.drugs.blood > 0) this.blood = Math.min(NE.BLOOD, this.blood + dt * 6.8);
     this.infection = lerp(this.infection, maxInf, Math.min(1, dt)) ;
     // ----- drugs decay
     const dur = { painkiller: 120, morphine: 150, antibiotic: 200, antirad: 60, adrenaline: 40, blood: 118, herb: 90 };
@@ -235,7 +235,7 @@ class Anatomy {
       let tt = 37 - (env.cold || 0) * 2.2 * s.cold - this.wet * 2.2 * s.cold * (env.cold ? 1 : 0.4);
       tt += (env.heat || 0) * 1.3 * s.heat; if (env.fire) tt = Math.max(tt, 37.4);
       if (this.infection > 35) tt += (this.infection - 35) / 18;
-      if (this.blood < 3500) tt -= 1;
+      if (this.blood < 2800) tt -= 1;
       this.temp = lerp(this.temp, tt, Math.min(1, dt * 0.012));
       // toxins
       if (this.tox > 0) { this.tox = Math.max(0, this.tox - dt * 0.6 * (this.org.liver / 100 + 0.2)); if (this.tox > 30) { this.org.stomach -= dt * 0.15; this.vomitT = (this.vomitT || 0) - dt; if (this.vomitT <= 0 && chance(dt * 0.08)) { this.vomitT = 12; this.thirst = Math.max(0, this.thirst - 10); this.hunger = Math.max(0, this.hunger - 8); this.ev.push('vomit'); } } if (this.tox > 60) this.org.liver -= dt * 0.25; }
@@ -248,14 +248,14 @@ class Anatomy {
       if (this.gas > 0) { this.org.lungs -= dt * 1.0 * this.gas * s.gas; this.org.eyes -= dt * 0.35 * this.gas * s.gas; this.stam -= dt * 12 * this.gas; if (chance(dt * 0.3)) this.ev.push('gas'); } else if (this.org.lungs < (s.lungs || 100)) this.org.lungs += dt * 0.05;
       if (this.infection > 70) { this.org.heart -= dt * 0.08; this.org.liver -= dt * 0.12; }
       if (this.thirst <= 0) this.org.stomach -= dt * 0.09; if (this.hunger <= 0) this.org.stomach -= dt * 0.07;
-      const st = (env.dark ? 6 : 0) + (env.threat ? 14 : 0) + Math.max(0, this.pain - this.threshold) * 0.4 + (this.blood < 3800 ? 8 : 0);
+      const st = (env.dark ? 6 : 0) + (env.threat ? 14 : 0) + Math.max(0, this.pain - this.threshold) * 0.4 + (this.blood < 3040 ? 8 : 0);
       this.stress = clamp(lerp(this.stress, st * s.stress * 3.5, dt * 0.06), 0, 100);
     } else { this.stress = Math.max(0, this.stress - dt * 2); }
     for (const k in this.org) this.org[k] = clamp(this.org[k], 0, 100);
     // ----- stamina regen handled by actor, clamp
     this.stam = clamp(this.stam, 0, this.stamMax);
     // ----- consciousness
-    const bp = this.blood / 5000; let tc = 100;
+    const bp = this.blood / NE.BLOOD; let tc = 100;
     if (bp < 0.75) tc -= (0.75 - bp) * 280;
     if (this.pain > this.threshold) tc -= (this.pain - this.threshold) * 1.4;
     tc -= (100 - this.org.brain) * 0.8;
@@ -267,11 +267,11 @@ class Anatomy {
     if (!this.uncon && this.cons <= 0) { this.uncon = true; this.ev.push('uncon'); }
     else if (this.uncon && this.cons > 22) { this.uncon = false; this.ev.push('wake'); }
     // ----- heart rate
-    const tgt = 68 + this.pain * 0.45 + Math.max(0, 4200 - this.blood) * 0.03 + (100 - this.stam / this.stamMax * 100) * 0.35 + this.stress * 0.25 + this.drugs.adrenaline * 40 - (s.coldblood ? 12 : 0) + (this.temp > 38 ? 15 : 0);
+    const tgt = 68 + this.pain * 0.45 + Math.max(0, 3360 - this.blood) * 0.0375 + (100 - this.stam / this.stamMax * 100) * 0.35 + this.stress * 0.25 + this.drugs.adrenaline * 40 - (s.coldblood ? 12 : 0) + (this.temp > 38 ? 15 : 0);
     this.bpm = lerp(this.bpm, this.org.heart < 30 ? tgt + Math.sin(performance.now() / 137) * 25 : tgt, dt * 0.8);
     // ----- death
     const die = c => { if (!this.dead) { this.dead = true; this.cause = c; } };
-    if (this.blood < (this.npc ? 2400 : 1800)) die(this.lastHit && this.npc ? this.lastHit : 'Bled out');
+    if (this.blood < (this.npc ? 1920 : 1440)) die(this.lastHit && this.npc ? this.lastHit : 'Bled out');
     else if (this.org.brain <= 0) die(this.lastHit ? 'Head trauma (' + this.lastHit + ')' : 'Brain trauma');
     else if (this.org.heart <= 0) die(this.infection > 70 ? 'Sepsis' : 'Cardiac failure');
     else if (this.org.lungs <= 0) die('Asphyxiation');
@@ -283,7 +283,7 @@ class Anatomy {
     const c = []; const b = this.bleeding || 0;
     if (b > 4) c.push(['Severe bleeding', 'bad']); else if (b > 1.2) c.push(['Bleeding', 'bad']); else if (b > 0.05) c.push(['Light bleeding', 'warn']);
     for (const p of PARTS) { const P = this.parts[p]; if (P.severed && limb(p)) c.push([P.prost ? (P.prost.name + ' (' + Math.round(P.prost.eff * 100) + '%)') : 'Missing ' + NE.PART_NAMES[p].toLowerCase(), P.prost ? 'good' : 'bad']); if (P.disl) c.push(['Dislocated ' + NE.PART_NAMES[p].toLowerCase(), 'bad']); if (P.frac) c.push([(P.splint ? 'Splinted ' : 'Broken ') + NE.PART_NAMES[p].toLowerCase(), P.splint ? 'warn' : 'bad']); if (P.tq) c.push(['Tourniquet: ' + NE.PART_NAMES[p] + ' (' + Math.floor(P.tqT) + 's)', P.tqT > 150 ? 'bad' : 'warn']); if (P.wounds.some(w => w.bullet)) c.push(['Lodged fragment: ' + NE.PART_NAMES[p], 'warn']); }
-    const bp = this.blood / 5000; if (bp < 0.6) c.push(['Hypovolemic shock', 'bad']); else if (bp < 0.8) c.push(['Blood loss', 'warn']);
+    const bp = this.blood / NE.BLOOD; if (bp < 0.6) c.push(['Hypovolemic shock', 'bad']); else if (bp < 0.8) c.push(['Blood loss', 'warn']);
     if (this.pain > this.threshold) c.push(['Agonizing pain', 'bad']); else if (this.pain > this.threshold * 0.6) c.push(['In pain', 'warn']);
     if (this.temp < 35) c.push(['Hypothermia', 'bad']); else if (this.temp < 36) c.push(['Cold', 'warn']); if (this.temp > 38.3) c.push([this.infection > 35 ? 'Fever' : 'Overheating', 'warn']);
     if (this.infection > 70) c.push(['Sepsis', 'bad']); else if (this.infection > 30) c.push(['Infection', 'warn']);

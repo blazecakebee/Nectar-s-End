@@ -27,7 +27,15 @@
     "Treatment is no longer slowed when the Health menu is open; it runs at full speed while the world stays slowed. The Health menu now shows a progress bar for the current treatment, with time left.",
     "Body types: every survivor is Lean (+5% speed), Muscular (+5% melee strength) or Heavyset (gets hungry 25% slower, living off fat reserves). Each looks different in men and women: broad chest and thick arms, or a round belly and double chin. Shown on the HUD and in the dossier.",
     "Height bonuses toned down: 4'11\" now +8% speed and 6'6\" +8% defense (was 20%). Height's melee, carry, climb and health effects are halved too.",
-    "Mandibles get their own weapon slot. With the mandible gift, scroll to Mandibles for a bleeding bite. Fists are plain fists again."
+    "Mandibles get their own weapon slot. With the mandible gift, scroll to Mandibles for a bleeding bite. Fists are plain fists again.",
+    "Fixed: after a hard fall or knockdown the ragdoll no longer sinks into the floor. The body rests on the surface like a real corpse, through the fall and while getting back up.",
+    "Post-mortem: searching a body now shows what happened to it. You see the cause of death, each limb's condition (broken, torn off, destroyed, open wounds, bandaged), blood left, and a timeline of the last hits with who dealt them, with the fatal one marked.",
+    "Blood rebalance: every human now has 4000 mL instead of 5000. All thresholds (shock, blackout, bleeding out, low-blood effects, enemy fleeing) and refills (regeneration, blood bags 800 mL, Leech, Frenzy, Vespa heal, the doctor) are scaled to match, so percentages behave the same. Wounds bleed at the same mL per second, so bleeding out takes about 20% less time.",
+    "Being unconscious is less dark: you can make out the world around you through the blackout.",
+    "Vespa form: tendril lashes hit harder (46–64) and can coil round a neck and tear the head off (about 1 in 6 hits).",
+    "Vespa form: right-click fires a grappling tendril into any wall within reach. Hold to reel in and swing (A/D pumps the swing), let go to fling yourself.",
+    "Death now plays out: the Vespa wakes inside your body. Twitches and a speeding heartbeat, light crawling under the skin, glowing cracks spreading over the chest, feelers and eyes pushing out of the wound, then the eruption. About 3 seconds.",
+    "The Vespa form, its tendrils, particles, flash and screen tint now take the colour of your strain instead of always being gold."
    ]
   },
   {

@@ -1,5 +1,5 @@
 // Nectar's End — static data: names, items, biomes, perks, cosmetics, recipes
-window.NE = window.NE || {};
+window.NE = window.NE || {}; NE.BLOOD = 4000; // total blood (mL) for every human (0.10.1: down from 5000)
 (function (NE) {
 'use strict';
 NE.T = 8; NE.VW = 400; NE.VH = 225; NE.FH = 14; NE.WW = 240; NE.MPT = 2; NE.GRAV = 700;
@@ -99,7 +99,7 @@ NE.ITEMS = {
   antibiotics: { name: 'Antibiotics', icon: 'pills', col: '#50b050', w: 0.1, uses: 3, cat: 'med', med: 'drug', drug: 'antibiotic', desc: 'Fights infection over time.' },
   antirad: { name: 'Anti-Rad', icon: 'pills', col: '#e0c050', w: 0.1, uses: 2, cat: 'med', med: 'drug', drug: 'antirad', desc: 'Flushes radiation.' },
   adrenaline: { name: 'Adrenaline', icon: 'syringe', col: '#e05040', w: 0.1, cat: 'med', med: 'drug', drug: 'adrenaline', desc: 'Jolts you awake. Stamina surge.' },
-  bloodbag: { name: 'Blood Bag', icon: 'bloodbag', w: 0.5, cat: 'med', med: 'drug', drug: 'blood', desc: '+1000mL blood over two minutes.' },
+  bloodbag: { name: 'Blood Bag', icon: 'bloodbag', w: 0.5, cat: 'med', med: 'drug', drug: 'blood', desc: '+800mL blood over two minutes.' },
   water: { name: 'Canteen', icon: 'water', col: '#6ad0e0', w: 0.5, cat: 'food', thirst: 40, desc: 'Clean, filtered water.' },
   dirtywater: { name: 'Cave Water', icon: 'water', col: '#8a7040', w: 0.5, cat: 'food', thirst: 30, tox: 28, desc: 'Could make you sick. Boil it at a fire.' },
   ration: { name: 'Canned Ration', icon: 'can', w: 0.4, cat: 'food', hunger: 40, desc: 'Beans, probably.' },
@@ -414,7 +414,7 @@ NE.isize = id => NE.ISIZE[id] || [1, 1];
 NE.STRAIN_GIFTS = [
   { id: 'regen', name: 'Honeyed Flesh', icon: 'ab_heart', desc: 'Damaged body parts knit back together three times faster.', mut: 'veins', strain: 1 },
   { id: 'swarm', name: 'Drone Swarm', icon: 'ab_pulse', desc: 'Every 10s a tiny drone bursts from your skin and stings the nearest enemy.', mut: 'wings', strain: 1 },
-  { id: 'frenzy', name: 'Blood Frenzy', icon: 'ab_sting', desc: 'Every kill refills your stamina and restores 250mL of blood.', mut: 'stinger', strain: 1 },
+  { id: 'frenzy', name: 'Blood Frenzy', icon: 'ab_sting', desc: 'Every kill refills your stamina and restores 200mL of blood.', mut: 'stinger', strain: 1 },
   { id: 'carapace', name: 'Limb Carapace', icon: 'ab_chitin', desc: 'Chitin on the arms and legs: -25% damage to limbs, harder to break.', mut: 'plates', strain: 1 },
   { id: 'leap', name: 'Locust Legs', icon: 'ab_wings', desc: 'Jump 22% higher and take 30% less fall damage.', mut: 'wings', strain: 1 },
   { id: 'rot', name: 'Rot Breath', icon: 'ab_mand', desc: 'Your melee hits make victims choke: 30% chance to stagger and poison them.', mut: 'mandibles', strain: 1 },

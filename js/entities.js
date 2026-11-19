@@ -37,7 +37,7 @@ class Actor {
     if (this.climbing && (!onLadder || A.uncon)) this.climbing = false;
     if (this.climbing && jumpPress) { this.climbing = false; this.ladderCD = 0.4; this.vy = c.down ? 40 : -150; this.vx = (c.mx || 0) * 95; this.onGround = false; A.stam -= 3; }
     let enc = 1; if (this.inv) { const r = this.inv.weight() / this.inv.carry; if (r > 1) enc = Math.max(0.35, 1 - (r - 1) * 1.3 * (1 - (st.encTol || 0))); }
-    const bloodF = clamp(A.blood / 5000 / 0.75, 0.55, 1);
+    const bloodF = clamp(A.blood / NE.BLOOD / 0.75, 0.55, 1);
     this.sprint = !!c.sprint && !this.crouch && A.stam > 3 && legs.broken === 0 && enc > 0.8 && Math.abs(c.mx) > 0;
     let spd = (this.isPlayer || this.isRemote ? 42 : this.town ? 45 : 50) * st.speed * legs.f * bloodF * enc * (this.sprint ? (this.isPlayer ? 2.3 : 1.95) * (st.runSpeed || 1) : 1) * (this.crawl ? 0.38 : this.crouch ? 0.55 : 1) * (inWater ? 0.6 : 1) * (this.speedMul || 1) * this.gearSpd() * (A.hunger < 10 || A.thirst < 10 ? 0.85 : 1) * (this.guard ? 0.55 : 1);
     if (this.climbing) {
@@ -107,7 +107,7 @@ class Actor {
     if (this.rd) { this.rd.t = Math.max(this.rd.t, dur || 0.8); for (const p of this.rag.pts) { p.ox -= (vx || 0) / 60; p.oy -= (vy || 0) / 60; } return; }
     this.rd = { t: dur || 0.9, safe: { x: this.x, y: this.y } }; this.guard = null; this.lungeNext = false; this.charge = null; this.windT = 0; this.exec = null; this.climbing = false; this.wallClimb = false; this.getUpT = 0; this.strk = null;
     if (this.treating) { this.treating = null; if (this.isPlayer) this.g.toast('Knocked down — treatment interrupted.'); } this.search = null;
-    if (this.isPlayer && (vx * vx + vy * vy) > 150 * 150 && chance(0.1)) this.anat.dislocate(pick(['larm', 'rarm', 'larm', 'rarm', 'lleg', 'rleg'])); NE.ragLimp(this.rag, true); const ux = (this.vx + (vx || 0)) / 60, uy = (this.vy + (vy || 0)) / 60;
+    if (this.isPlayer && (vx * vx + vy * vy) > 150 * 150 && chance(0.1)) this.anat.dislocate(pick(['larm', 'rarm', 'larm', 'rarm', 'lleg', 'rleg'])); NE.ragLimp(this.rag, true); { const W = this.g.world, P = this.rag.pts; if (W) for (let k = 0; k < 16 && P.some(q => W.solidAt(q.x, q.y)); k++) this.rag.move(0, -1); } const ux = (this.vx + (vx || 0)) / 60, uy = (this.vy + (vy || 0)) / 60;
     for (const p of this.rag.pts) { p.ox = p.x - ux * (0.8 + Math.random() * 0.4); p.oy = p.y - uy * (0.8 + Math.random() * 0.4); }
     this.vx = this.vy = 0; NE.Audio.play('thud', 0.8); if (this.isPlayer) { this.g.shake(3); if (this.g.net && this.g.net.on) this.g.net.send({ t: 'rdn' }); }
   }
@@ -238,7 +238,7 @@ class Player extends Actor {
     } else if (res.landed > 120) { NE.Audio.play('land', 0.5); }
     if (this.stepT > (this.sprint ? 22 : 16)) { this.stepT = 0; if (this.onGround) { if (this.sprint) g.dust(this.x - this.facing * 2, this.y, 2); NE.Audio.play('step', this.sprint ? 1 : this.crouch ? 0.3 : 0.6); if (this.inWater) NE.Audio.play('splash', 0.4); g.noise(this.x, this.y, (this.sprint ? 90 : this.crouch ? 12 : 40) * st.noise); } }
     // stamina
-    if (this.guard) A.stam += dt * 4; else if (this.sprint) A.stam -= dt * 8.5 * st.staminaCost * (st.runCost || 1); else if (this.swingT <= 0) A.stam += dt * 17 * (A.hunger > 10 ? 1 : 0.5) * (A.blood > 3800 ? 1 : 0.6);
+    if (this.guard) A.stam += dt * 4; else if (this.sprint) A.stam -= dt * 8.5 * st.staminaCost * (st.runCost || 1); else if (this.swingT <= 0) A.stam += dt * 17 * (A.hunger > 10 ? 1 : 0.5) * (A.blood > 3040 ? 1 : 0.6);
     // aim
     const dx = g.mouse.wx - this.x, dy = g.mouse.wy - (this.y - this.h + 4); const L = Math.hypot(dx, dy) || 1; this.aimDir = { x: dx / L, y: dy / L };
     if (!c.mx && !this.climbing && !A.uncon) this.facing = dx >= 0 ? 1 : -1;
@@ -389,7 +389,7 @@ class Enemy extends Actor {
       if (best && (this.state === 'idle' || this.state === 'search') && best.abil && best.abil.includes('royal') && ['feral', 'trog', 'husk'].includes(this.type) && chance(0.4)) { this.state = 'flee'; this.target = best; NE.Audio.play('growl', 0.4); best = null; }
       if (best) { if (this.state === 'idle' || this.state === 'search') { if (best.isPlayer) { g.say(pick(NE.MONO.spotted), 0.4); } NE.Audio.play(this.type === 'feral' ? 'growl' : 'shout', 0.6); } this.target = best; this.state = this.state === 'aim' ? 'aim' : 'chase'; this.lastSeen = { x: best.x, y: best.y }; this.lostT = 0; }
       else if (this.target) { this.lostT += 0.25; if (this.lostT > 4) { this.target = null; this.state = 'search'; this.searchT = 5; } }
-      const thr = A.threshold; if ((A.pain > thr * 1.1 || A.blood < 3100) && this.type !== 'feral' && this.state !== 'flee' && chance(0.5)) { this.state = 'flee'; NE.Audio.play('shout'); }
+      const thr = A.threshold; if ((A.pain > thr * 1.1 || A.blood < 2480) && this.type !== 'feral' && this.state !== 'flee' && chance(0.5)) { this.state = 'flee'; NE.Audio.play('shout'); }
       if (this.type === 'feral' && chance(0.04)) NE.Audio.play('growl', 0.4);
       const hr = this.D.hears || 1;
       for (const n of g.noises) if (NE.dist(n.x, n.y, this.x, this.y) < n.r * hr && Math.abs(n.y - this.y) < 50 * hr) {
@@ -400,7 +400,7 @@ class Enemy extends Actor {
     if (!isGun) { const tt = t && t.alive && (this.state === 'chase') ? t : null; const gx = this.guard ? this.x + this.facing * 14 : tt ? tt.x : this.x + this.facing * 20, gy = this.guard ? this.y - this.h - 6 : tt ? tt.cy : this.y + 2; NE.Combat.tick(this, dt, gx, gy, !A.uncon && !this.climbing && !this.crawl); }
     if (this.state === 'idle') { if (!this.post) { this.wanderT -= dt; if (this.wanderT <= 0) { this.wander = chance(0.3) ? 0 : chance(0.5) ? 1 : -1; this.wanderT = rf(1.5, 4); } c.mx = this.wander * 0.35; if (this.bumped) { this.wander *= -1; this.bumped = 0; } } }
     else if (this.state === 'search') { this.searchT -= dt; const dx = this.lastSeen.x - this.x; if (Math.abs(dx) > 6) c.mx = Math.sign(dx) * 0.6; if (this.searchT <= 0) this.state = 'idle'; }
-    else if (this.state === 'flee') { const src = t || g.player; c.mx = src ? -Math.sign(src.x - this.x) : 0; c.sprint = true; if (A.pain < A.threshold * 0.7 && A.blood > 3500) this.state = t ? 'chase' : 'idle'; }
+    else if (this.state === 'flee') { const src = t || g.player; c.mx = src ? -Math.sign(src.x - this.x) : 0; c.sprint = true; if (A.pain < A.threshold * 0.7 && A.blood > 2800) this.state = t ? 'chase' : 'idle'; }
     else if ((this.state === 'chase' || this.state === 'aim') && t) {
       if (!t.alive) { this.target = null; this.state = 'idle'; this.exec = null; }
       else {
