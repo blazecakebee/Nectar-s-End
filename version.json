@@ -9,7 +9,7 @@
     "Fixed: digging out the next level could cut away the ground under objects on the level above, leaving crates, mushrooms and spawns floating in mid-air. The level above is now checked again after the next one is built.",
     "Flooded pools can no longer leak into POI halls or drain through the floor. Pools that would spill are cancelled.",
     "Bandit camps are dug into dry rock beside the path when no natural flat spot exists. They show up again (about 4–8 per 70 levels), never in water.",
-    "New: Kick [2]. A quick front kick that staggers and shoves. Kick while airborne for a drop kick: lunge forward, flatten the target, and land on your back. Each has its own animation and sounds.",
+    "New: Kicks, picked like a weapon. Scroll the mouse wheel (or press 1) through Fists → Kicks → your weapons. With Kicks out, left-click on the ground for a quick front kick that staggers and shoves, or left-click in mid-air for a drop kick: lunge forward, flatten the target and land on your back. Each has its own animation and sounds.",
     "Guns with no ammo left work as clubs. Pistol-whip or rifle-butt with more reach and damage, with a new bash sound and swing.",
     "Armed enemies no longer freeze when you get right up close. They bash you with their gun instead.",
     "Fog of war is now a light grey drifting mist instead of black. It is 40% lighter and only creeps in around the edges and corners of the screen.",

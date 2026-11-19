@@ -205,11 +205,8 @@ if (hiF) NE.UI.healthInfo = function () { const r = hiF.apply(this, arguments); 
   el.appendChild(box); box.querySelector('[data-handdig]').onclick = () => { NE.startTreat(p, null, part, 'handdig'); setTimeout(NE.UI.healthInfo, 50); }; } catch (e) { } return r; };
 
 // =====================================================================================================================
-// KICKS: [C] front kick on the ground, drop kick in the air. Each has its own pose and sound.
+// KICKS: a 'weapon' slot between Fists and your weapons (scroll to it). LMB on the ground: front kick, in the air: drop kick.
 // =====================================================================================================================
-NE.BIND_DEFS.push(['kick', 'Kick (in the air: drop kick)', ['Digit2', null]]);
-// C is crouch's second key; never let a saved kick bind steal it
-try { const S = G.store && G.store.settings; if (S && S.binds && S.binds.kick && S.binds.kick[0] === 'KeyC') S.binds.kick = ['Digit2', S.binds.kick[1]]; } catch (e) { }
 const AU = NE.Audio; const playK = AU.play;
 AU.play = function (name, vol) { vol = vol == null ? 1 : vol; try {
   if (name === 'kick') { AU.noise(0.09, 900, 1.2, 0.18 * vol, 'bandpass'); AU.tone(180, 0.06, 0.05 * vol, 'triangle', 120); return; }
@@ -237,7 +234,6 @@ NE.Player.prototype.update = function (dt, input) { if (this.fkT > 0) { this.fkT
       AU.play('dropkickhit'); g.shake(4); g.slowmo = Math.max(g.slowmo || 0, 0.12); g.noise(this.x, this.y, 110); this.vx = -this.facing * 60; this.dkT = Math.min(this.dkT, 0.12); if (t.onAggro) t.onAggro(this); break; }
     if (this.dkT <= 0 || this.onGround) { this.dkT = 0; if (!this.onGround || this.dkHit) this.knockdown(0, -10, this.dkHit ? 0.45 : 0.7); } }
   const r = puK.apply(this, arguments); if (this.dkT > 0 && this.dkDir) this.facing = this.dkDir; else if (this.fkT > 0 && this.fkDir) this.facing = this.fkDir; return r; };
-const keyK = G.onKey; G.onKey = function (code) { if (G.actionOf(code) === 'kick' && G.state === 'run' && G.player && G.player.alive && !NE.UI.panel && !NE.UI.modalOpen()) return G.player.kick(); return keyK.apply(this, arguments); };
 // poses
 const poseK = NE.ragPose;
 NE.ragPose = function (a) { const out = poseK(a); const f = a.facing || 1;
@@ -268,4 +264,17 @@ NE.Enemy.prototype.update = function (dt) { const r = euB.apply(this, arguments)
     this.vx -= this.facing * 40; }
   return r; };
 const pmK = NE.Actor.prototype.physicsMove; NE.Actor.prototype.physicsMove = function (dt, c) { if (this.isPlayer && this.dkT > 0) { const v = this.vx; const d = this.dkDir || this.facing; this.facing = d; const r = pmK.call(this, dt, Object.assign({}, c, { mx: d, jump: false })); if (!this.dkHit && !this.onGround) this.vx = d * Math.max(150, Math.abs(v) * 0.985); return r; } if (this.isPlayer && this.fkT > 0) c = Object.assign({}, c, { mx: 0 }); return pmK.call(this, dt, c); };
+
+// ---- Kicks as a weapon slot: Fists -> Kicks -> weapons, cycled with the scroll wheel like any weapon
+const KICKS = NE.KICKS = { id: 'fists', name: 'Kicks', kicks: true, melee: { dmg: 10, kind: 'blunt', reach: 19, stam: 8, cd: 0.85 } };
+const wdK = NE.Player.prototype.weaponDef; NE.Player.prototype.weaponDef = function () { if (!this.equip.weapon && this.kickMode && !this.stats.mand) return KICKS; return wdK.apply(this, arguments); };
+const atK = NE.Player.prototype.attack; NE.Player.prototype.attack = function () { if (!this.equip.weapon && this.kickMode && !this.armless()) { this.charge = null; return this.kick(); } return atK.apply(this, arguments); };
+const upKM = NE.Player.prototype.update; NE.Player.prototype.update = function () { if (this.equip && this.equip.weapon) this.kickMode = false; return upKM.apply(this, arguments); };
+G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const all = [null, 'KICKS', ...ws];
+  const cur = p.equip.weapon ? all.indexOf(p.equip.weapon) : p.kickMode ? 1 : 0; const i = ((Math.max(0, cur) + dir) % all.length + all.length) % all.length;
+  p.equip.weapon = all[i] === 'KICKS' ? null : all[i]; p.kickMode = all[i] === 'KICKS'; p.charge = null; NE.UI.weaponFlash(all, i); NE.Audio.play('click', 0.7); };
+NE.UI.weaponFlash = function (all, i) { const el = document.querySelector('#wsel'); if (!el) return; const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const img = (k, sc) => '<img class="pix" src="' + NE.iconURL(k, null, sc) + '">';
+  el.innerHTML = all.map((e, k) => { const kk = e === 'KICKS'; const icon = kk ? img('boot', 3) : e ? '<img class="pix" src="' + NE.itemIconURL(e.id, 3) + '">' : img('fist', 3); const nm = kk ? 'Kicks' : e ? NE.ITEMS[e.id].name : 'Fists'; return '<div class="ws' + (k === i ? ' on' : '') + '">' + icon + (k === i ? '<b>' + esc(nm) + '</b>' : '') + '</div>'; }).join('');
+  el.classList.remove('hide'); clearTimeout(NE.UI._wsT); NE.UI._wsT = setTimeout(() => el.classList.add('hide'), 1100); };
 })(window.NE);

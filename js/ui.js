@@ -124,7 +124,7 @@ UI.hudUpdate = function () {
   // hotbar
   const w = p.equip.weapon, wd = p.weaponDef(); let ammo = ''; if (wd.gun) ammo = (w.jammed ? '<b class="bad">JAM</b> ' : '') + w.mag + '/' + wd.gun.mag + ' <span class="dim">(' + p.inv.count(wd.gun.ammo) + ')</span>';
   const th = g.throwSel(); const band = p.inv.count('bandage') + p.inv.count('cleanrag') + p.inv.count('rag');
-  $('#hotbar').innerHTML = '<div class="hb">' + (w ? ic(w.id) : icn('fist')) + '<div><b>' + esc(wd.name) + '</b><small>' + (ammo || 'LMB • hold for heavy • scroll swaps') + '</small></div></div>' +
+  $('#hotbar').innerHTML = '<div class="hb">' + (w ? ic(w.id) : icn(wd.kicks ? 'boot' : 'fist')) + '<div><b>' + esc(wd.name) + '</b><small>' + (ammo || (wd.kicks ? 'LMB kick • in the air: drop kick' : 'LMB • hold for heavy • scroll swaps')) + '</small></div></div>' +
     '<div class="hb' + (p.light.on ? '' : ' off') + '">' + icn('ui_town') + '<div><b>[' + NE.keyLabel('light') + '] Lantern</b><small>' + Math.round(p.light.bat) + '% oil</small></div></div>' +
     (g.state === 'run' ? '<div class="hb">' + (th ? ic(th) : icn('bottle')) + '<div><b>[' + NE.keyLabel('throw') + '] Throw</b><small>' + (th ? esc(NE.ITEMS[th].name) + ' ×' + p.inv.count(th) : 'none • [' + NE.keyLabel('cycleThrow') + '] cycle') + '</small></div></div>' +
     (() => { const qp = NE.quickPlan ? NE.quickPlan(p) : null; return '<div class="hb' + (qp ? '' : ' off') + '">' + (qp ? ic(qp.e ? qp.e.id : 'splint') : icn('bandage')) + '<div><b>[' + NE.keyLabel('bandage') + '] Treat</b><small>' + (qp ? esc(qp.label) : 'nothing to fix') + '</small></div></div>'; })() : '') +
