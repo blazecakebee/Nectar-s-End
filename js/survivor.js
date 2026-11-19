@@ -31,22 +31,24 @@ function applyMods(s, m) { if (!m) return; for (const k in m) { if (k === 'lungs
 NE.computeStats = function (meta, surv) {
   const s = { speed: 1, stamina: 0, staminaCost: 1, fall: 1, noise: 1, climb: 1, gas: 1, sight: 1, aim: 1, tox: 1, rad: 1, infect: 1, bleed: 1, painTol: 0, fracture: 1, hunger: 1, thirst: 1, cold: 1, melee: 1, carry: 0, slots: 0, stress: 1, barter: 1, treat: 1, search: 1, loot: 1, coldblood: false, medEff: 1, battery: 1, craft: 0, lungs: 100, heat: 1 };
   const P = (meta && meta.perks) || {}; const r = id => P[id] || 0;
-  s.speed += r('movement') * 0.04; s.staminaCost -= r('movement') * 0.05;
-  s.fall -= r('agility') * 0.1; s.noise -= r('agility') * 0.08; s.climb += r('agility') * 0.1;
-  s.stamina += r('cardio') * 12; s.gas -= r('cardio') * 0.12;
-  s.sight += r('eyesight') * 0.15; s.loot += r('eyesight') * 0.3;
-  const tl = r('tolerance'); s.tox -= tl * 0.1; s.rad -= tl * 0.1; s.infect -= tl * 0.1; s.bleed -= tl * 0.06;
-  s.treat -= r('medicine') * 0.1; s.medEff += r('medicine') * 0.1;
-  const en = r('endurance'); s.painTol += en * 8; s.fracture -= en * 0.08; s.hunger -= en * 0.06; s.thirst -= en * 0.06; s.cold -= en * 0.08;
-  s.melee += r('strength') * 0.08; s.carry += r('strength') * 2.5;
-  s.search -= r('scavenger') * 0.12; s.loot += r('scavenger') * 0.2;
-  const ps = r('psychology'); s.stress -= ps * 0.12; s.aim -= ps * 0.06; s.barter -= ps * 0.06;
+  s.speed += r('movement') * 0.025; s.staminaCost -= r('movement') * 0.03;
+  s.fall -= r('agility') * 0.07; s.noise -= r('agility') * 0.06; s.climb += r('agility') * 0.07;
+  s.stamina += r('cardio') * 10; s.gas -= r('cardio') * 0.1;
+  s.sight += r('eyesight') * 0.1; s.loot += r('eyesight') * 0.2;
+  const tl = r('tolerance'); s.tox -= tl * 0.07; s.rad -= tl * 0.07; s.infect -= tl * 0.07; s.bleed -= tl * 0.04;
+  s.treat -= r('medicine') * 0.07; s.medEff += r('medicine') * 0.07;
+  const en = r('endurance'); s.painTol += en * 6; s.fracture -= en * 0.06; s.hunger -= en * 0.04; s.thirst -= en * 0.04; s.cold -= en * 0.05;
+  s.melee += r('strength') * 0.05; s.carry += r('strength') * 2;
+  s.search -= r('scavenger') * 0.08; s.loot += r('scavenger') * 0.15;
+  const ps = r('psychology'); s.stress -= ps * 0.08; s.aim -= ps * 0.04; s.barter -= ps * 0.04;
   s.coldblood = r('coldblood') > 0;
-  s.bleed -= r('clotting') * 0.07; s.clot = r('clotting') * 0.3; s.hpMul = 1 + r('vitality') * 0.08;
-  s.parkour = 1 + r('parkour') * 0.12; s.runSpeed = 1 + r('sprinter') * 0.05; s.runCost = 1 - r('sprinter') * 0.1;
-  s.pick = 1 + r('nimble') * 0.12; s.search -= r('nimble') * 0.06; s.battery *= 1 + r('lantern') * 0.2; s.lamp = 1 + r('lantern') * 0.1;
-  s.stress -= r('composure') * 0.1; s.wake = 1 + r('composure') * 0.15; s.barter -= r('barter') * 0.08; s.post = 1 + r('barter') * 0.1;
-  s.swing = 1 + r('brawler') * 0.12; s.slots += r('packmule') + r('organizer'); s.carry += r('packmule') * 2 + r('hauler') * 3; s.encTol = r('hauler') * 0.06; s.stackMul = 1 + r('organizer') * 0.25;
+  s.bleed -= r('clotting') * 0.05; s.clot = r('clotting') * 0.2; s.hpMul = 1 + r('vitality') * 0.05;
+  s.parkour = 1 + r('parkour') * 0.08; s.runSpeed = 1 + r('sprinter') * 0.03; s.runCost = 1 - r('sprinter') * 0.05;
+  s.pick = 1 + r('nimble') * 0.08; s.search -= r('nimble') * 0.04; s.battery *= 1 + r('lantern') * 0.15; s.lamp = 1 + r('lantern') * 0.07;
+  s.stress -= r('composure') * 0.07; s.wake = 1 + r('composure') * 0.1; s.barter -= r('barter') * 0.05; s.post = 1 + r('barter') * 0.07;
+  s.swing = 1 + r('brawler') * 0.06; s.slots += r('packmule') + r('organizer'); s.carry += r('packmule') * 1.5 + r('hauler') * 2; s.encTol = r('hauler') * 0.05; s.stackMul = 1 + r('organizer') * 0.15;
+  // overlapping trees can't stack into near-immunity
+  s.search = Math.max(0.6, s.search); s.stress = Math.max(0.5, s.stress); s.barter = Math.max(0.75, s.barter); s.treat = Math.max(0.6, s.treat); s.bleed = Math.max(0.55, s.bleed); s.staminaCost = Math.max(0.7, s.staminaCost);
   if (surv) {
     const occ = NE.OCCUPATIONS.find(o => o.id === surv.occ); if (occ) applyMods(s, occ.mods);
     for (const t of surv.traits) { const tr = NE.TRAITS.find(x => x.id === t); if (tr) applyMods(s, tr.mods); }

@@ -655,7 +655,7 @@ UI.survivor = function (npc) {
 };
 function pick2(a) { return a[Math.floor(Math.random() * a.length)]; }
 UI.standoff = function (o) {
-  const g = G(), p = g.player; const psy = g.meta.perks.psychology || 0; const chanceTalk = Math.min(0.9, 0.3 + psy * 0.15 + (p.stats.stress < 1 ? 0.1 : 0));
+  const g = G(), p = g.player; const psy = g.meta.perks.psychology || 0; const chanceTalk = Math.min(0.9, 0.3 + psy * 0.1 + (p.stats.stress < 1 ? 0.1 : 0));
   const grp = o.grp.filter(e => e.alive); if (!grp.length) return; const [a, b] = [grp[0], grp[1] || grp[0]];
   for (const e of grp) { e.facing = p.x > e.x ? 1 : -1; e.target = p; }
   g.npcSay(a, 'That\'s far enough.', 3); setTimeout(() => g.npcSay(b, 'Meds. On the ground. Now.', 3), 700);
