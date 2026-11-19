@@ -189,7 +189,7 @@ class Actor {
   }
   draw(ctx) {
     const o = { facing: this.facing, anat: this.anat, dead: !this.alive, pack: this.packCol, weapon: this.weaponId(), aimDir: this.aimDir, shirt: this.shirt, pants: this.pants, skinCol: this.skinCol,
-      arch: this.D ? this.type : null, vcol: this.vglow, vest: this.gear.body ? (NE.ITEMS[this.gear.body.id].col || '#3a3e36') : null, eyeGlow: this.D ? this.D.eyeGlow : null, blind: this.D && this.D.blind, helmet: this.gear.head ? (NE.ITEMS[this.gear.head.id].col || '#888') : null, mask: !!this.gear.face || this.masked, walkPh: this.walkPh, sev: this.sev, stains: this.stains, gutted: this.gutted, wdir: this.alive ? this.wdir : null, lantern: NE.hasLantern(this) ? (this.isPlayer ? (this.light.on ? 1 : 0.01) : this.isRemote ? (this.lightOn ? 1 : 0.01) : 1) : 0, vespa: !!this.vespa, infest: this.infest || 0, muts: this.muts };
+      arch: this.D ? this.type : null, vcol: this.vglow, vest: this.gear.body ? (NE.ITEMS[this.gear.body.id].col || '#3a3e36') : null, eyeGlow: this.D ? this.D.eyeGlow : null, blind: this.D && this.D.blind, helmet: this.gear.head ? (NE.ITEMS[this.gear.head.id].col || '#888') : null, helmId: this.gear.head ? this.gear.head.id : null, vestId: this.gear.body ? this.gear.body.id : null, acc: NE.accOf ? NE.accOf(this) : null, shoe: this.gear.feet ? NE.ITEMS[this.gear.feet.id].col : null, shoeSole: this.gear.feet && this.gear.feet.id === 'runshoes' ? '#f0f0f0' : null, glove: this.gear.hands ? NE.ITEMS[this.gear.hands.id].col : null, gloveStud: this.gear.hands && this.gear.hands.id === 'knucklegloves', mask: !!this.gear.face || this.masked, walkPh: this.walkPh, sev: this.sev, stains: this.stains, gutted: this.gutted, wdir: this.alive ? this.wdir : null, lantern: NE.hasLantern(this) ? (this.isPlayer ? (this.light.on ? 1 : 0.01) : this.isRemote ? (this.lightOn ? 1 : 0.01) : 1) : 0, vespa: !!this.vespa, infest: this.infest || 0, muts: this.muts };
     NE.drawHuman(ctx, this.rag, this.look, o);
     if (this.flash > 0 && this.alive) { ctx.fillStyle = 'rgba(255,60,40,0.5)'; for (const p of this.rag.pts) ctx.fillRect(Math.round(p.x) - 1, Math.round(p.y) - 1, 2, 2); }
   }
@@ -480,7 +480,10 @@ class NPC extends Actor {
     if (role === 'doctor') { this.shirt = '#d8d4c8'; } if (role === 'trader') this.packCol = ['#5a4030', '#c09040']; }
   weaponId() { return this.kind === 'trader' ? null : null; }
   update(dt) {
-    const A = this.anat; if (this.kind === 'survivor' && !this.treated) { for (const p of NE.PARTS) for (const w of A.parts[p].wounds) if (!w.closed) w.bleed = Math.max(w.bleed, 0.3); }
+    const A = this.anat; const g = this.g; const pl = g.player, pr = g.net && g.net.on && g.net.peer;
+    // wounded survivors hold on until someone actually finds them (then the clock starts)
+    if (!this.met && !this.town) { const near = q => q && q.alive !== false && Math.abs(q.x - this.x) < 150 && Math.abs(q.y - this.y) < 60; if (near(pl) || near(pr)) this.met = true; else if (this.kind === 'survivor') { if (g.player) this.facing = g.player.x > this.x ? 1 : -1; return; } }
+    if (this.kind === 'survivor' && !this.treated) { for (const p of NE.PARTS) for (const w of A.parts[p].wounds) if (!w.closed) w.bleed = Math.max(w.bleed, 0.3); }
     A.update(dt, {}); if (A.dead) { this.g.onEnemyDeath(this, 'Bled out'); return; }
     const c = { mx: 0, crouch: this.sitting };
     if (this.town) { this.wanderT -= dt; if (this.wanderT <= 0) { this.wanderT = rf(2, 6); this.wander = this.role === 'folk' && chance(0.6) ? (chance(0.5) ? 1 : -1) : 0; } if (Math.abs(this.x - this.homeX) > 40) this.wander = Math.sign(this.homeX - this.x); c.mx = this.wander * 0.4; if (this.bumped) { this.wander *= -1; this.bumped = 0; } this.fallHurt(this.physicsMove(dt, c)); if (!c.mx && this.g.player) this.facing = this.g.player.x > this.x ? 1 : -1; else if (c.mx) this.facing = Math.sign(c.mx); return; }
@@ -523,7 +526,7 @@ NE.applyTreatment = function (pl, entry, part, op) {
     else { A.painSpike += 18; NE.Audio.play('pain'); g.toast('It grinds and slips back out. Try again.'); } NE.UI.refresh(); return; }
   if (op === 'amputate') { if (!entry || !pl.inv.items.includes(entry) || P.severed) return; blackout(75); A.painSpike += 40; A.stress = Math.min(100, A.stress + 30); NE.amputate(pl, part); g.shake(5); NE.UI.refresh(); return; }
   if (op === 'fit') { if (!entry || !pl.inv.items.includes(entry) || !P.severed || P.prost) return; const pd = NE.ITEMS[entry.id].prost;
-    P.prost = { id: entry.id, name: NE.ITEMS[entry.id].name, eff: pd.eff, kind: pd.kind, col: NE.ITEMS[entry.id].col, fitT: 0 }; entry.n--; if (entry.n <= 0) pl.inv.remove(entry); A.painSpike += 14; NE.Audio.play('metal', 0.7);
+    P.prost = { id: entry.id, name: NE.ITEMS[entry.id].name, eff: pd.eff, kind: pd.kind, col: NE.ITEMS[entry.id].col, fitT: 0 }; for (const w of P.wounds) { w.closed = true; w.bleed = 0; w.inf = 0; } P.wounds = []; P.tq = false; P.bandage = null; entry.n--; if (entry.n <= 0) pl.inv.remove(entry); A.painSpike += 14; NE.Audio.play('metal', 0.7);
     g.toast('Strapped on the ' + P.prost.name.toLowerCase() + ' (' + Math.round(pd.eff * 100) + '% function).'); NE.UI.refresh(); return; }
   if (op === 'unfit') { if (!P.prost) return; const id = P.prost.id; P.prost = null; pl.inv.add(id, 1); g.toast('Unstrapped the prosthetic.'); NE.UI.refresh(); return; }
   if (op === 'removeTq') { P.tq = false; P.tqT = 0; pl.inv.add('tourniquet', 1); g.toast('Tourniquet removed.'); return; }

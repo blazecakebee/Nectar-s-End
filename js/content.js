@@ -9,6 +9,10 @@ Object.assign(NE.ICONS, {
   peg: ['......bB', '.....bB.', '....bB..', '...BB...', '...kk...', '...BB...', '...BB...', '...bb...'],
   parm: ['.gg.....', 'gwgg....', '.ggdg...', '..gdgg..', '...ggdg.', '....gwgg', '.....g.g', '.....g..'],
   pleg: ['..ggg...', '..gwg...', '..gdg...', '..ggg...', '...gw...', '...gg...', '...gg...', '.kkggg..'],
+  grap: ['.g...g..', '..g.g...', '...g....', '...g....', '...B....', '....B...', '.....BB.', '.......B'],
+  hook: ['....kk..', '...k..k.', '......k.', '.....k..', '....X...', '...XX...', '..XXX...', '..XX....'],
+  aarm: ['.yy.....', 'yrry....', '.yyXy...', '..yXXy..', '...yrXy.', '....yXXy', '.....yry', '......y.'],
+  aleg: ['..yyy...', '..yry...', '..yXy...', '..yyy...', '...yr...', '...yX...', '...yX...', '.yyyyy..'],
   saw: ['........', 'bbb.....', 'bBbgggg.', 'bbbwwwwg', '...gkgkg', '....k.k.', '........', '........'],
   hood: ['..XXXX..', '.XXXXXX.', 'XXkkkkXX', 'XkwkwkkX', 'XkkkkkkX', '.XXkkXX.', '..XXXX..', '........'],
   plate: ['.XX..XX.', 'XXXXXXXX', 'XwXXXXwX', 'XXXXXXXX', '.XXXXXX.', '.XXwwXX.', '.XXXXXX.', '..X..X..'],
@@ -37,10 +41,10 @@ const PROS = [
   ['art_leg', 'Artificer Leg', 'art', 'leg', 1.08, '#c8a040', 'Brass and amber, warm to the touch. Runs better than flesh ever did.'],
 ];
 for (const [id, name, kind, slot, eff, col, desc] of PROS) {
-  IT[id] = { name, icon: kind === 'saw' ? 'saw' : kind === 'peg' ? (slot === 'leg' ? 'peg' : 'parm') : slot === 'leg' ? 'pleg' : 'parm', col, w: kind === 'peg' ? 1.2 : kind === 'metal' || kind === 'saw' ? 2.4 : 1.6, cat: 'tool', prost: { kind, slot, eff }, value: kind === 'art' ? 260 : kind === 'saw' ? 120 : Math.round(eff * 70), desc: desc + ' Fits a ' + slot + ' stump: ' + Math.round(eff * 100) + '% function' + (kind === 'saw' ? ', ' + NE.SAW_DMG[id] + ' sharp damage unarmed.' : '.') };
+  IT[id] = { name, icon: kind === 'saw' ? 'saw' : kind === 'peg' ? (slot === 'leg' ? 'peg' : 'hook') : kind === 'art' ? (slot === 'leg' ? 'aleg' : 'aarm') : slot === 'leg' ? 'pleg' : 'parm', col, w: kind === 'peg' ? 1.2 : kind === 'metal' || kind === 'saw' ? 2.4 : 1.6, cat: 'tool', prost: { kind, slot, eff }, value: kind === 'art' ? 260 : kind === 'saw' ? 120 : Math.round(eff * 70), desc: desc + ' Fits a ' + slot + ' stump: ' + Math.round(eff * 100) + '% function' + (kind === 'saw' ? ', ' + NE.SAW_DMG[id] + ' sharp damage unarmed.' : '.') + (kind === 'peg' && slot === 'arm' ? ' The hook doubles as a grappling hook: press [Z].' : '') };
   NE.ISIZE[id] = slot === 'leg' ? [1, 3] : [1, 2];
 }
-IT.grapple = { name: 'Grappling Hook', icon: 'parm', col: '#8a8e94', w: 1.4, cat: 'tool', value: 60, desc: 'Press [Z] to fire it at the rock above you and haul yourself up. Press again or jump to let go.' }; NE.ISIZE.grapple = [2, 2];
+IT.grapple = { name: 'Grappling Hook', icon: 'grap', col: '#8a8e94', w: 1.4, cat: 'tool', value: 60, desc: 'Press [Z] to fire it at the rock above you and haul yourself up. Press again or jump to let go.' }; NE.ISIZE.grapple = [2, 2];
 IT.saw = { name: 'Bone Saw', icon: 'saw', col: '#a0a0a0', w: 0.7, cat: 'tool', value: 30, desc: 'A surgeon\'s saw. The cleanest way to take a limb off (Anatomy → Procedures).' }; NE.ISIZE.saw = [2, 1];
 
 // 30 armour pieces, themed by region. warm/cool cut cold/heat, radRes/gasF cut radiation/gas, fallRes cuts fall damage.
@@ -555,10 +559,11 @@ const dash0 = NE.Player.prototype.dash;
 NE.Player.prototype.dash = function (mx) { const cd = this.dashCD; dash0.call(this, mx); if (this.abil && this.abil.includes('tendons') && this.dashCD > 0 && !(cd > 0)) { this.anat.stam += 7 * this.stats.staminaCost; this.dashCD = 0.3; } };
 NE.Player.prototype.grapple = function () {
   const g = this.g; if (this.hook) { this.hook = null; NE.Audio.play('cloth', 0.6); return; }
-  if (!this.inv.has('grapple')) { g.toast('You need a Grappling Hook.'); NE.Audio.play('deny'); return; }
-  if (this.anat.armFactor() < 0.35 || this.anat.uncon || this.rd) return g.toast('Your arms can\'t throw it.');
+  const hookArm = ['rarm', 'larm'].find(k => { const P = this.anat.parts[k]; return P.severed && P.prost && /^peg_arm/.test(P.prost.id); });
+  if (!hookArm && !this.inv.has('grapple')) { g.toast('You need a Grappling Hook (or a Hook Arm).'); NE.Audio.play('deny'); return; }
+  if ((!hookArm && this.anat.armFactor() < 0.35) || this.anat.uncon || this.rd) return g.toast('Your arms can\'t throw it.');
   let dx = g.mouse.wx - this.x, dy = g.mouse.wy - (this.y - this.h + 6); const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; if (dy > -0.15) { dy = -0.5; const l2 = Math.hypot(dx, dy); dx /= l2; dy /= l2; }
-  this.hook = { x: this.x, y: this.y - this.h + 6, vx: dx * 420, vy: dy * 420, att: false, len: 0, t: 0 }; NE.Audio.play('whoosh', 0.8); this.climbing = false;
+  this.hook = { x: this.x, y: this.y - this.h + 6, vx: dx * (hookArm ? 480 : 420), vy: dy * (hookArm ? 480 : 420), att: false, len: 0, t: 0, arm: hookArm || null }; NE.Audio.play('whoosh', 0.8); this.climbing = false;
 };
 NE.Player.prototype.hookTick = function (dt, input) {
   const h = this.hook, W = this.g.world; h.t += dt; const sx = this.x, sy = this.y - this.h + 6;
@@ -1038,7 +1043,7 @@ G.updateCproj = function (dt) {
       if (!q.ghost) for (const a of G.actors) { if (!a.alive || a === q.by || a.town || a.isRemote || (q.by && q.by.isPlayer && a.isPlayer)) continue; if (a.contains && a.contains(q.x, q.y, 1.5)) {
           if (a.dashIF > 0) continue; done = true;
           if (q.kind === 'stickybomb') { q.stuck = { a, dx: q.x - a.x, dy: q.y - a.cy }; q.fuse = 2; NE.Audio.play('latch', 0.6); break; }
-          if (hitFx[q.kind]) { if (!a.isPuppet || true) hitFx[q.kind](q, a); if (a.onAggro && q.by && q.by.isPlayer) a.onAggro(q.by); NE.Audio.play(q.kind === 'bola' ? 'cinch' : 'slash', 0.7); q.dead = true; } else { q.dead = true; NE.throwFx(q.kind, q.x, q.y, q.by); } break; } }
+          if (hitFx[q.kind]) { NE._dmgMul = NE.thrMul ? NE.thrMul(q) : 1; try { hitFx[q.kind](q, a); } finally { NE._dmgMul = 0; } if (a.onAggro && q.by && q.by.isPlayer) a.onAggro(q.by); NE.Audio.play(q.kind === 'bola' ? 'cinch' : 'slash', 0.7); q.dead = true; } else { q.dead = true; NE.throwFx(q.kind, q.x, q.y, q.by); } break; } }
       if (!done && W.solidAt(q.x, q.y)) { done = true; q.x -= q.vx * dt / steps; q.y -= q.vy * dt / steps;
         if (q.kind === 'stickybomb') { q.stuck = { a: null }; q.fuse = 2; NE.Audio.play('latch', 0.5); }
         else if (hitFx[q.kind]) { q.dead = true; NE.Audio.play('metal', 0.3); if (!q.ghost && q.kind !== 'poisondart' && chance(0.75)) G.dyn.push({ type: 'container', ct: 'bag', x: q.x, y: q.y + 2, label: IT[q.kind].name, act: 'search', items: [{ id: q.kind, n: 1 }], searched: false, depth: 0 }); }
@@ -1488,4 +1493,297 @@ G.drawObj = function (ctx, o) {
 };
 const interact0 = G.interact;
 G.interact = function () { const o = G.interactTarget(); if (o && o.act === 'caveexit') { NE.Audio.play('rumble', 0.4); G.say(pick(['The way out caved in behind us. Only down now.', 'Daylight. So close, and nowhere near.', 'No going back. The lift only goes down.']), 1); G.toast('The entrance collapsed. The only way is down.'); return; } return interact0.apply(this, arguments); };
+})(window.NE);
+
+// =====================================================================================================================
+// GEAR LOOKS: every helmet/armour piece has its own worn silhouette (not a recolour), and its icon is drawn from that
+// same model, so no two icons repeat. Utility gear (gloves, boots, belts, charms) gets hand-drawn icons too.
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const IT = NE.ITEMS; const sh = (c, k) => NE.shade(c, k);
+// head looks: t = silhouette type; c = main colour; a = accent
+const HL = {
+  helmet: { t: 'lamp', c: '#d0a020', a: '#fff0a0' }, leathercap: { t: 'cap', c: '#6a4428', a: '#4a2e18' }, scraphelm: { t: 'bucket', c: '#7a6a58', a: '#a08a70' },
+  riothelm: { t: 'riot', c: '#30343a', a: '#90b0c8' }, hazhood: { t: 'haz', c: '#d8c040', a: '#203040' }, milhelmet: { t: 'mil', c: '#4a5040', a: '#2a3020' },
+  mosscap: { t: 'moss', c: '#4a6a30', a: '#7a9a40' }, spelhelm: { t: 'spel', c: '#e0b020', a: '#fff6c0' }, nomadwrap: { t: 'wrap', c: '#c8a868', a: '#8a6a38' },
+  bronzehelm: { t: 'crest', c: '#b08040', a: '#c03020' }, furhood: { t: 'fur', c: '#d8d0c0', a: '#8a7058' }, icehelm: { t: 'horn', c: '#7a98b0', a: '#d8f0ff' },
+  shardhelm: { t: 'shard', c: '#8a7ad0', a: '#d0c0ff' }, prismvisor: { t: 'visor', c: '#b0e0ff', a: '#ff80c0' }, obsidhelm: { t: 'spire', c: '#2a2228', a: '#ff5020' },
+  firemask: { t: 'firemask', c: '#a03a20', a: '#ffb040' }, chitinhelm: { t: 'crown', c: '#8a5a20', a: '#c08a40' }, divehelm: { t: 'dive', c: '#c09040', a: '#80c0d0' },
+  skullhelm: { t: 'skull', c: '#e0d8c0', a: '#1a1010' }, weldmask: { t: 'weld', c: '#3a3e44', a: '#203028' }, beehood: { t: 'veil', c: '#e8e0c0', a: '#4a4a40' },
+};
+const BL = {
+  vest: { t: 'jacket', c: '#6a4428', a: '#4a2e18' }, kevlar: { t: 'kevlar', c: '#2e3a2a', a: '#1a2018' }, scrapplate: { t: 'scrap', c: '#7a6a58', a: '#a05a30' },
+  riot: { t: 'riot', c: '#30343a', a: '#50565e' }, hazmat: { t: 'haz', c: '#d8c040', a: '#2a2a2a' }, platevest: { t: 'carrier', c: '#3a4430', a: '#5a6440' },
+  mosscoat: { t: 'moss', c: '#4a6a30', a: '#7a9a40' }, spelharn: { t: 'harness', c: '#c08a20', a: '#6a4a20' }, nomadrobe: { t: 'robe', c: '#b08850', a: '#7a5a30' },
+  bronzecuir: { t: 'cuirass', c: '#b08040', a: '#e0b060' }, furparka: { t: 'parka', c: '#d8d0c0', a: '#8a7058' }, icemail: { t: 'quilt', c: '#7a98b0', a: '#5a7890' },
+  shardplate: { t: 'shard', c: '#8a7ad0', a: '#d0c0ff' }, prismweave: { t: 'prism', c: '#b0e0ff', a: '#ff80c0' }, obsidplate: { t: 'obsid', c: '#2a2228', a: '#ff5020' },
+  firecoat: { t: 'coat', c: '#a03a20', a: '#ffb040' }, chitinplate: { t: 'chitin', c: '#8a5a20', a: '#c08a40' }, divesuit: { t: 'dive', c: '#3a5050', a: '#c09040' },
+  bonemail: { t: 'bone', c: '#e0d8c0', a: '#6a5a48' }, policevest: { t: 'police', c: '#1c2430', a: '#e8e8e0' }, chainmail: { t: 'chain', c: '#8a8e94', a: '#5a5e64' },
+};
+NE.HEADLOOK = HL; NE.BODYLOOK = BL;
+// ---- head gear: pass 0 = shell (before eyes), pass 1 = things over the eyes
+NE.drawHeadGear = function (ctx, X0, Y0, f, id, N, OL, pass) {
+  const L = HL[id]; if (!L) { const it = IT[id]; if (pass === 0 && it) { const c = it.col || '#777'; ctx.fillStyle = N(c); ctx.fillRect(X0 - 1, Y0 - 2, 8, 3); } return; }
+  const R = (dx, dy, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(f > 0 ? X0 + dx : X0 + 6 - dx - w, Y0 + dy, w, h); };
+  const c = N(L.c), d = OL(L.c), hi = N(sh(L.c, 1.3)), a = L.a;
+  if (pass === 0) switch (L.t) {
+    case 'lamp': R(-1, -2, 8, 3, d); R(0, -2, 6, 2, c); R(0, -2, 6, 1, hi); R(-1, 0, 9, 1, d); R(5, -2, 2, 2, '#e8e0a0'); break;
+    case 'cap': R(0, -2, 6, 2, c); R(0, -2, 6, 1, hi); R(4, 0, 4, 1, d); R(-1, -1, 1, 2, d); break;
+    case 'bucket': R(-1, -3, 8, 4, d); R(0, -3, 6, 4, c); R(1, -2, 1, 1, hi); R(4, -2, 1, 1, hi); R(0, 0, 6, 1, sh(L.c, 0.7)); R(-1, -4, 2, 1, d); break;
+    case 'riot': R(-1, -2, 8, 4, d); R(0, -2, 6, 3, c); R(0, -2, 5, 1, hi); R(-1, 2, 2, 3, d); break;
+    case 'haz': R(-1, -2, 8, 9, d); R(0, -2, 6, 8, c); R(0, -2, 6, 1, hi); R(-1, 5, 8, 1, sh(L.c, 0.6)); break;
+    case 'mil': R(-1, -2, 8, 3, d); R(0, -2, 6, 2, c); R(-1, 0, 2, 3, d); R(1, -2, 1, 1, '#2a2a20'); R(3, -1, 1, 1, '#2a2a20'); R(2, -3, 2, 1, d); break;
+    case 'moss': R(0, -2, 6, 2, c); R(-1, -1, 8, 1, d); R(0, -3, 1, 1, a); R(2, -3, 2, 1, a); R(5, -3, 1, 1, a); R(-1, 0, 1, 1, a); R(6, 0, 1, 1, a); break;
+    case 'spel': R(-1, -2, 8, 3, d); R(0, -2, 6, 2, c); R(0, -2, 6, 1, hi); R(4, -4, 3, 3, d); R(5, -4, 2, 2, a); R(-1, 0, 9, 1, d); break;
+    case 'wrap': R(-1, -2, 8, 3, c); R(-1, -1, 8, 1, sh(L.c, 0.8)); R(-2, 0, 2, 4, c); R(-2, 4, 1, 2, sh(L.c, 0.8)); R(0, 3, 7, 3, c); R(0, 4, 7, 1, sh(L.c, 0.8)); break;
+    case 'crest': R(-1, -2, 8, 3, d); R(0, -2, 6, 3, c); R(0, -2, 6, 1, hi); R(0, -5, 4, 3, a); R(-1, -4, 1, 2, a); R(4, 1, 1, 4, d); R(-1, 1, 2, 4, d); break;
+    case 'fur': R(-2, -3, 10, 3, d); R(-1, -3, 8, 3, c); R(-2, 0, 3, 7, d); R(-1, 0, 2, 6, c); R(-1, -3, 8, 1, hi); R(2, -1, 5, 1, a); R(6, -1, 1, 2, a); R(-1, 5, 6, 2, c); R(1, 6, 4, 1, a); break;
+    case 'horn': R(-1, -2, 8, 3, d); R(0, -2, 6, 2, c); R(0, -4, 1, 2, a); R(-1, -5, 1, 1, a); R(5, -4, 1, 2, a); R(6, -5, 1, 1, a); R(1, -2, 4, 1, hi); break;
+    case 'shard': R(-1, -2, 8, 3, d); R(0, -2, 6, 2, c); R(0, -4, 1, 2, a); R(2, -5, 1, 3, a); R(4, -4, 1, 2, a); R(3, -6, 1, 1, '#ffffff'); break;
+    case 'visor': R(0, -1, 6, 1, c); R(-1, 0, 1, 2, d); break;
+    case 'spire': R(-1, -2, 8, 4, d); R(0, -2, 6, 3, c); R(1, -4, 4, 2, c); R(2, -6, 2, 2, c); R(2, -7, 1, 1, d); R(1, -1, 4, 1, a); R(-1, 2, 2, 3, d); break;
+    case 'firemask': R(0, -2, 6, 2, c); R(1, -3, 1, 1, a); R(3, -4, 1, 2, a); R(4, -3, 1, 1, '#ffe080'); break;
+    case 'crown': R(-1, -1, 8, 2, d); R(0, -1, 6, 1, c); R(0, -3, 1, 2, c); R(2, -4, 1, 3, c); R(4, -3, 1, 2, c); R(5, -2, 1, 1, a); break;
+    case 'dive': R(-2, -3, 10, 10, d); R(-1, -3, 8, 9, c); R(-1, -3, 8, 1, hi); R(-2, 5, 10, 2, sh(L.c, 0.6)); R(0, 6, 1, 1, '#e8d080'); R(4, 6, 1, 1, '#e8d080'); break;
+    case 'skull': R(-1, -2, 8, 5, d); R(0, -2, 6, 4, c); R(0, -2, 6, 1, '#ffffff'); R(0, 3, 6, 1, c); R(1, 3, 1, 1, a); R(3, 3, 1, 1, a); break;
+    case 'weld': R(-1, -2, 8, 2, d); R(0, -2, 6, 1, c); break;
+    case 'veil': R(-3, -2, 12, 1, d); R(-2, -3, 10, 1, c); R(0, -5, 6, 2, c); R(1, -5, 4, 1, hi); break;
+  } else switch (L.t) {
+    case 'riot': R(3, -1, 4, 5, 'rgba(150,190,220,0.45)'); R(6, -1, 1, 5, d); R(3, -1, 4, 1, 'rgba(230,245,255,0.7)'); break;
+    case 'haz': R(3, 1, 4, 2, a); R(4, 1, 2, 1, '#6aa0c0'); R(4, 4, 3, 2, '#3a3a3a'); R(6, 4, 1, 2, '#6a6a6a'); break;
+    case 'visor': R(1, 1, 6, 2, 'rgba(0,0,0,0.5)'); R(1, 1, 2, 1, '#80e0ff'); R(3, 1, 2, 1, a); R(5, 1, 2, 1, '#ffe080'); break;
+    case 'firemask': R(2, 0, 5, 6, d); R(3, 0, 4, 5, c); R(4, 1, 2, 1, a); R(4, 3, 3, 1, sh(L.c, 0.6)); R(6, 4, 1, 1, a); break;
+    case 'dive': R(3, 0, 4, 4, '#2a2010'); R(4, 1, 2, 2, 'rgba(120,200,220,0.7)'); R(4, 1, 1, 1, '#e0f8ff'); break;
+    case 'skull': R(4, 1, 2, 1, a); R(1, 1, 2, 1, a); R(6, 2, 1, 1, c); break;
+    case 'weld': R(1, 0, 7, 6, d); R(2, 0, 5, 5, c); R(3, 1, 4, 1, a); R(3, 1, 4, 1, 'rgba(60,140,80,0.7)'); R(6, 3, 1, 2, sh(L.c, 1.4)); break;
+    case 'veil': for (let y = -1; y < 6; y++) for (let x = -2; x < 8; x++) if ((x + y) % 2 === 0) R(x, y, 1, 1, 'rgba(40,40,30,0.55)'); break;
+    case 'wrap': R(0, 3, 7, 1, sh(L.c, 0.7)); break;
+    case 'mil': R(3, 1, 4, 1, 'rgba(20,20,10,0.25)'); break;
+  }
+};
+// ---- body gear drawn along the torso line (p[1] shoulders → p[2] hips)
+NE.drawBodyGear = function (ctx, p, f, id, N, OL, dark) {
+  const L = BL[id]; if (!L) return;
+  const s = p[1], h = p[2]; const lx = t => s.x + (h.x - s.x) * t, ly = t => s.y + (h.y - s.y) * t;
+  const R = (x, y, w, hh, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, hh); };
+  const band = (t, w, c, off) => R(lx(t) - (w >> 1) + (off || 0) * f, ly(t), w, 1, c);
+  const line = (w, c) => { NE.pline(ctx, s.x, s.y, h.x, h.y, w, c); };
+  const c = N(L.c), d = OL(L.c), hi = N(sh(L.c, 1.3)), lo = N(sh(L.c, 0.72)), a = N(L.a);
+  const front = (t, w, c2) => R(lx(t) + (f > 0 ? 1 : -1 - w + 1), ly(t), w, 1, c2);
+  switch (L.t) {
+    case 'jacket': line(6, d); line(5, c); band(0, 6, hi); R(lx(0.15) + f, ly(0.15), 1, 4, lo); R(lx(0.15) + f * 2, ly(0.15), 1, 2, a); band(0.95, 5, d); break;
+    case 'kevlar': line(6, d); line(5, c); band(0.25, 5, a); band(0.6, 5, a); R(lx(0.3) + f, ly(0.3), 2, 2, lo); R(s.x - 2, s.y - 1, 2, 2, d); break;
+    case 'scrap': line(6, d); line(5, c); R(lx(0.1) - 2, ly(0.1), 3, 2, N('#8a7a68')); R(lx(0.45), ly(0.45), 3, 2, a); R(lx(0.7) - 2, ly(0.7), 2, 2, N('#6a6a70')); R(lx(0.2) + 1, ly(0.2), 1, 1, '#d0c8b0'); R(lx(0.55) - 1, ly(0.55), 1, 1, '#d0c8b0'); break;
+    case 'riot': line(6, d); line(5, c); for (const t of [0.15, 0.4, 0.65]) band(t, 5, a); R(s.x - 3, s.y - 1, 3, 3, d); R(s.x - 3, s.y - 1, 2, 2, hi); R(s.x + 1, s.y - 1, 3, 3, d); break;
+    case 'haz': line(7, d); line(6, c); band(0.5, 6, N('#2a2a2a')); R(lx(0.1) + f * 2, ly(0.1), 1, 3, N('#3a3a3a')); R(lx(0.1) + f * 2, ly(0.1) + 3, 2, 1, N('#5a5a5a')); break;
+    case 'carrier': line(6, d); line(5, c); for (const t of [0.45, 0.65]) { R(lx(t) - 2, ly(t), 2, 2, a); R(lx(t) + 1, ly(t), 2, 2, a); } band(0.1, 5, lo); break;
+    case 'moss': line(7, d); line(6, c); for (let t = 0; t <= 1.05; t += 0.2) { R(lx(t) - 4, ly(t), 1, 2, a); R(lx(t) + 3, ly(t) + 1, 1, 2, a); } R(lx(1) - 2, ly(1) + 1, 1, 2, a); R(lx(1) + 1, ly(1) + 1, 1, 1, a); break;
+    case 'harness': line(6, d); line(5, c); NE.pline(ctx, s.x - 2, s.y, h.x + 2, h.y, 1, a); NE.pline(ctx, s.x + 2, s.y, h.x - 2, h.y, 1, a); band(0.95, 6, a); R(lx(0.3) - 1, ly(0.3), 2, 2, hi); break;
+    case 'robe': line(6, d); line(5, c); R(h.x - 3, h.y - 1, 7, 6, d); R(h.x - 2, h.y - 1, 5, 5, c); R(h.x - 2, h.y + 3, 5, 1, lo); band(0.9, 5, a); R(lx(0.05) - 3, ly(0.05), 7, 2, a); break;
+    case 'cuirass': line(6, d); line(5, c); band(0, 7, hi); R(lx(0.3) + f, ly(0.3), 1, 1, N('#fff0c0')); band(0.55, 3, lo); band(0.7, 3, lo); band(0.85, 3, lo); R(s.x - 4, s.y - 1, 2, 2, a); R(s.x + 2, s.y - 1, 2, 2, a); break;
+    case 'parka': line(8, d); line(7, c); band(0, 8, a); band(-0.06, 6, a); for (const t of [0.3, 0.6]) band(t, 7, lo); band(0.98, 7, a); break;
+    case 'quilt': line(7, d); line(6, c); for (let t = 0.1; t < 1; t += 0.22) band(t, 6, lo); R(lx(0.2) - 1, ly(0.2), 1, 6, lo); R(lx(0.2) + 1, ly(0.2), 1, 6, lo); break;
+    case 'shard': line(6, d); line(5, c); R(s.x - 4, s.y - 3, 1, 3, a); R(s.x - 3, s.y - 2, 1, 2, a); R(s.x + 3, s.y - 3, 1, 3, a); R(lx(0.4) - 1, ly(0.4), 2, 2, N('#e8e0ff')); R(lx(0.4), ly(0.4), 1, 1, '#ffffff'); break;
+    case 'prism': { line(6, d); line(5, c); const cs = ['#ff80c0', '#ffe080', '#80ffb0', '#80c0ff']; for (let i = 0; i < 4; i++) R(lx(0.15 + i * 0.2) - 2 + (i % 2), ly(0.15 + i * 0.2), 3, 1, cs[i]); break; }
+    case 'obsid': { line(6, d); line(5, c); const gl = 0.6 + 0.4 * Math.sin(performance.now() / 300); ctx.globalAlpha = gl; R(lx(0.2), ly(0.2), 1, 2, a); R(lx(0.35) - 1, ly(0.35) + 1, 1, 2, a); R(lx(0.6) + 1, ly(0.6), 1, 2, a); ctx.globalAlpha = 1; R(s.x - 4, s.y - 2, 3, 3, d); R(s.x + 2, s.y - 2, 3, 3, d); break; }
+    case 'coat': line(7, d); line(6, c); R(h.x - 3, h.y, 7, 5, d); R(h.x - 2, h.y, 5, 4, c); R(h.x - 3, h.y + 4, 7, 1, a); R(h.x + (f > 0 ? 0 : -1), h.y, 1, 4, lo); band(0, 7, a); break;
+    case 'chitin': line(7, d); for (let t = 0; t < 1.01; t += 0.2) band(t, 6, t * 10 % 4 < 2 ? c : a); R(s.x - 4, s.y - 1, 3, 2, a); break;
+    case 'dive': line(6, d); line(5, c); band(-0.05, 7, a); band(0.02, 7, N(sh(L.a, 1.2))); R(lx(0.05) - 3, ly(0.05), 1, 1, '#e8d080'); R(lx(0.05) + 3, ly(0.05), 1, 1, '#e8d080'); band(0.95, 5, a); break;
+    case 'bone': line(6, d); line(5, N('#3a3028')); R(lx(0.05), ly(0.05), 1, (ly(1) - ly(0.05)) | 0, c); for (const t of [0.15, 0.35, 0.55, 0.75]) band(t, 5, c); break;
+    case 'police': line(6, d); line(5, c); band(0.4, 5, a); R(lx(0.2) + f, ly(0.2), 1, 1, N('#e0c040')); R(lx(0.15) - f * 2, ly(0.15), 1, 2, N('#2a2a2a')); break;
+    case 'chain': line(6, d); for (let t = 0; t < 1.01; t += 0.12) for (let k = -2; k <= 2; k++) R(lx(t) + k, ly(t), 1, 1, (k + Math.round(t * 8)) % 2 ? c : lo); break;
+  }
+};
+// ---- accessories (belt, charm, face extras) visible on the body
+NE.accOf = a => { const G = a.gear; if (!G) return null; const o = {}; let any = false; for (const k of ['belt', 'charm']) if (G[k]) { o[k] = G[k].id; any = true; } return any ? o : null; };
+NE.drawAccessories = function (ctx, p, f, acc, N, OL) {
+  const R = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); }; const hp = p[2], s = p[1];
+  if (acc.belt === 'canteen') { R(hp.x - f * 3 - 1, hp.y - 2, 3, 4, N('#2a3a30')); R(hp.x - f * 3, hp.y - 2, 2, 3, N('#4a6a5a')); R(hp.x - f * 3, hp.y - 3, 1, 1, '#8a8a8a'); }
+  if (acc.belt === 'larder') { R(hp.x + f * 2 - 1, hp.y - 1, 3, 3, N('#5a4024')); R(hp.x + f * 2 - 1, hp.y - 1, 3, 1, N('#8a6a3a')); }
+  if (acc.belt === 'harness') { NE.pline(ctx, s.x - 1, s.y, hp.x + 1, hp.y, 1, N('#2a3020')); R(hp.x - 3, hp.y - 1, 6, 1, N('#3a4430')); R(hp.x - f * 3, hp.y - 1, 2, 2, N('#5a6440')); }
+  if (acc.charm === 'armband' && p[3]) R(p[3].x - 1, p[3].y - 1, 2, 2, '#e8e2d0'), R(p[3].x - 1, p[3].y - 1, 1, 1, '#d03030');
+  if (acc.charm === 'rabbitfoot') { R(hp.x + f * 2, hp.y + 1, 1, 2, '#6a5a48'); R(hp.x + f * 2, hp.y + 3, 1, 1, '#d8c8a8'); }
+};
+// ---- icons from the worn models
+const cache = {};
+const UTIL = { // 16x16 sprites for non-armour wearables: o outline, then palette letters
+  hikeboots: [['................', '................', '.....oooo.......', '.....obbo.......', '.....obbo.......', '.....oblo.......', '.....obbo.......', '.....obbbooo....', '....obbbbbbbo...', '....obbbbbbbbo..', '....ossssssssso.', '.....ooooooooo..'], { b: '#6a4a2a', l: '#e0c060', s: '#2a2018' }],
+  runshoes: [['................', '................', '................', '................', '......oooo......', '......orro......', '......owro......', '.....orrrrooo...', '....orrwwrrrro..', '....orrrrrrrrro.', '....owwwwwwwwwo.', '.....ooooooooo..'], { r: '#d04030', w: '#f0f0f0' }],
+  climbgloves: [['................', '....o.o.o.......', '...obobobo......', '...obobobo......', '...obbbbbo.o....', '...obbbbbbobo...', '...oddddddbo....', '...obbbbbbbo....', '...obbbbbbo.....', '....obbbbo......', '....ossso.......', '....oooo........'], { b: '#8a6a3a', d: '#c0a060', s: '#4a3a20' }],
+  knucklegloves: [['................', '................', '...ooooooo......', '..okckckcko.....', '..obbbbbbbo.....', '..obbbbbbbbo....', '..obbbbbbobo....', '..obbbbbbbo.....', '...obbbbbo......', '...ossssso......', '...ooooooo......', '................'], { b: '#3a3a3a', k: '#c0c4ca', c: '#5a5a5a', s: '#202020' }],
+  canteen: [['.......oo.......', '......occo......', '.....oooooo.....', '....oggggggo....', '...oggllgggo....', '...ogllggggo....', '...oggggggggo...', '...oggggggggo...', '...oggggggggo...', '....oggggggo....', '.bbbbbbbbbbbbbb.', '.bbbbbbbbbbbbbb.'], { g: '#4a6a5a', l: '#8ab0a0', c: '#9a9a9a', b: '#3a2a1a' }],
+  larder: [['................', '................', '....oooooooo....', '...offffffffo...', '...offffffffo...', '...obbbbbbbbo...', '...obbbkbbbbo...', '...obbbbbbbbo...', '...obbbbbbbbo...', '....oooooooo....', '.ssssssssssssss.', '.ssssssssssssss.'], { f: '#a08048', b: '#8a6a3a', k: '#d0c060', s: '#3a2a1a' }],
+  harness: [['..oo........oo..', '..ogo......ogo..', '...ogo....ogo...', '....ogo..ogo....', '.....oggggo.....', '.....ogkkgo.....', '....ogo..ogo....', '...ogo....ogo...', '.oooooooooooooo.', '.oppgggggggggpo.', '.oppgggggggggpo.', '.oooooooooooooo.'], { g: '#3a4430', k: '#a0a0a0', p: '#5a6440' }],
+  armband: [['................', '................', '....oooooooo....', '...owwwwwwwwo...', '..owwwwrrwwwwo..', '..owwwrrrrwwwo..', '..owwwwrrwwwwo..', '...owwwwwwwwo...', '....oooooooo....', '................', '................', '................'], { w: '#e8e2d0', r: '#d03030' }],
+  nightgoggles: [['................', '................', '..oooo....oooo..', '.oggggo..oggggo.', '.oglggooooglggo.', '.oggggossoggggo.', '.oggggo..oggggo.', '..oooo....oooo..', '.ssssssssssssss.', '................', '................', '................'], { g: '#5ad070', l: '#c0ffd0', s: '#2a2a2a' }],
+  rabbitfoot: [['.......oo.......', '......occo......', '.......oo.......', '.......ss.......', '......offo......', '.....offffo.....', '.....offffo.....', '.....offhfo.....', '.....offffo.....', '....offffffo....', '....ofwfwffo....', '.....oooooo.....'], { f: '#d8c8a8', h: '#ffffff', w: '#6a5a48', c: '#c0a040', s: '#6a5a48' }],
+};
+const gearIconCanvas = (id, scale) => {
+  const sc = Math.max(1, Math.round((scale || 4) / 2)); const ck = id + '|' + sc; if (cache[ck]) return cache[ck];
+  const cv = document.createElement('canvas'); cv.width = cv.height = 16 * sc; const x = cv.getContext('2d'); x.imageSmoothingEnabled = false;
+  const N = c => c, OL = c => NE.shade(c, 0.45);
+  if (HL[id]) { x.setTransform(sc * 1.5, 0, 0, sc * 1.5, 0, 0); const X0 = 2.33, Y0 = 4; // a faint mannequin head so the gear reads
+    x.fillStyle = '#4a4038'; x.fillRect(X0 - 1, Y0, 8, 6); x.fillRect(X0, Y0 - 1, 6, 8); x.fillStyle = '#8a7a68'; x.fillRect(X0, Y0, 6, 6); x.fillRect(X0 + 2, Y0 + 6, 2, 1);
+    NE.drawHeadGear(x, Math.round(X0), Y0, 1, id, N, OL, 0); x.fillStyle = '#2a2018'; x.fillRect(Math.round(X0) + 4, Y0 + 2, 1, 1); NE.drawHeadGear(x, Math.round(X0), Y0, 1, id, N, OL, 1);
+  } else if (BL[id]) { x.setTransform(sc * 1.6, 0, 0, sc * 1.6, 0, 0); const p = [null, { x: 5, y: 2 }, { x: 5, y: 7 }];
+    x.fillStyle = '#3a342c'; x.fillRect(1.5, 2, 2, 5); x.fillRect(6.5, 2, 2, 5); // arms stub
+    NE.drawBodyGear(x, p, 1, id, N, OL, 1);
+  } else if (UTIL[id]) { const [rows, pal] = UTIL[id]; for (let r = 0; r < rows.length; r++) for (let q = 0; q < 16; q++) { const ch = rows[r][q]; if (ch === '.') continue; x.fillStyle = ch === 'o' ? '#140e0a' : pal[ch] || '#f0f'; x.fillRect(q * sc, (r + 2) * sc, sc, sc); } }
+  else return null;
+  cache[ck] = cv; return cv;
+};
+NE.gearIconCanvas = gearIconCanvas;
+// every wearable that doesn't have its own hand-painted atlas sprite gets a generated one
+const OWN = new Set(['milhelmet', 'platevest']); // these shared an atlas sprite with another piece
+for (const id in IT) { const it = IT[id]; if (!it.slot || (NE.atlasKey(id) && !OWN.has(id))) continue; if (HL[id] || BL[id] || UTIL[id]) it.icon = 'gi_' + id; }
+const icon0 = NE.icon;
+NE.icon = function (key, col, scale, itemId) { if (typeof key === 'string' && key.startsWith('gi_')) { const c = gearIconCanvas(key.slice(3), scale); if (c) return c; } return icon0.call(this, key, col, scale, itemId); };
+})(window.NE);
+
+// =====================================================================================================================
+// DEATH SCREEN CLEANUP + "THE DEAD WERE ALIVE": the knock-down mash prompt never lingers once you're dead/spectating,
+// and wandering NPCs can't be killed off-screen before anyone has met them.
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const G = NE.G;
+const up0 = G.update; G.update = function (dt) { const r = up0.apply(this, arguments); const p = G.player; if (!p || !p.alive || G.spectate || G.goop || G.wisp || G.state !== 'run') G.domText && G.domText('strug', null); return r; };
+const h0 = NE.NPC.prototype.hurt; NE.NPC.prototype.hurt = function () { if (!this.town && !this.met) return; return h0.apply(this, arguments); };
+})(window.NE);
+
+// =====================================================================================================================
+// RPG EQUIPMENT PANEL: a paper-doll in the inventory. Click a slot to see what you're wearing next to everything in your
+// pack that fits it, with green/red stat deltas, and equip with one click.
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const G = NE.G, UI = NE.UI; const IT = NE.ITEMS;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ic = (id, sc) => '<img class="pix" src="' + NE.itemIconURL(id, sc || 4) + '">';
+const RES = ['bullet', 'sharp', 'blunt', 'bite', 'burn'];
+const MODN = { hunger: 'Hunger', thirst: 'Thirst', speed: 'Speed', noise: 'Noise', climb: 'Climbing', fall: 'Fall dmg', stamina: 'Stamina', carry: 'Carry', melee: 'Melee', aim: 'Spread', tox: 'Toxins', rad: 'Radiation', infect: 'Infection', bleed: 'Bleeding', stress: 'Stress', warm: 'Warmth', cool: 'Cooling', fallRes: 'Fall resist', gasF: 'Gas filter', radRes: 'Rad resist', search: 'Search time', barter: 'Prices' };
+const LOWGOOD = new Set(['hunger', 'thirst', 'noise', 'fall', 'aim', 'tox', 'rad', 'infect', 'bleed', 'stress', 'search', 'barter']);
+const statsOf = id => { const o = {}; if (!id) return o; const it = IT[id]; if (!it) return o; if (it.armor) o.armor = it.armor; for (const k of RES) if (it.res && it.res[k]) o[k] = it.res[k]; if (it.spd && it.spd !== 1) o.speed = it.spd; for (const k in (it.mods || {})) o[k] = it.mods[k]; const w = it.melee; if (w) { o.dmg = w.dmg; o.cd = w.cd; } if (it.gun) o.gdmg = it.gun.dmg; return o; };
+NE.statsOf = statsOf;
+const fmt = (k, v) => k === 'armor' || RES.includes(k) ? Math.round(v * 100) + '%' : k === 'dmg' || k === 'gdmg' ? Math.round(v) + '' : k === 'cd' ? v.toFixed(2) + 's' : typeof v === 'number' && Math.abs(v) < 3 && k !== 'carry' && k !== 'stamina' ? (v >= 1 ? '+' : '') + Math.round((v - 1) * 100) + '%' : (v > 0 ? '+' : '') + v;
+const lab = k => ({ armor: 'Armour', bullet: 'vs Bullets', sharp: 'vs Blades', blunt: 'vs Blunt', bite: 'vs Bites', burn: 'vs Burns', dmg: 'Damage', cd: 'Swing time', gdmg: 'Shot dmg' }[k] || MODN[k] || k);
+const better = (k, a, b) => { if (a === b) return 0; const lo = LOWGOOD.has(k) || k === 'cd'; const base = (k === 'armor' || RES.includes(k) || k === 'dmg' || k === 'gdmg' || k === 'carry' || k === 'stamina') ? 0 : 1; const av = a == null ? base : a, bv = b == null ? base : b; if (av === bv) return 0; return (bv > av) !== lo ? 1 : -1; };
+const SLOTS = [['head', 'HEAD'], ['face', 'FACE'], ['body', 'BODY'], ['belt', 'BELT'], ['weapon', 'WEAPON'], ['hands', 'HANDS'], ['feet', 'FEET'], ['charm', 'CHARM']];
+const cur = (p, sl) => sl === 'weapon' ? p.equip.weapon : p.gear[sl];
+const fits = (p, sl) => p.inv.items.filter(e => { const it = IT[e.id]; return sl === 'weapon' ? it.cat === 'weapon' && e !== p.equip.weapon : it.slot === sl; });
+const slotHTML = (p, sl, name) => { const e = cur(p, sl); return '<div class="dslot' + (UI.dollSel === sl ? ' on' : '') + '" data-ds="' + sl + '">' + (e ? ic(e.id) : '<div class="eq-empty"></div>') + '<div><small>' + name + '</small><b>' + (e ? esc(IT[e.id].name) : '—') + '</b>' + (e && e.dur != null ? '<i>' + Math.round(e.dur / (IT[e.id].dur || 100) * 100) + '%</i>' : '') + '</div></div>'; };
+UI.dollPicker = function (b, sl) {
+  const p = G.player; const e = cur(p, sl); const s0 = statsOf(e && e.id); const cands = fits(p, sl);
+  const row = (x, isCur) => { const s1 = statsOf(x.id); const keys = [...new Set([...Object.keys(s0), ...Object.keys(s1)])];
+    const ds = keys.map(k => { const v = s1[k]; const bt = isCur ? 0 : better(k, s0[k], v); return '<span class="' + (bt > 0 ? 'good' : bt < 0 ? 'bad' : 'dim') + '">' + lab(k) + ' ' + (v == null ? '—' : fmt(k, v)) + (bt > 0 ? ' ▲' : bt < 0 ? ' ▼' : '') + '</span>'; }).join(' ');
+    return '<div class="dcand' + (isCur ? ' cur' : '') + '" data-ci="' + (isCur ? -1 : p.inv.items.indexOf(x)) + '">' + ic(x.id) + '<div><b>' + esc(IT[x.id].name) + (isCur ? ' <small>(worn)</small>' : '') + '</b><div class="dst">' + (ds || '<span class="dim">no stats</span>') + '</div></div></div>'; };
+  let h = '<h4>' + sl.toUpperCase() + '</h4>' + (e ? row(e, true) + '<button class="btn sm" data-uneq="1">Take off</button>' : '<div class="dim">Nothing equipped.</div>');
+  h += cands.length ? '<div class="dim" style="margin-top:.3em">In your pack — click to equip:</div>' + cands.map(x => row(x, false)).join('') : '<div class="dim" style="margin-top:.3em">Nothing in your pack fits this slot.</div>';
+  return h;
+};
+const drawDoll = (cv, p) => { const x = cv.getContext('2d'); x.imageSmoothingEnabled = false; x.clearRect(0, 0, cv.width, cv.height);
+  const fake = { x: 20, y: 58, facing: 1, vx: 0, onGround: true, walkPh: 0, look: p.look }; const pts = NE.ragPose(fake).map(q => ({ x: q[0], y: q[1] }));
+  const g = p.gear; const o = { facing: 1, anat: p.anat, pack: p.packCol, weapon: p.weaponId ? p.weaponId() : null, aimDir: 0, shirt: p.shirt, pants: p.pants, skinCol: p.skinCol, vespa: G.state !== 'lobby', vcol: p.vglow, lantern: 1,
+    helmId: g.head ? g.head.id : null, vestId: g.body ? g.body.id : null, vest: g.body ? IT[g.body.id].col : null, helmet: g.head ? IT[g.head.id].col : null, acc: NE.accOf(p), mask: !!g.face,
+    shoe: g.feet ? IT[g.feet.id].col : null, shoeSole: g.feet && g.feet.id === 'runshoes' ? '#f0f0f0' : null, glove: g.hands ? IT[g.hands.id].col : null, gloveStud: g.hands && g.hands.id === 'knucklegloves' };
+  try { NE.drawHuman(x, { pts }, p.look, o); } catch (e) { } };
+const inv0 = UI.render.inventory;
+UI.render.inventory = function (b) {
+  inv0.call(this, b); const p = G.player; const box = b.querySelector('.inv-eq'); if (!box || !p) return;
+  const old = box.innerHTML; const cut = old.indexOf('<div class="eq">'); const tail = cut >= 0 ? old.slice(old.lastIndexOf('<div class="eq">')) : '';
+  let arm = 0; const rs = {}; for (const k in p.gear) { const e = p.gear[k]; if (!e) continue; const it = IT[e.id]; arm += it.armor || 0; for (const r of RES) if (it.res && it.res[r]) rs[r] = 1 - (1 - (rs[r] || 0)) * (1 - it.res[r]); }
+  let h = '<h4>EQUIPMENT</h4><div class="doll"><div class="dcol">' + SLOTS.slice(0, 4).map(([s, n]) => slotHTML(p, s, n)).join('') + '</div><canvas id="dollcv" width="40" height="64"></canvas><div class="dcol">' + SLOTS.slice(4).map(([s, n]) => slotHTML(p, s, n)).join('') + '</div></div>';
+  h += '<div class="dsum">Armour <b>' + Math.round(arm * 100) + '</b> ' + RES.filter(r => rs[r]).map(r => '<span>' + lab(r) + ' ' + Math.round(rs[r] * 100) + '%</span>').join(' ') + '</div>';
+  if (UI.dollSel) h += '<div class="dpick">' + UI.dollPicker(b, UI.dollSel) + '</div>';
+  box.innerHTML = h + tail; box.classList.add('rpg');
+  drawDoll(box.querySelector('#dollcv'), p);
+  const rr = () => UI.render.inventory(b);
+  box.querySelectorAll('[data-ds]').forEach(el => el.onclick = () => { UI.dollSel = UI.dollSel === el.dataset.ds ? null : el.dataset.ds; rr(); });
+  box.querySelectorAll('.dcand[data-ci]').forEach(el => el.onclick = () => { const i = +el.dataset.ci; if (i < 0) return; const e = p.inv.items[i]; if (!e) return; const it = IT[e.id];
+    if (UI.dollSel === 'weapon') UI.itemAct('equip', e); else if (it.slot) UI.itemAct('wear', e); NE.Audio.play('cloth', 0.6); rr(); });
+  const un = box.querySelector('[data-uneq]'); if (un) un.onclick = () => { const sl = UI.dollSel; if (sl === 'weapon') p.equip.weapon = null; else if (p.gear[sl]) { if (p.inv.addEntry(p.gear[sl])) p.gear[sl] = null; else G.toast('Backpack full.'); } rr(); };
+};
+const ca0 = UI.closeAll; UI.closeAll = function () { UI.dollSel = null; return ca0.apply(this, arguments); };
+const st = document.createElement('style'); st.textContent = '.inv-eq.rpg{min-width:17em}.doll{display:flex;gap:.3em;align-items:center}.doll .dcol{flex:1;display:flex;flex-direction:column;gap:.2em}.doll canvas{width:80px;height:128px;image-rendering:pixelated;background:radial-gradient(#2a241c,#120e0a);border:1px solid var(--line)}' +
+  '.dslot{display:flex;gap:.3em;align-items:center;border:1px solid var(--line);padding:.15em;cursor:pointer;font-size:.8em;min-height:2.4em}.dslot:hover,.dslot.on{border-color:var(--good,#8c6);background:rgba(140,200,100,.08)}.dslot img,.dslot .eq-empty{width:1.8em;height:1.8em;flex:none}.dslot small{display:block;color:var(--dim);font-size:.75em}.dslot b{font-size:.85em;font-weight:normal;display:block;max-width:7.5em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.dslot i{font-size:.7em;color:var(--dim)}' +
+  '.dsum{font-size:.78em;margin:.3em 0;color:var(--dim)}.dsum b{color:#e8d8b0}.dsum span{margin-left:.5em}.dpick{border:1px solid var(--line);padding:.3em;margin:.3em 0;max-height:16em;overflow:auto}.dcand{display:flex;gap:.3em;align-items:flex-start;padding:.2em;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}.dcand:hover{background:rgba(255,255,255,.05)}.dcand.cur{cursor:default;background:rgba(255,220,120,.05)}.dcand img{width:1.8em;height:1.8em;flex:none}.dcand b{font-size:.82em}.dst{font-size:.72em;display:flex;flex-wrap:wrap;gap:.1em .5em}.dst .good{color:#8fd070}.dst .bad{color:#e07060}';
+document.head.appendChild(st);
+})(window.NE);
+
+// =====================================================================================================================
+// 20 NEW VESPA STRAINS (each with its own trick) + HOST HEIGHT 4'11"–6'6"
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const G = NE.G; const { ri, chance, clamp } = NE;
+const NV = [
+  // common: small, flavourful
+  { id: 'lanternmoth', tier: 'common', name: 'Lantern Moth', eye: '#ffe9a8', glow: '#fff2c4', desc: 'Drawn to light: lantern oil lasts 25% longer, +10% lantern reach.', mul: { battery: 1.25, lamp: 1.1 } },
+  { id: 'gnawer', tier: 'common', name: 'Scrap Gnawer', eye: '#b8a888', glow: '#c8b898', desc: 'Searches 12% faster and spots 8% more loot.', mul: { search: 0.88, loot: 1.08 } },
+  { id: 'packmite', tier: 'common', name: 'Pack Mite', eye: '#a8c080', glow: '#b8d090', desc: 'Sturdy back: +4kg carry.', add: { carry: 4 } },
+  { id: 'leech', tier: 'common', name: 'Leech Brood', eye: '#c04050', glow: '#d05060', desc: 'Every kill feeds you 150ml of blood.', perk: 'leech' },
+  { id: 'nightsinger', tier: 'common', name: 'Nightsinger', eye: '#a0e070', glow: '#b0f080', desc: 'Chirps in the dark: you see 12% further beyond your lantern.', mul: { sight: 1.12 } },
+  // uncommon
+  { id: 'needle', tier: 'uncommon', name: 'Needle Wasp', eye: '#e0e0f0', glow: '#f0f0ff', desc: 'Thrown weapons hit 30% harder.', perk: 'throw' },
+  { id: 'mirror', tier: 'uncommon', name: 'Mirrorwing', eye: '#d0f0ff', glow: '#e8fbff', desc: 'Parry window 40% wider.', perk: 'parry' },
+  { id: 'burrow', tier: 'uncommon', name: 'Burrow Mite', eye: '#a08060', glow: '#b09070', desc: 'Digs through rock 50% faster.', perk: 'dig' },
+  { id: 'dreamer', tier: 'uncommon', name: 'Slumber Drone', eye: '#a090d0', glow: '#b8a8e8', desc: 'Resting at an inn heals 40% of every body part and halves your pain.', perk: 'rest' },
+  // rare
+  { id: 'lancer', tier: 'rare', name: 'Barbed Spearhead', eye: '#ff8060', glow: '#ff9a7a', desc: 'Lunges recover in half the time.', perk: 'lunge' },
+  { id: 'sleepless', tier: 'rare', name: 'Sleepless Drone', eye: '#e0e8f0', glow: '#f4f8ff', desc: 'Never stays down: you come to from knockouts 60% faster. -15% stress.', mul: { wake: 1.6, stress: 0.85 } },
+  { id: 'carrion', tier: 'rare', name: 'Carrion Gut', eye: '#80c040', glow: '#90d050', desc: 'Eats anything: food never poisons you and fills 30% more.', perk: 'carrion' },
+  { id: 'lodestone', tier: 'rare', name: 'Lodestone Brood', eye: '#7a8090', glow: '#9aa0b0', desc: 'Magnetic flesh: bullets and shrapnel never stay lodged in you.', perk: 'nolodge' },
+  // epic
+  { id: 'berserker', tier: 'epic', name: 'Berserker Brood', eye: '#ff2020', glow: '#ff4040', desc: 'Below 40% blood: +40% melee and +40 pain tolerance.', perk: 'berserk' },
+  { id: 'echoqueen', tier: 'epic', name: 'Echo Queen', eye: '#70e0ff', glow: '#a0f0ff', desc: 'Dash recharges twice as fast with 50% longer i-frames.', perk: 'dash' },
+  { id: 'gilded', tier: 'epic', name: 'Gilded Hive', eye: '#ffd040', glow: '#ffe070', desc: 'Starts every descent with 25 silver; traders charge 15% less.', perk: 'gild', mul: { barter: 0.85 } },
+  // legendary
+  { id: 'hydra', tier: 'legendary', name: 'Hydra Strain', eye: '#40ff90', glow: '#70ffb0', desc: 'Severed limbs regrow after 3 minutes (unless a prosthetic is fitted). +10% health.', perk: 'regrow', mul: { hpMul: 1.1 } },
+  { id: 'warlord', tier: 'legendary', name: 'Warlord Swarm', eye: '#ff6a00', glow: '#ff8a20', desc: 'Impale far more often; each kill gives 5s of +20% speed. +10% melee.', perk: 'warlord', mul: { melee: 1.1 } },
+  // mythical
+  { id: 'eclipse', tier: 'mythical', name: 'Eclipse Sovereign', eye: '#1a0a2a', glow: '#ff40a0', desc: 'Your Vespa burst lasts 18 seconds instead of 10. +20% melee, -20% bleeding.', perk: 'burst', mul: { melee: 1.2, bleed: 0.8 } },
+  // secret
+  { id: 'deepmother', tier: 'secret', name: 'The Deep Mother', eye: '#3a0050', glow: '#c040ff', desc: 'Your flesh knits constantly: every body part regenerates 1 HP/s. +25% health.', perk: 'regen', mul: { hpMul: 1.25 } },
+];
+for (const v of NV) { if (NE.VARIANTS.some(x => x.id === v.id)) continue; const i = NE.VARIANTS.length; NE.VARIANTS.push(v); const P = NE.STRAIN_GIFTS, n = { common: 1, uncommon: 2, rare: 2, epic: 3, legendary: 3, mythical: 4, secret: 4 }[v.tier] || 1; v.pow = []; for (let k = 0; v.pow.length < n && k < 40; k++) { const g = P[(i * 7 + k * 5) % P.length].id; if (!v.pow.includes(g)) v.pow.push(g); } }
+const perk = p => p && p.surv ? (NE.variantOf(p.surv.variant).perk || null) : null; NE.vperk = perk;
+// ---- perk hooks
+const death0 = G.onEnemyDeath; G.onEnemyDeath = function (e, cause) { const was = e.alive; death0.apply(this, arguments); const p = G.player; if (!was || !p || !p.alive || !e.anat || e.anat.lastHit !== p.surv.first) return; const k = perk(p);
+  if (k === 'leech') { p.anat.blood = Math.min(5000, p.anat.blood + 150); for (let i = 0; i < 6; i++) G.addP && G.addP(p.x, p.y - 8, NE.rf(-15, 15), NE.rf(-30, -5), 0.6, '#d03040', 'glow', 0); }
+  if (k === 'warlord') p.warT = 5; };
+NE.thrMul = q => (q && q.by && q.by.isPlayer && perk(q.by) === 'throw') ? 1.3 : 1;
+const imp0 = NE.tryImpale; NE.tryImpale = function (a) { const r = imp0.apply(this, arguments); if (!r && a && a.isPlayer && perk(a) === 'warlord' && !a._wimp) { a._wimp = true; try { return imp0.apply(this, arguments); } finally { a._wimp = false; } } return r; };
+const dig0 = G.tryDig; G.tryDig = function (pl, w) { if (perk(pl) === 'dig' && w && w.dig) w = Object.assign({}, w, { dig: w.dig * 1.5 }); return dig0.call(this, pl, w); };
+const rest0 = G.rest; G.rest = function () { const p = G.player; const r = rest0.apply(this, arguments); if (p && perk(p) === 'rest') setTimeout(() => { for (const k of NE.PARTS) { const P = p.anat.parts[k]; if (!P.severed) P.hp = Math.min(P.max, P.hp + P.max * 0.4); } p.anat.pain *= 0.5; }, 900); return r; };
+const lunge0 = NE.Player.prototype.lunge; NE.Player.prototype.lunge = function () { const cd = this.lungeCD || 0; const r = lunge0.apply(this, arguments); if (perk(this) === 'lunge' && this.lungeCD > cd + 0.5) this.lungeCD *= 0.5; return r; };
+const dash0 = NE.Player.prototype.dash; NE.Player.prototype.dash = function () { const cd = this.dashCD || 0; dash0.apply(this, arguments); if (perk(this) === 'dash' && this.dashCD > 0 && !(cd > 0)) { this.dashCD *= 0.5; this.dashIF *= 1.5; } };
+const hurt0 = NE.Actor.prototype.hurt; NE.Actor.prototype.hurt = function (part, dmg) { if (NE._dmgMul) arguments[1] = dmg * NE._dmgMul; const r = hurt0.apply(this, arguments); if (this.isPlayer && perk(this) === 'nolodge' && this.anat && this.anat.parts[part]) for (const w of this.anat.parts[part].wounds) w.bullet = false; return r; };
+const burst0 = G.startBurst; G.startBurst = function (p) { const r = burst0.apply(this, arguments); if (perk(p || G.player) === 'burst' && G.goop) G.goop.t = Math.max(G.goop.t, 18); return r; };
+const pu0 = NE.Player.prototype.update;
+NE.Player.prototype.update = function (dt) {
+  const k = perk(this); const A = this.anat; const s = this.stats;
+  const bz = k === 'berserk' && this.alive && A.blood < 2000; if (bz !== !!this._bz) { s.melee *= bz ? 1.4 : 1 / 1.4; s.painTol += bz ? 40 : -40; this._bz = bz; if (bz) G.toast('BERSERK — the pain is very far away.'); }
+  const wr = (this.warT || 0) > 0; if (wr) this.warT -= dt; if (wr !== !!this._wr) { s.speed *= wr ? 1.2 : 1 / 1.2; this._wr = wr; }
+  if (k === 'regen' && this.alive) for (const pk of NE.PARTS) { const P = A.parts[pk]; if (!P.severed) P.hp = Math.min(P.max, P.hp + dt); }
+  if (k === 'regrow' && this.alive) for (const pk of ['larm', 'rarm', 'lleg', 'rleg']) { const P = A.parts[pk]; if (P.severed && !P.prost) { P.regrowT = (P.regrowT || 0) + dt; if (P.regrowT >= 180) { P.severed = false; P.hp = P.max * 0.3; P.wounds = []; P.tq = false; P.bandage = null; P.regrowT = 0; G.toast('Your ' + NE.PART_NAMES[pk].toLowerCase() + ' has grown back. Pale and tender, but yours.'); NE.Audio.play('squelch'); } } }
+  return pu0.apply(this, arguments);
+};
+// parry: widen by stretching the time since the block began
+if (NE.Combat && NE.Combat.parryWin == null) NE.Combat.parryWin = a => perk(a) === 'parry' ? 1.4 : 1;
+const con0 = NE.consume; NE.consume = function (pl, entry) { const A = pl && pl.anat; const it = entry && NE.ITEMS[entry.id]; if (!A || !it || it.cat !== 'food' || perk(pl) !== 'carrion') return con0.apply(this, arguments);
+  const t0 = A.tox, h0 = A.hunger; const r = con0.apply(this, arguments); if (A.tox > t0) A.tox = t0; if (A.hunger > h0) A.hunger = Math.min(100, A.hunger + (A.hunger - h0) * 0.3); return r; };
+const sr0 = G.startRun; G.startRun = function (restore) { const r = sr0.apply(this, arguments); try { const p = G.player; if (p && !restore && perk(p) === 'gild') { p.inv.add('silver', 25); G.toast('The Gilded Hive brought its tithe: 25 silver.'); } } catch (e) { } return r; };
+
+// ---- HOST HEIGHT: 4'11" to 6'6". Taller = longer reach, stronger, sturdier, heavier on their feet; shorter = quick and nimble.
+const ms0 = NE.makeSurvivor; NE.makeSurvivor = function () { const s = ms0.apply(this, arguments); const b = s.look.sex === 'm' ? 1.5 : -1.5; s.look.height = clamp(Math.round((ri(59, 78) + ri(59, 78)) / 2 + b), 59, 78); return s; };
+NE.heightOf = look => (look && look.height) || 69; NE.heightStr = h => Math.floor(h / 12) + '\'' + (h % 12) + '"';
+const cs0 = NE.computeStats; NE.computeStats = function (meta, surv) { const s = cs0.apply(this, arguments); const k = (NE.heightOf(surv && surv.look) - 69) / 9.5;
+  s.melee *= 1 + 0.1 * k; s.carry += 4 * k; s.speed *= 1 - 0.05 * k; s.climb *= 1 - 0.08 * k; s.hpMul = (s.hpMul || 1) * (1 + 0.05 * k); s.height = NE.heightOf(surv && surv.look); return s; };
+const sc = a => (a && a.look && a.look.height ? a.look.height / 69 : 1);
+const pose0 = NE.ragPose; NE.ragPose = function (a) { const out = pose0(a); const s = sc(a);
+  if (a.rag && a._hs !== s) { const k = s / (a._hs || 1); for (const c of a.rag.cons) c.len *= k; a._hs = s; a.hReach = (s - 1) * 12; }
+  if (s !== 1 && a.x != null) for (const q of out) { q[0] = a.x + (q[0] - a.x) * (0.6 + 0.4 * s); q[1] = a.y + (q[1] - a.y) * s; } return out; };
+const hs0 = UI0().hudStatic; UI0().hudStatic = function () { hs0.apply(this, arguments); const p = G.player; const el = document.querySelector('.p-occ'); if (p && el && p.look && !/"/.test(el.textContent)) el.textContent += ' • ' + NE.heightStr(NE.heightOf(p.look)); };
+function UI0() { return NE.UI; }
 })(window.NE);

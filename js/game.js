@@ -267,7 +267,7 @@ G.update = function (dt, rdt) {
   if (G.goop) G.goopUpdate(dt);
   if (G.wisp) G.wispUpdate(dt);
   // others (only near a player)
-  const near = a => Math.abs(a.y - focus.y) < 260 || (G.net && G.net.peer && Math.abs(a.y - G.net.peer.y) < 260);
+  const near = a => Math.abs(a.y - focus.y) < 200 || (G.net && G.net.peer && Math.abs(a.y - G.net.peer.y) < 200);
   for (const a of G.actors) { if (!a.alive || !near(a)) continue; if (W.isLava && W.isLava(a.x, a.y - 2) && !a.isPuppet) { a.inFire = 0.3; a.vy = Math.min(a.vy, -40); } if (a === p) continue; a.update(dt); if (a.burnAcc != null && !a.isPuppet) G.burnTick(a, dt); }
   G.actors = G.actors.filter(a => !a.gone || (a.rag.remove = true, false));
   // physics
@@ -439,7 +439,7 @@ G.interactTarget = function () {
   const p = G.player; let best = null, bd = 16;
   for (const o of G.nearObjs()) { if (!o.act) continue; if (o.type === 'forage') o.label = 'Forage ' + NE.ITEMS[o.item].name; if (o.type === 'container' && o.actor && o.actor.rag) { const c = o.actor.rag.pts[2]; o.x = c.x; o.y = c.y + 3; } const dx = Math.abs(o.x - p.x), dy = Math.abs(o.y - p.y); if (dy > 14) continue; const r = o.type === 'elevator' ? 24 : 14; if (dx < r && dx < bd + (o.type === 'elevator' ? 10 : 0)) { bd = dx; best = o; } }
   for (const a of G.actors) { if (!a.isNPC || !a.alive || a.leaving || a.isPuppet) continue; const dx = Math.abs(a.x - p.x); if (dx < 14 && Math.abs(a.y - p.y) < 14 && dx < bd) { bd = dx; best = a; } }
-  if (G.net && G.net.on && G.net.peer && !G.net.peer.alive && G.net.peer.wisp && !G.net.peer.minion) { const q = G.net.peer, c = q.rag.pts[2]; const dx = Math.abs(c.x - p.x); if (dx < 16 && Math.abs(c.y - p.y) < 16 && dx < bd) { best = { act: 'raisePeer', x: c.x, y: c.y + 3, label: 'Raise ' + (q.surv ? q.surv.first : 'your partner') + ' as a brood minion' }; bd = dx; } }
+  if (G.net && G.net.on && G.net.peer && !G.net.peer.alive && G.net.peer.wisp && !G.net.peer.minion && !G.net.peer.minionSpent) { const q = G.net.peer, c = q.rag.pts[2]; const dx = Math.abs(c.x - p.x); if (dx < 16 && Math.abs(c.y - p.y) < 16 && dx < bd) { best = { act: 'raisePeer', x: c.x, y: c.y + 3, label: 'Raise ' + (q.surv ? q.surv.first : 'your partner') + ' as a brood minion' }; bd = dx; } }
   if (G.net && G.net.on && G.net.peer && G.net.peer.alive && !G.net.peer.hidden) { const q = G.net.peer; const dx = Math.abs(q.x - p.x); if (dx < 16 && Math.abs(q.y - p.y) < 16 && dx < bd) { best = { act: 'treatPeer', x: q.x, y: q.y, label: (G.net.peerMed && G.net.peerMed.u ? 'Revive / treat ' : 'Treat ') + (q.surv ? q.surv.first : 'partner') }; bd = dx; } }
   if (!best && p.alive) { // standing in / at the edge of cave water: drink it or wash rags in it
     const W = G.world; for (const ox of [0, -6, 6]) { const tx = Math.floor((p.x + ox) / T), ty = Math.floor((p.y - 2) / T), ty2 = Math.floor((p.y + 2) / T);
@@ -806,7 +806,7 @@ G.drawFX = function () {
   const ctx = G.ctx, p = G.player, A = p.anat; if (G.state === 'lobby') return;
   if (G.flashT > 0) { ctx.fillStyle = 'rgba(255,200,50,' + Math.min(0.55, G.flashT * 0.45) + ')'; ctx.fillRect(0, 0, VW, VH); }
   if (G.pulseFx) { const f = G.pulseFx; f.t += 1 / 60; if (f.t > 0.5) G.pulseFx = null; else { ctx.strokeStyle = 'rgba(255,210,60,' + (1 - f.t * 2) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(f.x - G.cam.x, f.y - G.cam.y, f.t * 160, 0, 7); ctx.stroke(); } }
-  if (G.goop || G.wisp) { const k = G.goop ? 0.12 + 0.06 * Math.sin(G.t * 8) : 0.18; const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.3, VW / 2, VH / 2, VH * 0.9); gr.addColorStop(0, 'rgba(255,190,30,0)'); gr.addColorStop(1, 'rgba(255,170,20,' + (k * 2) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); return; }
+  if (G.goop) { const k = 0.12 + 0.06 * Math.sin(G.t * 8); const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.3, VW / 2, VH / 2, VH * 0.9); gr.addColorStop(0, 'rgba(255,190,30,0)'); gr.addColorStop(1, 'rgba(255,170,20,' + (k * 2) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); return; }
   const bp = A.blood / 5000;
   if (bp < 0.8) { const k = clamp((0.8 - bp) / 0.35, 0, 1); const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * (0.5 - k * 0.3), VW / 2, VH / 2, VH * 0.85); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,' + (0.5 + k * 0.45) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); }
   const pk = clamp((A.pain - A.threshold * 0.5) / A.threshold, 0, 1); if (pk > 0) { const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.3, VW / 2, VH / 2, VH * 0.8); gr.addColorStop(0, 'rgba(120,0,0,0)'); gr.addColorStop(1, 'rgba(140,10,10,' + (pk * 0.45 + Math.sin(G.t * 6) * 0.05 * pk) + ')'); ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH); }

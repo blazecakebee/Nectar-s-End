@@ -136,7 +136,7 @@ class Anatomy {
     for (const p of PARTS) { const P = this.parts[p]; for (const w of P.wounds) { if (w.closed) continue; tot += this.woundBleed(P, w, p); } }
     let m = this.s.bleed; if (this.s.coldblood && this.stress > 40) m *= 0.8; return tot * m;
   }
-  woundBleed(P, w, p) {
+  woundBleed(P, w, p) { if (P.prost) return 0;
     if (w.closed) return 0; let b = w.bleed;
     if (P.tq && limb(p)) return 0;
     if (P.bandage) b *= w.t === 'art' ? 0.55 : (1 - 0.85 * P.bandage.q * (1 - P.bandage.soak * 0.8));
@@ -145,6 +145,7 @@ class Anatomy {
   partBleed(p) { const P = this.parts[p]; let t = 0; for (const w of P.wounds) t += this.woundBleed(P, w, p); return t * this.s.bleed; }
   damage(part, amt, kind, src) {
     if (this.dead) return; const P = this.parts[part]; const s = this.s; this.lastHit = src || this.lastHit;
+    if (P.severed && P.prost) { if (kind !== 'fall' && amt > 4 && NE.Audio && this === (NE.G.player && NE.G.player.anat)) NE.Audio.play(P.prost.kind === 'peg' ? 'thud' : 'metal', 0.5); return; } // prosthetics don't bleed or bruise
     P.hp = Math.max(0, P.hp - amt); this.painSpike += amt * 0.8; this.stress += amt * 0.6;
     const add = (t, dirty, extra) => { const W = WT[t]; const w = Object.assign({ t, bleed: rf(W.bleed[0], W.bleed[1]) * clamp(0.5 + amt / 55, 0.5, 1.7), dirty: dirty || 0, inf: 0, closed: false, age: 0, bullet: false }, extra || {}); if (t === 'burn' || t === 'bruise') w.closed = true; P.wounds.push(w); if (P.wounds.length > 6) P.wounds.shift(); return w; };
     if (kind === 'sharp') { add(amt > 22 ? 'lac' : 'cut', 0.15); if (limb(part) && amt > 28 && chance(0.12)) { add('art', 0.1); this.ev.push('artery'); } else this.ev.push('bleed'); }
@@ -448,14 +449,12 @@ NE.drawHuman = function (ctx, rag, look, o) {
   const seg = (a, b, col, back) => { NE.pline(ctx, a.x, a.y, b.x, b.y, 3, OL(back ? BK(col) : col)); NE.pline(ctx, a.x, a.y, b.x, b.y, 2, back ? BK(col) : N(col)); };
   const sv = o.sev || {}; const stump = (q, dx) => { R(q.x - 1 + (dx || 0), q.y - 1, 3, 3, '#6a0808'); R(q.x + (dx || 0), q.y, 1, 1, '#ece6d6'); };
   const limb = (i0, i1, i2, c1, c2, part, back) => { const PR = anat && anat.parts[part] && anat.parts[part].severed && anat.parts[part].prost;
-    if (PR) { const pc = PR.col || '#8a6a42'; if (PR.kind === 'peg') { seg(p[i0], p[i1], part.endsWith('arm') ? c1 : c1, back); const q = p[i2]; NE.pline(ctx, p[i1].x, p[i1].y, q.x, q.y, 2, OL(pc)); NE.pline(ctx, p[i1].x, p[i1].y, q.x, q.y, 1, back ? BK(pc) : N(pc)); R(p[i1].x - 1, p[i1].y - 1, 2, 2, '#3a2a1a'); }
-      else { seg(p[i0], p[i1], pc, back); seg(p[i1], p[i2], pc, back); R(p[i1].x, p[i1].y, 1, 1, PR.kind === 'art' ? '#ffd860' : NE.shade(pc, 1.4)); if (PR.kind === 'art' && Math.sin(performance.now() / 250 + p[i2].x) > 0.2) R(p[i2].x, p[i2].y, 1, 1, '#ffe890'); }
-      return; }
+    if (PR) { NE.drawProsthetic(ctx, p[i0], p[i1], p[i2], PR, part.endsWith('arm'), back, c1, seg, OL); return; }
     if (sv[part]) return; seg(p[i0], p[i1], c1, back); seg(p[i1], p[i2], c2, back); partMark(part, p[i0].x, p[i0].y, p[i2].x, p[i2].y); };
-  const foot = (q, back) => { const c = back ? '#141210' : '#221c18'; R(q.x - (f > 0 ? 1 : 2), q.y - 1, 4, 2, c); R(q.x + (f > 0 ? 2 : -3), q.y, 1, 1, c); };
-  const hand = (q, back) => R(q.x - 1, q.y - 1, 2, 2, back ? BK(skin) : N(skin));
+  const foot = (q, back) => { const c = o.shoe ? (back ? NE.shade(o.shoe, 0.6) : N(o.shoe)) : back ? '#141210' : '#221c18'; if (o.shoeSole) R(q.x - (f > 0 ? 1 : 2), q.y, 4, 1, o.shoeSole); R(q.x - (f > 0 ? 1 : 2), q.y - 1, 4, 2, c); R(q.x + (f > 0 ? 2 : -3), q.y, 1, 1, c); };
+  const hand = (q, back) => { R(q.x - 1, q.y - 1, 2, 2, o.glove ? (back ? NE.shade(o.glove, 0.6) : N(o.glove)) : back ? BK(skin) : N(skin)); if (o.glove && o.gloveStud) R(q.x, q.y - 1, 1, 1, '#c0c4ca'); };
   // back leg + back arm
-  limb(2, 7, 8, pants, pants, bk + 'leg', true); if (!sv[bk + 'leg'] && !(anat && anat.parts[bk + 'leg'].prost && anat.parts[bk + 'leg'].prost.kind === 'peg')) foot(p[8], true);
+  limb(2, 7, 8, pants, pants, bk + 'leg', true); if (!sv[bk + 'leg']) foot(p[8], true);
   limb(1, 3, 4, shirt, skin, bk + 'arm', true); if (!sv[bk + 'arm']) hand(p[4], true); else if (anat && anat.parts[bk + 'arm'].prost) { if (anat.parts[bk + 'arm'].prost.kind === 'saw') NE.drawSawBlade(ctx, p[4].x, p[4].y, '#5a5e64'); else R(p[4].x - 1, p[4].y - 1, 2, 2, '#3a3430'); }
   // backpack (on the back side of the torso)
   if (o.pack) NE.drawPack(ctx, p, f, o.pack, N, OL);
@@ -470,11 +469,12 @@ NE.drawHuman = function (ctx, rag, look, o) {
   } else { NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 6, OL(tc)); NE.pline(ctx, p[1].x, p[1].y, p[2].x, p[2].y, 5, N(tc)); }
   NE.pline(ctx, p[1].x + f * 1.5, p[1].y + 1, p[2].x + f * 1.5, p[2].y - 1, 1, NE.shade(tc, 1.12 * dark));
   R(p[2].x - 2, p[2].y - 1, 5, 2, N(pants)); R(p[2].x - 2, p[2].y - 2, 5, 1, '#2a2018');
-  if (o.vest) { const vl = NE.shade(tc, 1.35); R(p[1].x - 2, p[1].y + 2, 5, 1, vl); R(p[1].x - 2, p[1].y + 5, 5, 1, vl); }
+  if (o.vestId && NE.drawBodyGear) NE.drawBodyGear(ctx, p, f, o.vestId, N, OL, dark); else if (o.vest) { const vl = NE.shade(tc, 1.35); R(p[1].x - 2, p[1].y + 2, 5, 1, vl); R(p[1].x - 2, p[1].y + 5, 5, 1, vl); }
+  if (o.acc && NE.drawAccessories) NE.drawAccessories(ctx, p, f, o.acc, N, OL);
   partMark('torso', p[1].x, p[1].y, p[2].x, p[2].y);
-  if (sv[bk + 'leg'] || sv[fr + 'leg']) stump(p[2], 0); if (sv[bk + 'arm']) stump(p[1], -f);
+  const npr = k => !(anat && anat.parts[k] && anat.parts[k].prost); if ((sv[bk + 'leg'] && npr(bk + 'leg')) || (sv[fr + 'leg'] && npr(fr + 'leg'))) stump(p[2], 0); if (sv[bk + 'arm'] && npr(bk + 'arm')) stump(p[1], -f);
   // front leg
-  limb(2, 9, 10, pants, pants, fr + 'leg', false); if (!sv[fr + 'leg'] && !(anat && anat.parts[fr + 'leg'].prost && anat.parts[fr + 'leg'].prost.kind === 'peg')) foot(p[10], false);
+  limb(2, 9, 10, pants, pants, fr + 'leg', false); if (!sv[fr + 'leg']) foot(p[10], false);
   // head: 6x6 with a dark rim, neck, nose, mouth
   const hx = Math.round(p[0].x), hy = Math.round(p[0].y); const X0 = hx - 3, Y0 = hy - 3;
   if (sv.head) { const n = p[1]; R(n.x - 2, n.y - 3, 4, 3, '#6a0808'); R(n.x, n.y - 3, 1, 1, '#ece6d6'); }
@@ -485,12 +485,13 @@ NE.drawHuman = function (ctx, rag, look, o) {
   if (!o.mask) R(f > 0 ? X0 + 4 : X0 + 1, hy + 2, 1, 1, NE.shade(skin, 0.6 * dark));
   if (look.facial === 'beard') { R(f > 0 ? X0 + 1 : X0, hy + 1, 5, 2, N(hair)); } else if (look.facial === 'goatee') R(f > 0 ? X0 + 4 : X0 + 1, hy + 2, 1, 2, N(hair)); else if (look.facial === 'mustache') R(f > 0 ? X0 + 3 : X0 + 1, hy + 1, 2, 1, N(hair));
   NE.drawHair6(ctx, look.hair, X0, Y0, f, N(hair), OL(hair));
-  if (o.helmet) { R(X0 - 1, Y0 - 2, 8, 3, N(o.helmet)); R(X0 - 1, Y0 - 2, 8, 1, NE.shade(o.helmet, 1.25)); R(f > 0 ? X0 + 5 : X0 - 2, Y0, 3, 1, OL(o.helmet)); }
+  if (o.helmId && NE.drawHeadGear) NE.drawHeadGear(ctx, X0, Y0, f, o.helmId, N, OL, 0); else if (o.helmet) { R(X0 - 1, Y0 - 2, 8, 3, N(o.helmet)); R(X0 - 1, Y0 - 2, 8, 1, NE.shade(o.helmet, 1.25)); R(f > 0 ? X0 + 5 : X0 - 2, Y0, 3, 1, OL(o.helmet)); }
   const ex = f > 0 ? X0 + 4 : X0 + 1, ey = hy - 1;
   if (o.blind && !o.dead) { R(ex - (f > 0 ? 1 : 0), ey, 2, 1, NE.shade(skin, 0.75)); }
   else if (o.eyeGlow && !o.dead) { ctx.fillStyle = o.eyeGlow + '55'; ctx.fillRect(ex - 1, ey - 1, 3, 3); R(ex, ey, 1, 1, o.eyeGlow); }
   else if (o.vespa && !o.dead) { ctx.fillStyle = (o.vcol || '#ffd23a') + '5a'; ctx.fillRect(ex - 1, ey - 1, 3, 3); R(ex, ey, 1, 1, o.vcol || '#ffd23a'); if ((o.infest || 0) > 0.5) R(ex, ey + 1, 1, 1, 'rgba(255,200,40,0.7)'); }
   else { R(ex, ey, 1, 1, o.dead ? '#3a2a2a' : '#141010'); if ((o.glasses || look.glasses)) R(ex - (f > 0 ? 1 : 0), ey, 2, 1, '#9ad'); }
+  if (o.helmId && NE.drawHeadGear) NE.drawHeadGear(ctx, X0, Y0, f, o.helmId, N, OL, 1); if (o.acc && o.acc.charm === 'nightgoggles' && !o.helmId) { R(X0, Y0 + 1, 6, 1, '#2a2a2a'); R(f > 0 ? X0 + 3 : X0 + 1, Y0, 2, 2, '#5ad070'); }
   R(ex - (f > 0 ? 1 : 0), ey - 1, 2, 1, NE.shade(hair, 0.85 * dark)); // brow
   if (o.mask) { R(f > 0 ? X0 + 2 : X0 - 1, hy + 1, 5, 2, '#2a2e30'); R(f > 0 ? X0 + 5 : X0 - 1, hy + 1, 1, 2, '#4a5054'); }
   partMark('head', p[0].x, p[0].y - 1, p[0].x, p[0].y + 1);
@@ -559,6 +560,27 @@ NE.drawPack = function (ctx, p, f, col, tone, OL) { tone = tone || (c => c);
   for (const [, [c, , x, y]] of px) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); }
   // buckle glint
   ctx.fillStyle = '#d8c890'; ctx.fillRect(Math.round(ax + dx * (pu0 + 0.5) + bx * (W(pu0) + 1.4)), Math.round(ay + dy * (pu0 + 0.5) + by * (W(pu0) + 1.4)), 1, 1);
+};
+// prosthetic limbs: each kind has its own build, not just a recolour
+NE.drawProsthetic = function (ctx, a, b, c, PR, arm, back, sleeve, seg, OL) {
+  const R = (x, y, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), w, h); }; const pc = PR.col || '#8a8e94'; const dk = back ? 0.7 : 1; const sh = k => NE.shade(pc, k * dk);
+  const line = (p0, p1, w, col) => NE.pline(ctx, p0.x, p0.y, p1.x, p1.y, w, col); const t = performance.now() / 1000;
+  if (PR.kind === 'peg') {
+    seg(a, b, sleeve, back); // the real upper limb in its sleeve
+    if (arm) { line(b, c, 2, OL ? OL(pc) : '#1a1410'); line(b, c, 1, sh(1)); R(b.x - 1, b.y - 1, 2, 2, '#3a2a1a'); const dx = c.x - b.x, dy = c.y - b.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L; // steel hook
+      R(c.x, c.y, 1, 1, '#c8ccd2'); R(c.x + ux, c.y + uy, 1, 1, '#c8ccd2'); R(c.x + ux - uy, c.y + uy + ux, 1, 1, '#a8acb2'); R(c.x - uy * 2, c.y + ux * 2, 1, 1, '#d8dce0'); }
+    else { line(b, c, 3, OL ? OL(pc) : '#1a1410'); line(b, c, 2, sh(1)); R(b.x - 1.5, b.y - 1, 3, 2, '#3a2a1a'); R(b.x - 1.5, b.y + 1, 3, 1, '#6a5a40'); R(c.x - 1, c.y - 1, 2, 2, '#6a6e74'); } // wooden peg, leather strap, iron ferrule
+    return; }
+  if (PR.kind === 'metal') {
+    if (arm) { line(a, b, 3, OL ? OL(pc) : '#14161a'); line(a, b, 2, sh(1)); line(b, c, 2, OL ? OL(pc) : '#14161a'); line(b, c, 1, sh(0.8)); R(b.x - 1, b.y - 1, 2, 2, '#2a2c30'); R(b.x, b.y, 1, 1, sh(1.5)); R((a.x + b.x) / 2, (a.y + b.y) / 2, 1, 1, sh(1.6)); // plated upper arm, piston forearm, rivets
+      R(c.x - 1, c.y, 1, 1, sh(1.3)); R(c.x + 1, c.y, 1, 1, sh(1.3)); R(c.x, c.y + 1, 1, 1, sh(1.1)); } // three-prong claw
+    else { const off = 1; NE.pline(ctx, a.x - off, a.y, b.x - off, b.y, 1, sh(0.8)); NE.pline(ctx, a.x + off, a.y, b.x + off, b.y, 1, sh(1)); R(b.x - 1, b.y - 1, 3, 3, '#24262a'); R(b.x, b.y, 1, 1, sh(1.6)); // twin-strut thigh, bolted knee
+      line(b, c, 1, sh(1.1)); const mx = (b.x + c.x) / 2, my = (b.y + c.y) / 2; R(mx - 1, my - 1, 1, 1, '#c09040'); R(mx, my, 1, 1, '#c09040'); R(c.x - 1, c.y, 4, 1, '#3a3c40'); R(c.x - 1, c.y - 1, 2, 1, sh(1.2)); } // pipe shin, spring, foot plate
+    return; }
+  if (PR.kind === 'art') { const glow = 0.5 + 0.5 * Math.sin(t * 3 + a.x); line(a, b, 3, OL ? OL(pc) : '#1a1206'); line(a, b, 2, sh(1)); line(b, c, 2, OL ? OL(pc) : '#1a1206'); line(b, c, 2, sh(1.15));
+    R(b.x - 1, b.y - 1, 2, 2, 'rgba(255,' + Math.round(180 + glow * 60) + ',60,1)'); R((a.x + b.x) / 2, (a.y + b.y) / 2, 1, 1, '#ffe890'); if (arm) R(c.x - 1, c.y - 1, 2, 2, '#e0b040'); else R(c.x - 1, c.y, 4, 1, '#a07820'); if (glow > 0.8 && Math.random() < 0.05 && NE.G.addP) NE.G.addP(b.x, b.y, 0, -6, 0.4, '#ffd060', 'glow', 0); return; }
+  if (PR.kind === 'saw') { seg(a, b, sleeve, back); line(b, c, 2, OL ? OL(pc) : '#14161a'); line(b, c, 1, sh(0.9)); R(b.x - 1, b.y - 1, 2, 2, '#2a2c30'); return; }
+  seg(a, b, pc, back); seg(b, c, pc, back);
 };
 // spinning circular saw on a prosthetic arm: teeth rotate around a 5px disc
 NE.drawSawBlade = function (ctx, x, y, col) { x = Math.round(x); y = Math.round(y); const a0 = performance.now() / 45;

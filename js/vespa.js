@@ -201,18 +201,20 @@ G.drawInfest = function (ctx) {
 
 // ---------- co-op: the Vespa drifts to a new host near your partner ----------
 G.startWisp = function () {
-  const p = G.player; G.state = 'run'; G.wisp = { x: p.x, y: p.y - 6, t: 40 };
+  const p = G.player; G.state = 'run'; G.wisp = { x: p.x, y: p.y - 6, t: 1e9 }; G.minionSpent = false; G.domText && G.domText('strug', null);
   G.dyn.push({ type: 'container', ct: 'corpse', actor: p, x: p.x, y: p.y, label: p.surv.name + ' (your old host)', act: 'search', items: p.inv.items.slice(), searched: true });
   p.inv.items = []; const M = G.meta; const s = M.survivor; M.cemetery.unshift({ name: s.name, occ: NE.OCCUPATIONS.find(o => o.id === s.occ).name, age: s.age, depth: Math.round(NE.depthOfY(p.y)), cause: p.anat.cause, time: Math.round(G.run.t), kills: G.run.kills, extracted: false, date: new Date().toLocaleDateString(), look: s.look, abil: (G.run.abil || []).slice() });
-  G.log('Your host is gone. The Vespa drifts toward your partner, looking for new flesh (40s). Your partner can raise your old body as a weak brood minion for you to steer.', 'sys'); NE.UI.banner('HOST LOST', 'Drift to your partner. They can raise your corpse as a minion for you.'); G.musicFor();
+  G.log('Your host is dead — there is no coming back in a new body. Your Vespa clings on, watching your partner. They can raise your corpse ONCE as a weak brood minion for you to steer. If it dies, you\'re out for the rest of the run.', 'sys'); NE.UI.banner('HOST LOST', 'Spectating. Your partner can raise your corpse as a brood minion — your last chance to help.'); G.musicFor();
 };
 G.wispUpdate = function (dt) {
   const w = G.wisp, q = G.net && G.net.peer; w.t -= dt; const tx = q ? q.x - 10 : w.x, ty = q ? q.y - 16 : w.y;
-  if (G.minion) { G.minionUpdate(dt); if (w.t <= 0) { G.minion = null; G.rehost(); } return; }
+  if (q && !q.alive && !q.goop && !q.wisp) { G.wisp = null; G.minion = null; return G.endRun(false, G.player.anat.cause || 'The whole party fell'); }
+  if (G.minion) { G.minionUpdate(dt); return; }
+  if (G.minionSpent && q) { w.x = q.x; w.y = q.y - 16; return; }
   w.x = lerp(w.x, tx, Math.min(1, dt * 1.5)); w.y = lerp(w.y, ty + Math.sin(G.t * 2) * 4, Math.min(1, dt * 1.5)); G.addP(w.x, w.y, rf(-4, 4), rf(-4, 4), 0.8, pick([GOLD, '#ffb020']), 'glow', 0);
-  if (w.t <= 0 || (q && !q.alive && w.t < 35)) { G.minion = null; G.rehost(); }
+
 };
-G.drawWisp = function (ctx) { const w = G.wisp; const x = Math.round(w.x), y = Math.round(w.y); for (let i = -2; i <= 2; i++) { ctx.fillStyle = i % 2 ? '#3a2408' : GOLD; ctx.fillRect(x + i, y - 1, 1, 3); } ctx.fillStyle = 'rgba(255,220,80,0.4)'; ctx.fillRect(x - 3, y - 2, 7, 5); ctx.fillStyle = '#fff6c0'; ctx.fillRect(x + 1, y, 1, 1); };
+G.drawWisp = function (ctx) { const w = G.wisp; if (G.minionSpent) return; const x = Math.round(w.x), y = Math.round(w.y); for (let i = -2; i <= 2; i++) { ctx.fillStyle = i % 2 ? '#3a2408' : GOLD; ctx.fillRect(x + i, y - 1, 1, 3); } ctx.fillStyle = 'rgba(255,220,80,0.4)'; ctx.fillRect(x - 3, y - 2, 7, 5); ctx.fillStyle = '#fff6c0'; ctx.fillRect(x + 1, y, 1, 1); };
 G.rehost = function () {
   const w = G.wisp; G.wisp = null; const old = G.player; const M = G.meta; M.survivor = NE.makeSurvivor(); const s = M.survivor;
   const np = new NE.Player(G, w.x, w.y, s, M); G.actors = G.actors.filter(a => a !== old); old.isPlayer = false; G.actors.unshift(np); G.player = np;
@@ -226,7 +228,7 @@ G.rehost = function () {
 
 // ---------- co-op: while your Vespa waits for a new host, it can spit out a weak brood minion you steer to help your partner ----------
 G.spawnMinion = function (sx, sy) {
-  const w = G.wisp; if (!w || G.minion) return; w.t = Math.max(w.t, 30); const m = Object.create(NE.Actor.prototype); Object.assign(m, { g: G, x: sx != null ? sx : w.x, y: sy != null ? sy : w.y + 4, vx: 0, vy: 0, w: 6, h: 5, onGround: false, dropT: 0, climbing: false, hp: 30, cd: 0, bite: 0, facing: 1, ph: 0, hitT: 0 });
+  const w = G.wisp; if (!w || G.minion || G.minionSpent) return; const m = Object.create(NE.Actor.prototype); Object.assign(m, { g: G, x: sx != null ? sx : w.x, y: sy != null ? sy : w.y + 4, vx: 0, vy: 0, w: 6, h: 5, onGround: false, dropT: 0, climbing: false, hp: 30, cd: 0, bite: 0, facing: 1, ph: 0, hitT: 0 });
   const W = G.world; let k = 0; while (W.solidAt(m.x, m.y - 2) && k++ < 20) m.y -= T;
   G.minion = m; NE.Audio.play('squelch', 0.9); NE.Audio.play('latch', 0.6); for (let i = 0; i < 16; i++) G.addP(m.x, m.y - 3, rf(-40, 40), rf(-60, 0), 0.6, pick(['#ffc21a', '#d08a10']), 'goo');
 };
@@ -244,7 +246,10 @@ G.minionUpdate = function (dt) {
   for (const a of G.actors) { if (!a.alive || !a.D || a.stagger > 0 || NE.dist(a.x, a.y, m.x, m.y) > 14) continue; a.mSwat = (a.mSwat || rf(0.3, 0.9)) - dt; if (a.mSwat <= 0) { a.mSwat = rf(1.1, 1.6); a.facing = Math.sign(m.x - a.x) || 1; NE.Combat && NE.Combat.strike(a); m.hp -= rf(5, 9); m.hitT = 0.15; m.vx += a.facing * 120; m.vy -= 80; NE.Audio.play('hit', 0.6); for (let i = 0; i < 5; i++) G.addP(m.x, m.y - 3, rf(-40, 40), rf(-50, 0), 0.5, '#d8a020', 'goo'); } }
   if (Math.random() < dt * 6) G.addP(m.x + rf(-2, 2), m.y - 1, rf(-8, 8), rf(-10, 0), 0.4, '#ffc21a', 'goo');
   w.x = m.x; w.y = m.y - 3;
-  if (m.hp <= 0) { G.minion = null; NE.Audio.play('squelch', 1); for (let i = 0; i < 20; i++) G.addP(m.x, m.y - 3, rf(-60, 60), rf(-80, 0), 0.8, pick(['#ffc21a', '#a07010']), 'goo'); G.toast('Your minion bursts. Your partner can raise your body again.'); }
+  // mend: [E] next to your partner closes their worst wound (20s cooldown)
+  m.mendCD = Math.max(0, (m.mendCD || 0) - dt); { const q = G.net && G.net.peer; const near = q && q.alive && Math.abs(q.x - m.x) < 16 && Math.abs(q.y - m.y) < 18; m.canMend = near && m.mendCD <= 0; const e = !block && G.kd('interact');
+    if (e && !m._e && near) { if (m.mendCD > 0) G.toast('Mend recovering (' + Math.ceil(m.mendCD) + 's)'); else { m.mendCD = 20; G.net.send({ t: 'mend' }); NE.Audio.play('squelch', 0.6); NE.Audio.play('bandage', 0.6); for (let i = 0; i < 12; i++) G.addP(q.x, q.cy, rf(-20, 20), rf(-30, 0), 0.6, pick(['#ffc21a', '#fff0a0']), 'goo'); G.toast('You seal your partner\'s worst wound with goop.'); } } m._e = e; }
+  if (m.hp <= 0) { G.minion = null; G.minionSpent = true; NE.Audio.play('squelch', 1); for (let i = 0; i < 20; i++) G.addP(m.x, m.y - 3, rf(-60, 60), rf(-80, 0), 0.8, pick(['#ffc21a', '#a07010']), 'goo'); G.log('Your minion bursts apart. Your Vespa is spent — you\'re out for the rest of this run.', 'bad'); NE.UI.banner('SPENT', 'Your minion died. Spectating your partner.'); }
 };
 G.drawMinionAt = function (ctx, x, y, f, ph, hit) { x = Math.round(x); y = Math.round(y);
   for (let i = -3; i <= 3; i++) { const hgt = 3 - Math.abs(i) * 0.6 + Math.sin(ph + i) * 0.4; for (let j = 0; j < hgt; j++) { ctx.fillStyle = hit ? '#ffffff' : ((i + 4) % 2 ? '#3a2408' : '#ffc21a'); ctx.fillRect(x + i, y - 1 - j, 1, 1); } }

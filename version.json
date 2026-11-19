@@ -1,6 +1,24 @@
 {
  "log": [
   {
+   "version": "0.8.0",
+   "date": "2026-11-19",
+   "title": "Prosthetics that hold, gear you can see, one last life in co-op",
+   "changes": [
+    "Prosthetic limbs can't bleed. Fitting one seals the stump: its wounds close and any tourniquet or bandage comes off.",
+    "Prosthetics show on your character and your co-op partner: peg legs, hook arms, scrap-metal twin-strut legs and claw arms, brass artificer limbs and saw blades.",
+    "The hook arm works as a grappling hook. Press [Z] with a hook arm fitted and it fires faster than the hand-thrown hook, no item needed. Hook arms, artificer limbs and the Grappling Hook item each have their own icon.",
+    "Every helmet and armour piece now has its own worn shape instead of a recolour: crested bronze helms, horned ice helms, crystal shard crowns, a skull helm, welder's mask, beekeeper's veil, brass diving helmet, fur hood, chainmail, bone lattice, police vest, quilted gambeson, robes and coats, and more. Your partner sees your gear too.",
+    "Each wearable has its own icon, drawn from its worn model. No two helmets or armours share one. Boots, gloves, belts and charms have new icons, and belts and charms show on your body.",
+    "New equipment doll in the inventory. Click a slot to see what you're wearing beside everything in your pack that fits it, with green and red stat changes. Click one to equip it, or take the current piece off. Total armour and resistances are shown under the doll.",
+    "Fixed: the 'mash to get back up' prompt no longer stays on screen after you die, and the yellow tint is gone while spectating.",
+    "Fixed: wandering survivors and NPCs were often dead before you reached them. They now can't be killed off-screen until someone has met them.",
+    "Co-op: no more endless revives. When you die you can come back only as a brood minion, a small, weak goop creature that can hurt enemies and, with [E] next to your partner, mend their worst wound every 20 seconds. If the minion dies, you're out for the rest of the run.",
+    "20 new Vespa strains, each with its own effect, scaled to rarity. Common: Lantern Moth, Scrap Gnawer, Pack Mite, Leech Brood (kills give blood), Nightsinger. Uncommon: Needle Wasp (harder throws), Mirrorwing (wider parries), Burrow Mite (faster digging), Slumber Drone (much better rest). Rare: Barbed Spearhead (half lunge cooldown), Sleepless Drone, Carrion Gut (food never poisons), Lodestone Brood (nothing stays lodged). Epic: Berserker Brood, Echo Queen (dash), Gilded Hive (silver every run). Legendary: Hydra Strain (lost limbs regrow), Warlord Swarm (impales, kill rush). Mythical: Eclipse Sovereign (18s burst). Secret: The Deep Mother (constant regeneration).",
+    "Human hosts now range from 4'11\" to 6'6\". Taller hosts look taller and have more reach, hit harder, carry more and have more health, but are slower and climb worse. Shorter hosts are quick and nimble. Height is shown next to your occupation."
+   ]
+  },
+  {
    "version": "0.7.5",
    "date": "2026-11-18",
    "title": "Human eyes at base camp, the way you came in",

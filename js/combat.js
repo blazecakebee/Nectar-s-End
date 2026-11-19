@@ -27,7 +27,7 @@ C.strike = function (a, w, heavy, force) {
 };
 C.tick = function (a, dt, tx, ty, active) {
   const w = active ? C.weaponOf(a) : null; if (!w) { a.wdir = null; a.wext = 0; a.strk = null; return; }
-  const sh = a.rag.pts[1]; const sx = sh.x, sy = sh.y + 1; const L = WLEN[w.id] || 7; const wt = w.w || 0.5;
+  const sh = a.rag.pts[1]; const sx = sh.x, sy = sh.y + 1; const L = (WLEN[w.id] || 7) + (a.hReach || 0); const wt = w.w || 0.5;
   let target = Math.atan2(ty - sy, tx - sx); if (a.wa == null) a.wa = target;
   let ext = 0, off = 0, boost = 1; const S = a.strk;
   if (S) { S.t += dt; const k = clamp(S.t / S.dur, 0, 1);
@@ -66,7 +66,7 @@ C.sweep = function (a, w, p0, p1, tv, dt, striking) {
       const front = Math.sign(a.x - t.x) === t.facing || Math.abs(a.x - t.x) < 2; const hvy = a.strk && a.strk.heavy > 1;
       if (t.guard && front && t.alive && !t.rd) {
         const since = G.t - t.guard.t0;
-        const bw = t.abil && t.abil.includes('bulwark'); if (since < (bw ? 0.42 : 0.3) && !(hvy && (w.w || 0) >= 3)) { // perfect parry
+        const bw = t.abil && t.abil.includes('bulwark'); if (since < (bw ? 0.42 : 0.3) * (NE.Combat.parryWin ? NE.Combat.parryWin(t) : 1) && !(hvy && (w.w || 0) >= 3)) { // perfect parry
           NE.Audio.play('parry'); G.slowmo = Math.max(G.slowmo || 0, 0.22); for (let i = 0; i < 10; i++) G.addP(hit.x, hit.y, rf(-80, 80), rf(-80, 20), 0.35, '#fff6c0', 'spark', 0.4);
           a.strk = null; a.charge = null; a.windT = 0; if (a.D) { a.stagger = 1.3; a.vx -= Math.sign(t.x - a.x) * 140; } else { a.cd = Math.max(a.cd || 0, 0.9); a.vx -= Math.sign(t.x - a.x) * 120; a.knockT = 0.3; }
           if (t.isPlayer) { G.toast('PARRY!'); t.anat.stam = Math.min(t.anat.stamMax, t.anat.stam + 8); t.cd = 0; } else if (a.isPlayer) G.toast('Parried!');
