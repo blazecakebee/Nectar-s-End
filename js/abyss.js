@@ -321,10 +321,17 @@ W_.genFloor = function (f) {
   if (fl.biome.flora) { for (let k = 0; k < ri(10, 18); k++) { const tx = ri(6, Wd - 7); if (!groundCol(tx)) continue; fl.decor.push({ k: pick(fl.biome.flora), x: tx * T + ri(0, 7), y: gy(tx), s: rf(0, 1) }); }
     for (let k = 0; k < ri(3, 6); k++) { const tx = ri(8, Wd - 9); if (!groundCol(tx)) continue; fl.decor.push({ k: pick(fl.biome.fauna), x: tx * T, y: gy(tx), s: rf(0, 1) }); } }
   // 4) bandit camp: a flat stretch with tents, a fire, a strongbox and guards
-  if (f >= 3 && !fl.poi && chance(Math.min(0.4, 0.2 + depth / 6000))) {
+  const hallX = x => fl._poiHall && x > fl._poiHall[0] - 26 && x < fl._poiHall[1] + 6;
+  if (f >= 3 && chance(fl.poi ? Math.min(0.25, 0.12 + depth / 8000) : Math.min(0.45, 0.25 + depth / 6000))) {
     for (let tries = 0; tries < 80; tries++) { const w = 20, x0 = ri(14, Wd - 15 - w); let ok = true; const gs = [];
+      if (hallX(x0)) continue;
       for (let x = x0 - 1; x <= x0 + w; x++) { if (objNear(x, 2)) { ok = false; break; } for (let r = g[x]; r < Math.min(FH, g[x] + 2); r++) if (!solid(x, r)) { ok = false; break; } if (!ok) break; if (W.get(x, y0) === 0 && c[x] === 0) { ok = false; break; } gs.push(g[x]); }
-      if (!ok) continue; gs.sort((a, b) => a - b); const gl = gs[gs.length >> 1]; for (let x = x0 - 1; x <= x0 + w; x++) if (c[x] > gl - 6) { ok = false; break; } if (!ok) continue;
+      if (!ok) continue; gs.sort((a, b) => a - b); const gl = gs[gs.length >> 1]; if (gs[gs.length - 1] - gs[0] > 2) continue;
+      // enough headroom, nothing wet nearby, and reachable from the path
+      for (let x = x0 - 3; x <= x0 + w + 2 && ok; x++) for (let r = gl - 7; r <= gl + 1; r++) { const t = W.get(x, y0 + r); if (t === 5 || t === 9 || t === 11) { ok = false; break; } }
+      for (let x = x0 - 1; x <= x0 + w && ok; x++) for (let r = gl - 6; r < Math.min(g[x], gl); r++) if (W.get(x, y0 + r) !== 0) { ok = false; break; }
+      if (ok && fl._reach) { let any = false; for (let x = x0; x <= x0 + w; x++) if (fl._reach[(gl - 1) * Wd + x]) any = true; if (!any) ok = false; }
+      if (!ok) continue;
       for (let x = x0 - 1; x <= x0 + w; x++) { for (let r = Math.min(g[x], gl); r < Math.max(g[x], gl); r++) W.set(x, y0 + r, r >= gl ? 1 : 0); g[x] = gl; }
       const cx = x0 + w / 2; fl.camp = { x0: x0 * T, x1: (x0 + w) * T };
       fl.decor.push({ k: 'btent', x: (x0 + 3) * T, y: gy(x0), s: 0.2 }, { k: 'btent', x: (x0 + w - 3) * T, y: gy(x0), s: 0.8 }, { k: 'bflag', x: (x0 + 1) * T, y: gy(x0), s: 0 }, { k: 'bflag', x: (x0 + w - 1) * T, y: gy(x0), s: 1 });
@@ -332,6 +339,26 @@ W_.genFloor = function (f) {
       const box = this.container('banditchest', (cx + 4) * T, gy(cx | 0), depth); fl.objs.push(box);
       const types = depth < 300 ? ['scav', 'scav', 'gunner'] : depth < 900 ? ['scav', 'gunner', 'rival'] : ['rival', 'specops', 'gunner'];
       for (let i = 0; i < ri(3, 4); i++) { const x = (x0 + 2 + i * 5) * T; fl.spawns.push({ kind: 'enemy', type: pick(types), x, y: gy(x0), guard: true, bandit: true }); }
+      break; }
+    // noisy caves rarely leave a long flat shelf, so dig the camp into dry rock next to the path instead
+    if (!fl.camp && fl._reach) for (let tries = 0; tries < 160; tries++) { const w = 18, x0 = ri(14, Wd - 15 - w), gl = ri(8, FH - 3); let ok = true, touch = 0;
+      if (objNear(x0 + w / 2, w / 2 + 3) || hallX(x0)) continue;
+      for (let x = x0 - 3; x <= x0 + w + 2 && ok; x++) for (let r = gl - 8; r <= gl + 2; r++) { const t = W.get(x, y0 + r); if (t === 5 || t === 9 || t === 11) { ok = false; break; } }
+      if (!ok) continue;
+      // don't plug a shaft the path drops through, and keep the band's roof and floor intact
+      for (let x = x0 - 1; x <= x0 + w && ok; x++) { if (air(x, gl) && fl._reach[gl * Wd + x] && air(x, gl + 2)) ok = false; if (W.get(x, y0 + gl - 7) === 0 && gl - 7 <= 0) ok = false; }
+      if (!ok) continue;
+      for (let x = x0 - 1; x <= x0 + w; x++) for (let r = gl - 6; r < gl; r++) if (fl._reach[r * Wd + x]) touch++;
+      if (touch < 3) continue;
+      for (let x = x0 - 1; x <= x0 + w; x++) { for (let r = gl - 6; r < gl; r++) { const t = W.get(x, y0 + r); if (t !== 0 && t !== 2) W.set(x, y0 + r, 0); fl._reach[r * Wd + x] = 1; } for (let r = gl; r <= gl + 1; r++) if (!solid(x, r)) W.set(x, y0 + r, 1); g[x] = gl; }
+      // soften the walls into ramps so the camp isn't a sealed box
+      for (const [sx, d] of [[x0 - 2, -1], [x0 + w + 1, 1]]) for (let k = 0; k < 4; k++) { const x = sx + d * k; for (let r = gl - 6 + k; r < gl; r++) { if (W.get(x, y0 + r) !== 0 && W.get(x, y0 + r) !== 2) W.set(x, y0 + r, 0); fl._reach[r * Wd + x] = 1; } }
+      const cx = x0 + w / 2; fl.camp = { x0: x0 * T, x1: (x0 + w) * T };
+      fl.decor.push({ k: 'btent', x: (x0 + 3) * T, y: gy(x0), s: 0.2 }, { k: 'btent', x: (x0 + w - 3) * T, y: gy(x0), s: 0.8 }, { k: 'bflag', x: (x0 + 1) * T, y: gy(x0), s: 0 }, { k: 'bflag', x: (x0 + w - 1) * T, y: gy(x0), s: 1 });
+      fl.objs.push({ type: 'fire', x: cx * T, y: gy(cx | 0), label: 'Bandit Campfire', act: 'fire' });
+      const box = this.container('banditchest', (cx + 4) * T, gy(cx | 0), depth); fl.objs.push(box);
+      const types = depth < 300 ? ['scav', 'scav', 'gunner'] : depth < 900 ? ['scav', 'gunner', 'rival'] : ['rival', 'specops', 'gunner'];
+      for (let i = 0; i < ri(3, 4); i++) { const x = (x0 + 2 + i * 4) * T; fl.spawns.push({ kind: 'enemy', type: pick(types), x, y: gy(x0), guard: true, bandit: true }); }
       break; }
   }
   // 5) sealed artifact vault behind a cracked wall at one end of the level
@@ -914,4 +941,19 @@ NE.Player.prototype.update = function (dt) { const r = puG.apply(this, arguments
 // beasts lose interest; chameleons vanish
 const euG = NE.Enemy.prototype.update; NE.Enemy.prototype.update = function (dt) { const r = euG.apply(this, arguments); const t = this.target; if (t && t.isPlayer && ab(t, 'pheromone') && !this.provoked && ['feral', 'trog', 'husk', 'stalker', 'burrower', 'swarmling', 'bloater'].includes(this.type) && chance(dt * 0.35)) { this.target = null; this.state = 'idle'; } return r; };
 const seeG = NE.Enemy.prototype.canSee; NE.Enemy.prototype.canSee = function (a) { if (a && a.isPlayer && ab(a, 'chameleon') && a.crouch && Math.abs(a.vx) < 6 && NE.dist(a.x, a.y, this.x, this.y) > 28 && !this.provoked) return false; return seeG.apply(this, arguments); };
+
+// =====================================================================================================================
+// FINAL PLACEMENT CHECK (0.10.1): nothing stands in water, floats, or sits somewhere you can't reach
+// =====================================================================================================================
+const valF = W_.genFloor;
+const valid = function (W, fl) {
+  const y0 = fl.y0, FH = NE.FH, R = fl._reach; const LQ = t => t === 5 || t === 9 || t === 11;
+  const okAt = (x, y, head, ceil) => { const tx = Math.floor(x / T), ty = Math.round(y / T); if (ceil) return W.solid(W.get(tx, ty - 1)) && W.get(tx, ty) === 0; if (!(W.solid(W.get(tx, ty)) || W.get(tx, ty) === 2)) return false; for (let k = 1; k <= head; k++) if (W.get(tx, ty - k) !== 0) return false; for (const dx of [-1, 1]) if (LQ(W.get(tx + dx, ty - 1))) return false; const r = ty - 1 - y0; return !R || r < 0 || r >= FH || R[r * W.W + tx]; };
+  const fix = (o, head, ceil) => { if (okAt(o.x, o.y, head, ceil)) return true; const s2 = NE.surfaceNear && NE.surfaceNear(W, fl, Math.floor(o.x / T), Math.round(o.y / T) - y0, ceil, head); if (!s2) return false; o.x = s2.x * T + 4; o.y = ceil ? s2.y * T + 1 : s2.y * T; return true; };
+  fl.objs = fl.objs.filter(o => { if (o.sealed || o.type === 'hatch' || o.x == null || o.y == null) return true; const ceil = o.type === 'lamp' || o.type === 'icicle' || (o.type === 'crystal' && o.ceil); return fix(o, o.type === 'medtent' || o.type === 'quarter' ? 4 : 2, ceil); });
+  fl.spawns = fl.spawns.filter(sp => fix(sp, 3, false));
+  fl.decor = fl.decor.filter(d => { if (d.k === 'vcrack' || d.k === 'stal' || d.k === 'vine' || d.k === 'roots' || d.k === 'chain' || d.k === 'web') return true; if (d.k === 'btent' || d.k === 'bflag') return okAt(d.x, d.y, 2, false); return fix(d, 1, false); });
+};
+// later floors carve into the band above (drops/connectors), so re-check the previous floor too
+W_.genFloor = function (f) { const fl = valF.call(this, f); if (this.lobby || !fl) return fl; if (fl.delve) valid(this, fl); const pv = this.floors && this.floors[f - 1]; if (pv && pv.delve && !pv.town) valid(this, pv); return fl; };
 })(window.NE);

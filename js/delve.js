@@ -80,11 +80,23 @@ const carveBand = function (W, fl) {
   for (const c of P.chambers) { if (c.y + c.ry < y0 - 2 || c.y - c.ry * 2 > y0 + FH + 2) continue; for (let dy = -Math.ceil(c.ry * 2); dy <= 0; dy++) for (let dx = -Math.ceil(c.rx); dx <= Math.ceil(c.rx); dx++) { if ((dx * dx) / (c.rx * c.rx) + ((dy + c.ry) * (dy + c.ry)) / (c.ry * c.ry) > 1) continue; set(c.x + dx, c.y - 1 + dy, 0); } }
   // 3) pools in the dips
   const LQ = B === 'hive' || B === 'heart' ? 11 : 5;
-  for (const p of P.pools) { if (p.bot < y0 - 1 || p.lip > y0 + FH) continue; for (let x = p.x0 - 1; x <= p.x1 + 1; x++) for (let r = p.lip; r <= p.bot + 4; r++) if (inBand(r) && W.get(x, r) === 0 && !keep.has(r * Wd + x)) { let floor = false; for (let k = r + 1; k <= r + 6; k++) if (W.solid(W.get(x, k)) || (k >= y0 + FH)) { floor = true; break; } if (floor) W.set(x, r, LQ); } }
+  const hall = fl._poiHall;
+  for (const p of P.pools) { if (p.bot < y0 + 1 || p.lip < y0 + 1 || p.bot > y0 + FH - 2) continue; if (hall && p.x1 >= hall[0] - 6 && p.x0 <= hall[1] + 6) continue;
+    const cells = [], seen = new Set(), st2 = []; const sx = Math.round((p.x0 + p.x1) / 2); let start = null; for (let r = p.bot; r >= p.lip; r--) if (W.get(sx, r) === 0) { start = [sx, r]; break; } if (!start) continue;
+    st2.push(start); let bad = false;
+    while (st2.length && !bad) { const [x, r] = st2.pop(); const k = r * Wd + x; if (seen.has(k)) continue; seen.add(k); if (r < p.lip || W.get(x, r) !== 0) continue; if (r >= y0 + FH - 1 || x <= 2 || x >= Wd - 3 || cells.length > 260) { bad = true; break; } cells.push([x, r]); st2.push([x + 1, r], [x - 1, r], [x, r + 1], [x, r - 1]); }
+    if (bad || cells.length < 4) continue; for (const [x, r] of cells) W.set(x, r, LQ); fl._pools = (fl._pools || []).concat([[p.x0 - 2, p.x1 + 2]]); }
   // 4) side walls, ice floors, a little crystal
   for (let r = y0; r < y0 + FH; r++) { W.set(0, r, 1); W.set(1, r, 1); W.set(Wd - 1, r, 1); W.set(Wd - 2, r, 1); }
   if (st.ice) for (let r = y0; r < y0 + FH; r++) for (let x = 2; x < Wd - 2; x++) if (W.get(x, r) === 1 && W.get(x, r - 1) === 0 && h2(x, r, seed) < 0.45 && !keep.has(r * Wd + x)) W.set(x, r, 10);
 };
+// cells you can actually get to from the path (air, liquid, ladders, platforms)
+const reachOf = function (W, fl) { const Wd = W.W, FH = NE.FH, y0 = fl.y0, P = W.worm(); const R = new Uint8Array(Wd * FH); const st = []; const pass = t => t === 0 || t === 2 || t === 3 || t === 5 || t === 11;
+  for (const q of P.pts) if (q.y >= y0 && q.y < y0 + FH + 1) for (let d = 1; d <= 3; d++) { const r = q.y - d - y0; if (r >= 0 && r < FH && pass(W.get(q.x, y0 + r))) st.push(r * Wd + q.x); }
+  if (fl._poiHall && fl._poiFloor) st.push((fl._poiFloor - 1 - y0) * Wd + Math.round((fl._poiHall[0] + fl._poiHall[1]) / 2));
+  while (st.length) { const k = st.pop(); if (k < 0 || k >= R.length || R[k]) continue; const x = k % Wd, r = (k / Wd) | 0; if (!pass(W.get(x, y0 + r))) continue; R[k] = 1; if (x > 0) st.push(k - 1); if (x < Wd - 1) st.push(k + 1); if (r > 0) st.push(k - Wd); if (r < FH - 1) st.push(k + Wd); }
+  fl._reach = R; return R; };
+NE.reachOf = reachOf;
 // recompute ground/ceiling profiles after carving: each column's "main" floor is the one nearest the path
 const reprofile = function (W, fl) {
   const Wd = W.W, FH = NE.FH, y0 = fl.y0, P = W.worm(); const near = new Array(Wd).fill(null);
@@ -94,19 +106,26 @@ const reprofile = function (W, fl) {
     if (best < 0) best = clamp(near[x], 2, FH - 1); fl.g[x] = best; let c = best - 1; while (c > -6 && W.get(x, y0 + c - 1) === 0) c--; fl.c[x] = c; }
 };
 // put every object back onto real ground (or ceiling) near where it was meant to be
-const surfaceNear = (W, fl, tx, ry, ceil) => { const FH = NE.FH, y0 = fl.y0;
-  for (let dx = 0; dx <= 12; dx++) for (const sx of dx ? [tx + dx, tx - dx] : [tx]) { if (sx < 3 || sx > W.W - 4) continue; let best = null, bd = 1e9;
-    for (let r = -4; r < FH + 2; r++) { const R = y0 + r; const ok = ceil ? (W.solid(W.get(sx, R - 1)) && W.get(sx, R) === 0 && W.get(sx, R + 1) === 0) : (W.solid(W.get(sx, R)) && W.get(sx, R - 1) === 0 && W.get(sx, R - 2) === 0); if (!ok) continue; const d = Math.abs(r - ry); if (d < bd) { bd = d; best = R; } }
+const surfaceNear = (W, fl, tx, ry, ceil, head) => { const FH = NE.FH, y0 = fl.y0, R = fl._reach, Wd = W.W; head = head || 2;
+  const reach = (x, r) => !R || (r - y0 >= 0 && r - y0 < FH && R[(r - y0) * Wd + x]);
+  for (let dx = 0; dx <= 14; dx++) for (const sx of dx ? [tx + dx, tx - dx] : [tx]) { if (sx < 3 || sx > Wd - 4) continue; let best = null, bd = 1e9;
+    for (let r = 0; r < FH + 1; r++) { const Rr = y0 + r; let ok;
+      if (ceil) ok = W.solid(W.get(sx, Rr - 1)) && W.get(sx, Rr) === 0 && W.get(sx, Rr + 1) === 0 && reach(sx, Rr);
+      else { ok = (W.solid(W.get(sx, Rr)) || W.get(sx, Rr) === 2) && reach(sx, Rr - 1); for (let k = 1; k <= head && ok; k++) if (W.get(sx, Rr - k) !== 0) ok = false; }
+      if (!ok) continue; const d = Math.abs(r - ry); if (d < bd) { bd = d; best = Rr; } }
     if (best != null) return { x: sx, y: best }; } return null; };
+NE.surfaceNear = surfaceNear;
 const resnap = function (W, fl) {
-  const y0 = fl.y0; const inPoi = x => false; const CEIL = { lamp: 1 };
+  const y0 = fl.y0; const CEIL = { lamp: 1, icicle: 1 }; const H = fl._poiHall; const inHall = x => H && x >= H[0] && x <= H[1];
   const out = [];
-  for (const o of fl.objs) { if (o.x == null || o.y == null) { out.push(o); continue; } const tx = Math.floor(o.x / T); if (inPoi(tx)) { out.push(o); continue; }
-    const ceil = CEIL[o.type] || (o.type === 'crystal' && o.ceil); const ry = Math.round(o.y / T) - y0; const s = surfaceNear(W, fl, tx, ceil ? ry : fl.g[clamp(tx, 0, W.W - 1)], ceil); if (!s) continue;
+  for (const o of fl.objs) { if (o.x == null || o.y == null) { out.push(o); continue; } const tx = Math.floor(o.x / T);
+    if (inHall(tx) && fl._poiFloor && !(CEIL[o.type] || o.ceil)) { o.y = fl._poiFloor * T; out.push(o); continue; }
+    const ceil = CEIL[o.type] || (o.type === 'crystal' && o.ceil); const ry = Math.round(o.y / T) - y0; const big = o.type === 'medtent' || o.type === 'quarter' || o.type === 'bed' ? 4 : 2; const s = surfaceNear(W, fl, tx, ceil ? ry : fl.g[clamp(tx, 0, W.W - 1)], ceil, big); if (!s) continue;
     o.x = s.x * T + (o.x - tx * T); o.y = ceil ? s.y * T + 1 : s.y * T; out.push(o); }
   fl.objs = out;
-  fl.spawns = fl.spawns.filter(sp => { const tx = Math.floor(sp.x / T); if (inPoi(tx)) return true; const s = surfaceNear(W, fl, tx, fl.g[clamp(tx, 0, W.W - 1)], false); if (!s) return false; sp.x = s.x * T + 4; sp.y = s.y * T; return true; });
-  fl.decor = fl.decor.filter(d => { const tx = Math.floor(d.x / T); if (inPoi(tx)) return true; if (d.k === 'stal' || d.k === 'vine' || d.k === 'roots' || d.k === 'chain' || d.k === 'web') { const s = surfaceNear(W, fl, tx, fl.c[clamp(tx, 0, W.W - 1)], true); if (!s) return false; d.y = s.y * T; return true; } const s = surfaceNear(W, fl, tx, fl.g[clamp(tx, 0, W.W - 1)], false); if (!s) return false; d.x = s.x * T + (d.x % T); d.y = s.y * T; return true; });
+  fl.spawns = fl.spawns.filter(sp => { const tx = Math.floor(sp.x / T); if (inHall(tx) && fl._poiFloor) { sp.y = fl._poiFloor * T; return true; } const s = surfaceNear(W, fl, tx, fl.g[clamp(tx, 0, W.W - 1)], false, 3); if (!s) return false; sp.x = s.x * T + 4; sp.y = s.y * T; return true; });
+  fl.decor = fl.decor.filter(d => { const tx = Math.floor(d.x / T); if (inHall(tx) && fl._poiFloor && !(d.k === 'stal' || d.k === 'vine' || d.k === 'roots' || d.k === 'chain' || d.k === 'web')) { d.y = fl._poiFloor * T; return true; }
+    if (d.k === 'stal' || d.k === 'vine' || d.k === 'roots' || d.k === 'chain' || d.k === 'web') { const s = surfaceNear(W, fl, tx, fl.c[clamp(tx, 0, W.W - 1)], true); if (!s) return false; d.y = s.y * T; return true; } const s = surfaceNear(W, fl, tx, fl.g[clamp(tx, 0, W.W - 1)], false); if (!s) return false; d.x = s.x * T + (d.x % T); d.y = s.y * T; return true; });
 };
 const regLiquids = function (W, fl) { const LIQ = { 5: 1, 9: 1, 11: 1 }; if (!W.liq) return; const y0 = fl.y0, FH = NE.FH, Wd = W.W;
   for (let r = y0; r < y0 + FH; r++) for (let x = 0; x < Wd; x++) { const k = r * Wd + x; const t = W.get(x, r); if (LIQ[t]) { W.liq.set(k, { a: 1, t }); W.liqGen.set(k, t); } else { W.liq.delete(k); W.liqGen.delete(k); } } };
@@ -115,7 +134,7 @@ W_.genFloor = function (f) {
   const fl = genFloorD.call(this, f); if (this.lobby || !fl) return fl;
   if (f === 0) { this.worm(); return fl; }
   if (fl.town) { const P = this.worm(); const pn = this.pitNext && this.pitNext[0]; const xe = pn ? Math.round((pn[0] + pn[1]) / 2) : Math.floor(this.W / 2); this.wormResume(xe, fl.y0 + NE.FH); return fl; }
-  carveBand(this, fl); reprofile(this, fl); resnap(this, fl); regLiquids(this, fl);
+  carveBand(this, fl); reachOf(this, fl); reprofile(this, fl); resnap(this, fl); regLiquids(this, fl);
   fl.feetY = (fl.y0 + fl.g[20]) * T; fl.delve = true;
   return fl;
 };
@@ -143,12 +162,16 @@ NE.fogUpdate = function (cx, cy) {
       if (lit < 1) for (const l of lights) { const dl = Math.hypot(px - l.x, py - l.y); if (dl < l.r * 0.85) lit = Math.max(lit, 0.85 * (1 - dl / (l.r * 0.85))); }
       if (lit <= 0 || d > 30 * T) continue; if (!losClear(W, e.x, e.y, px, py)) continue; a = Math.min(a, 1 - lit); }
     A[j * cols + i] = a; near[j * cols + i] = nr; }
+  const mt = g.t || 0;
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const k = j * cols + i; const tx = tx0 + i, ty = ty0 + j; let a = A[k];
     // the face of a wall you can see is visible too; solid rock near you shows as a dim silhouette
     if (a > 0.3 && W.solid(W.get(tx, ty))) { let m = 1; if (i > 0) m = Math.min(m, A[k - 1]); if (i < cols - 1) m = Math.min(m, A[k + 1]); if (j > 0) m = Math.min(m, A[k - cols]); if (j < rows - 1) m = Math.min(m, A[k + cols]); a = Math.min(a, m + 0.12); if (near[k]) a = Math.min(a, 0.62); }
     const fl = W.floors[Math.floor(ty / NE.FH)]; let mem = 0; if (fl && fl.seen) { const r = ty - fl.y0; if (r >= 0 && r < NE.FH && tx >= 0 && tx < W.W) { if (a < 0.55) fl.seen[r * W.W + tx] = 1; mem = fl.seen[r * W.W + tx]; } }
-    const fog = mem ? Math.min(a, 0.72) : Math.min(a, 0.95); const v = Math.round(clamp(fog, 0, 1) * 255);
-    const q = k * 4; D[q] = 0; D[q + 1] = 0; D[q + 2] = 0; D[q + 3] = v; }
+    const fog = mem ? Math.min(a, 0.55) : Math.min(a, 0.8); // fog only creeps in around the screen edges and corners; the middle of the view stays clear
+    const nx = (i + 0.5) / cols * 2 - 1, ny = (j + 0.5) / rows * 2 - 1, ed = clamp((Math.hypot(nx * 0.95, ny * 1.05) - 0.62) / 0.55, 0, 1), edge = ed * ed * (3 - 2 * ed);
+    const v = Math.round(clamp(fog * 0.6 * edge, 0, 1) * 255);
+    // grey drifting mist rather than a black void
+    const mist = 0.82 + 0.18 * Math.sin(tx * 0.31 + mt * 0.35) * Math.sin(ty * 0.47 - mt * 0.22 + tx * 0.07); const q = k * 4; D[q] = 66 * mist | 0; D[q + 1] = 70 * mist | 0; D[q + 2] = 76 * mist | 0; D[q + 3] = v; }
   FOG.cv.getContext('2d').putImageData(FOG.img, 0, 0); FOG.ox = tx0 * T - cx; FOG.oy = ty0 * T - cy; return FOG.cv;
 };
 const dlF = G.drawLighting;
@@ -180,4 +203,69 @@ const hiF = NE.UI.healthInfo;
 if (hiF) NE.UI.healthInfo = function () { const r = hiF.apply(this, arguments); try { const p = G.player; const el = document.querySelector('.hl-info'); if (!el || !p) return r; const part = NE.UI.hpart; const P = part && p.anat.parts[part]; if (!P || !P.wounds.some(w => w.bullet) || el.querySelector('[data-handdig]')) return r;
   const box = document.createElement('div'); box.innerHTML = '<h4>PULL IT OUT BY HAND <small class="dim">no tools — ' + Math.round(NE.HAND_DIG * 100) + '% chance, very painful, dirty</small></h4><div class="treats"><button class="tr" data-handdig="1"><span>Bare fingers<small>' + Math.round(NE.HAND_DIG * 100) + '% chance • ~7s</small></span></button></div>';
   el.appendChild(box); box.querySelector('[data-handdig]').onclick = () => { NE.startTreat(p, null, part, 'handdig'); setTimeout(NE.UI.healthInfo, 50); }; } catch (e) { } return r; };
+
+// =====================================================================================================================
+// KICKS: [C] front kick on the ground, drop kick in the air. Each has its own pose and sound.
+// =====================================================================================================================
+NE.BIND_DEFS.push(['kick', 'Kick (in the air: drop kick)', ['Digit2', null]]);
+// C is crouch's second key; never let a saved kick bind steal it
+try { const S = G.store && G.store.settings; if (S && S.binds && S.binds.kick && S.binds.kick[0] === 'KeyC') S.binds.kick = ['Digit2', S.binds.kick[1]]; } catch (e) { }
+const AU = NE.Audio; const playK = AU.play;
+AU.play = function (name, vol) { vol = vol == null ? 1 : vol; try {
+  if (name === 'kick') { AU.noise(0.09, 900, 1.2, 0.18 * vol, 'bandpass'); AU.tone(180, 0.06, 0.05 * vol, 'triangle', 120); return; }
+  if (name === 'kickhit') { AU.noise(0.16, 160, 0.8, 0.6 * vol, 'lowpass'); AU.tone(90, 0.12, 0.28 * vol, 'sine', 45); AU.noise(0.05, 2400, 1, 0.08 * vol, 'highpass'); return; }
+  if (name === 'dropkick') { AU.noise(0.32, 700, 0.6, 0.22 * vol, 'bandpass'); AU.tone(260, 0.22, 0.07 * vol, 'sawtooth', 140); return; }
+  if (name === 'dropkickhit') { AU.noise(0.28, 110, 0.7, 0.85 * vol, 'lowpass'); AU.tone(70, 0.22, 0.4 * vol, 'sine', 35); AU.noise(0.08, 3000, 1, 0.12 * vol, 'highpass'); return; }
+  if (name === 'gunbash') { AU.noise(0.1, 1400, 1.5, 0.22 * vol, 'bandpass'); AU.tone(420, 0.05, 0.08 * vol, 'square', 300); return; }
+} catch (e) { } return playK.apply(this, arguments); };
+const okHit = (me, t) => t !== me && t.alive && !t.town && !t.isRemote && !(t.faction === 'neutral' && !t.hostile && !t.D) && t.anat;
+NE.Player.prototype.kick = function () {
+  const g = this.g, A = this.anat; if ((this.kickCD || 0) > g.t || this.rd || A.uncon || this.climbing || this.hang || this.treating || this.search || this.impaled) return;
+  if (A.legFactor().f < 0.4) return g.toast('Your legs can\'t manage a kick.'); if (A.stam < 8) return g.say('Too tired...', 1);
+  if (!this.onGround && !this.climbing && !this.crawl && A.stam >= 14) { // drop kick
+    A.stam -= 14; this.kickCD = g.t + 1.6; this.dkT = 0.5; this.dkHit = false; this.dkDir = this.facing; this.vx = this.facing * 235; this.vy = Math.max(Math.min(this.vy, -40), -120); AU.play('dropkick'); g.say(pick(['HYAAH!', 'Get—', 'Hup!']), 0.5); return; }
+  if (this.crawl) return; A.stam -= 8; this.kickCD = g.t + 0.85; this.fkT = 0.32; this.fkDir = this.facing; AU.play('kick');
+  setTimeout(() => { if (!this.alive) return; let best = null, bd = 19; for (const t of g.actors) { if (!okHit(this, t)) continue; const dx = (t.x - this.x) * this.facing; if (dx < -2 || dx > bd || Math.abs(t.y - this.y) > 18) continue; bd = dx; best = t; }
+    if (!best) return; const m = (this.stats.melee || 1) * (NE.styleMul ? Math.max(1, NE.styleMul(this, { id: 'fists' }) * 0.6) : 1); best.hurt(pick(['torso', 'torso', 'lleg', 'rleg']), 10 * m, 'blunt', this.surv.first, { x: this.facing, y: -0.2 });
+    best.vx += this.facing * 240; best.vy -= 60; best.stagger = Math.max(best.stagger || 0, 0.8); if (best.charge) best.charge = null; best.windT = 0; AU.play('kickhit'); g.shake(1.8); g.noise(this.x, this.y, 70); if (best.onAggro) best.onAggro(this); }, 120);
+};
+const puK = NE.Player.prototype.update;
+NE.Player.prototype.update = function (dt, input) { if (this.fkT > 0) { this.fkT -= dt; this.facing = this.fkDir || this.facing; }
+  if (this.dkT > 0) { this.dkT -= dt; this.facing = this.dkDir || this.facing; this.vx = this.facing * Math.max(150, Math.abs(this.vx)); const g = this.g;
+    if (!this.dkHit) for (const t of g.actors) { if (!okHit(this, t)) continue; const dx = (t.x - this.x) * this.facing; if (dx < -4 || dx > 15 || this.y < t.y - (t.h || 14) - 6 || this.y - 12 > t.y + 2) continue;
+      this.dkHit = true; const m = this.stats.melee || 1; t.hurt('torso', 17 * m, 'blunt', this.surv.first, { x: this.facing, y: -0.3 }); if (t.knockdown) t.knockdown(this.facing * 260, -90, 1.1); else { t.vx += this.facing * 320; t.vy -= 90; } t.stagger = Math.max(t.stagger || 0, 1.2); t.windT = 0; if (t.charge) t.charge = null;
+      AU.play('dropkickhit'); g.shake(4); g.slowmo = Math.max(g.slowmo || 0, 0.12); g.noise(this.x, this.y, 110); this.vx = -this.facing * 60; this.dkT = Math.min(this.dkT, 0.12); if (t.onAggro) t.onAggro(this); break; }
+    if (this.dkT <= 0 || this.onGround) { this.dkT = 0; if (!this.onGround || this.dkHit) this.knockdown(0, -10, this.dkHit ? 0.45 : 0.7); } }
+  const r = puK.apply(this, arguments); if (this.dkT > 0 && this.dkDir) this.facing = this.dkDir; else if (this.fkT > 0 && this.fkDir) this.facing = this.fkDir; return r; };
+const keyK = G.onKey; G.onKey = function (code) { if (G.actionOf(code) === 'kick' && G.state === 'run' && G.player && G.player.alive && !NE.UI.panel && !NE.UI.modalOpen()) return G.player.kick(); return keyK.apply(this, arguments); };
+// poses
+const poseK = NE.ragPose;
+NE.ragPose = function (a) { const out = poseK(a); const f = a.facing || 1;
+  if (a.fkT > 0 && !a.crawl) { const k = Math.sin(Math.PI * Math.min(1, 1 - a.fkT / 0.32)); const hip = out[2]; out[9] = [hip[0] + f * (2 + 5 * k), hip[1] + 2 - 3 * k]; out[10] = [hip[0] + f * (3 + 9 * k), hip[1] + 6 - 7 * k]; out[0] = [out[0][0] - f * k * 1.5, out[0][1] + k * 0.5]; out[1] = [out[1][0] - f * k, out[1][1]]; out[5] = [out[1][0] - f * 3, out[1][1] + 3]; out[6] = [out[1][0] - f * 5, out[1][1] + 5]; }
+  if (a.dkT > 0) { const x = a.x, y = a.y - 9; out[0] = [x - f * 9, y - 2]; out[1] = [x - f * 6, y - 1]; out[2] = [x, y + 1]; out[3] = [x - f * 6, y + 3]; out[4] = [x - f * 9, y + 4]; out[5] = [x - f * 4, y - 4]; out[6] = [x - f * 7, y - 6]; out[7] = [x + f * 4, y]; out[8] = [x + f * 9, y - 1]; out[9] = [x + f * 4, y + 2]; out[10] = [x + f * 9, y + 1]; }
+  if (a._bashT > 0) { const k = Math.min(1, a._bashT / 0.3); const sh = out[1]; out[5] = [sh[0] + a.facing * (2 + 4 * (1 - k)), sh[1] - 3 + 4 * (1 - k)]; out[6] = [sh[0] + a.facing * (4 + 6 * (1 - k)), sh[1] - 6 + 7 * (1 - k)]; }
+  return out; };
+
+// =====================================================================================================================
+// GUNS AS CLUBS: an empty gun swings harder and further; armed enemies you get up close to now bash you with their gun
+// =====================================================================================================================
+const gbF = NE.Player.prototype.gunButt;
+NE.Player.prototype.gunButt = function (w) { if (this.cd > 0) return; const g = this.g, A = this.anat; this.cd = w.twoHand ? 0.65 : 0.45; this.swingDur = this.swingT = 0.3; A.stam -= 5; this._bashT = 0.3; AU.play('gunbash', 0.8);
+  if (!this.inv.count(w.gun.ammo) && !this._dryTold) { this._dryTold = 1; g.toast('No ammo left — your ' + w.name.toLowerCase() + ' is a club now.'); }
+  let best = null, bd = 1e9; for (const a of g.actors) { if (!okHit(this, a)) continue; const dx = a.x - this.x; if (dx * this.facing < -3 || Math.abs(dx) > 22 + (w.twoHand ? 5 : 0) || Math.abs(a.y - this.y) > 20) continue; if (Math.abs(dx) < bd) { bd = Math.abs(dx); best = a; } }
+  if (!best) return; const part = Math.hypot(g.mouse.wx - best.x, g.mouse.wy - best.cy) < 26 ? best.partNear(g.mouse.wx, g.mouse.wy) : 'torso';
+  const dmg = (w.twoHand ? 20 : 15) * 1.2 * this.stats.melee * A.armFactor(); best.hurt(part, dmg, 'blunt', this.surv.first, { x: this.facing, y: -0.2 }); best.lastBy = this;
+  best.vx += this.facing * 130; best.stagger = Math.max(best.stagger || 0, 0.6); best.windT = 0; NE.Audio.play('hit', 1); g.shake(2); if (best.onAggro) best.onAggro(this); };
+const puB = NE.Player.prototype.update; NE.Player.prototype.update = function (dt) { if (this._bashT > 0) this._bashT -= dt; if (this.equip.weapon && this.equip.weapon.mag) this._dryTold = 0; return puB.apply(this, arguments); };
+const euB = NE.Enemy.prototype.update;
+NE.Enemy.prototype.update = function (dt) { const r = euB.apply(this, arguments); if (!this.alive) return r; if (this._bashT > 0) this._bashT -= dt;
+  const t = this.target; const isGun = this.weapon && NE.ITEMS[this.weapon] && NE.ITEMS[this.weapon].gun; if (!isGun || !t || !t.alive || this.rd || (this.anat && this.anat.uncon) || this.frozenT > 0 || this.calmed) return r;
+  const dx = t.x - this.x, d = Math.abs(dx); if (d > 22 || Math.abs(t.y - this.y) > 20) { this._bw = 0; return r; }
+  this.facing = dx >= 0 ? 1 : -1; if (this.state === 'aim') this.state = 'chase';
+  if (!this._bw) { if ((this._bashCD || 0) > G.t) return r; this._bw = G.t + 0.32; this._bashT = 0.32; NE.Audio.play('swing', 0.5); return r; }
+  if (G.t >= this._bw) { this._bw = 0; this._bashCD = G.t + rf(0.9, 1.3); const two = NE.ITEMS[this.weapon].twoHand; if (d <= 22 && Math.abs(t.y - this.y) <= 20 && !(t.dashIF > 0)) {
+      const blocked = t.guard && t.facing === -this.facing; const dmg = (two ? 15 : 11) * (NE.ENEMY_DMG || 1.2) * (blocked ? 0.25 : 1); t.hurt(chance(0.3) ? 'head' : 'torso', dmg, 'blunt', this.D ? this.D.name : 'Raider', { x: this.facing, y: -0.2 }); t.vx += this.facing * (blocked ? 40 : 120); if (!blocked && t.isPlayer) t.stagger = Math.max(t.stagger || 0, 0.35); NE.Audio.play(blocked ? 'block' : 'hit', 0.9); G.shake && G.shake(1.5); if (t.isPlayer) G.say && chance(0.3) && G.npcSay && G.npcSay(this, pick(['Back off!', 'Too close!', 'Eat this!']), 1.5); }
+    this.vx -= this.facing * 40; }
+  return r; };
+const pmK = NE.Actor.prototype.physicsMove; NE.Actor.prototype.physicsMove = function (dt, c) { if (this.isPlayer && this.dkT > 0) { const v = this.vx; const d = this.dkDir || this.facing; this.facing = d; const r = pmK.call(this, dt, Object.assign({}, c, { mx: d, jump: false })); if (!this.dkHit && !this.onGround) this.vx = d * Math.max(150, Math.abs(v) * 0.985); return r; } if (this.isPlayer && this.fkT > 0) c = Object.assign({}, c, { mx: 0 }); return pmK.call(this, dt, c); };
 })(window.NE);
