@@ -259,7 +259,7 @@ class Player extends Actor {
   dash(mx) {
     const g = this.g, A = this.anat; if ((this.dashCD || 0) > 0 || this.rd || A.uncon || this.climbing || this.crawl || this.treating || this.search) return;
     const lf = A.legFactor().f; if (lf < 0.3) return g.toast('Your legs can\'t manage it.'); if (A.stam < 12) { NE.Audio.play('deny'); return g.say(pick(['Too winded...', 'Can\'t...', 'Need air.']), 1); }
-    const dir = mx ? Math.sign(mx) : this.facing; this.vx = dir * 340 * lf * this.gearSpd(); if (this.onGround) this.vy = Math.min(this.vy, -35); this.knockT = 0.15; this.dashT = 0.32; this.dashDur = 0.32; this.dashIF = 0.24; this.dashCD = 0.6; this.dashAt = g.t; this.dashDir = dir;
+    const dir = mx ? Math.sign(mx) : this.facing; this.vx = dir * 200 * lf * this.gearSpd(); if (this.onGround) this.vy = Math.min(this.vy, -35); this.knockT = 0.3; this.dashT = 0.55; this.dashDur = 0.55; this.dashIF = 0.32; this.dashCD = 0.75; this.dashAt = g.t; this.dashDir = dir;
     A.stam -= 14 * this.stats.staminaCost; this.guard = null; this.charge = null; NE.Audio.play('dash'); setTimeout(() => NE.Audio.play('thud', 0.35), 140); g.dust(this.x - dir * 3, this.y, 4); g.noise(this.x, this.y, 40);
   }
   // lunge: hold LMB to a full wind-up, then press RMB — throw your whole weight into a lunging strike (long cooldown)

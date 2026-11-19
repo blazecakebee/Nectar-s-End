@@ -13,7 +13,8 @@
     "Guns with no ammo left work as clubs. Pistol-whip or rifle-butt with more reach and damage, with a new bash sound and swing.",
     "Armed enemies no longer freeze when you get right up close. They bash you with their gun instead.",
     "Fog of war is now a light grey drifting mist instead of black. It is 40% lighter and only creeps in around the edges and corners of the screen.",
-    "Drop kicks and front kicks keep their direction even if you move the mouse mid-kick."
+    "Drop kicks and front kicks keep their direction even if you move the mouse mid-kick.",
+    "Dash rework: covers about 8 tiles instead of 14, and the dive-and-roll plays out over about half a second instead of snapping by in a third. Dodge window 0.32s, cooldown 0.75s (Tendons: 0.45s)."
    ]
   },
   {

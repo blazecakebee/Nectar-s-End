@@ -556,7 +556,7 @@ NE.Combat.WLEN.sawarm = 3;
 const wdef0 = NE.Player.prototype.weaponDef;
 NE.Player.prototype.weaponDef = function () { if (!this.equip.weapon) { for (const k of ['rarm', 'larm']) { const P = this.anat.parts[k]; if (P.severed && P.prost && P.prost.kind === 'saw') return SAW(P.prost.id); } } return wdef0.call(this); };
 const dash0 = NE.Player.prototype.dash;
-NE.Player.prototype.dash = function (mx) { const cd = this.dashCD; dash0.call(this, mx); if (this.abil && this.abil.includes('tendons') && this.dashCD > 0 && !(cd > 0)) { this.anat.stam += 7 * this.stats.staminaCost; this.dashCD = 0.3; } };
+NE.Player.prototype.dash = function (mx) { const cd = this.dashCD; dash0.call(this, mx); if (this.abil && this.abil.includes('tendons') && this.dashCD > 0 && !(cd > 0)) { this.anat.stam += 7 * this.stats.staminaCost; this.dashCD = 0.45; } };
 NE.Player.prototype.grapple = function () {
   const g = this.g; if (this.hook) { this.hook = null; NE.Audio.play('cloth', 0.6); return; }
   const hookArm = ['rarm', 'larm'].find(k => { const P = this.anat.parts[k]; return P.severed && P.prost && /^peg_arm/.test(P.prost.id); });
