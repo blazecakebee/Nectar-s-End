@@ -1,6 +1,22 @@
 {
  "log": [
   {
+   "version": "0.10.0",
+   "date": "2026-11-19",
+   "title": "Delve: Noita-style caves, fog of war",
+   "changes": [
+    "Cave generation is rebuilt and different every run. A winding path carves the way down: it curves, drops through short shafts, climbs back up, dips into flooded pools you swim through, and opens into big caverns. Noise caves branch off it everywhere, so the level is no longer one left-to-right corridor with a hole at the end.",
+    "Each biome has its own cave character: wide sandy tunnels in the desert, crystal halls full of chambers, flooded drowned caves, icy floors in the glacier and tight ossuary passages.",
+    "Every level is checked to connect from the start all the way down; the town hatches sit exactly where the path arrives.",
+    "Fog of war: you only see what's in your line of sight. Rock near you shows as a dim silhouette, places you've already seen stay dimly remembered, and anything far away, behind walls or below you is dark until there's an opening. Your lantern, and any lit area you can see, pushes the fog back. The map now only fills in what you've actually seen.",
+    "Random events, supply drops included, are much rarer: one every 4–8 minutes instead of every 1–2. The first comes after 3–5 minutes.",
+    "Bullets and shrapnel lodge in you far less often (about 1 hit in 4 instead of more than half).",
+    "You can pull a lodged fragment out with your bare fingers from the Health panel: a 30% chance, about 7 seconds, very painful and dirty.",
+    "Hidden artifact vaults are now sealed rooms cut into solid rock anywhere beside the caves, and bandit camps build on any flat stretch.",
+    "Because the path now climbs and dips, climbing builds the Curse of the Abyss about a third more slowly."
+   ]
+  },
+  {
    "version": "0.9.3",
    "date": "2026-11-19",
    "title": "30 new Vespa gifts",

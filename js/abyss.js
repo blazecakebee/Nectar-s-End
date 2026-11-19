@@ -271,7 +271,7 @@ W_.genTown = function (f, fl, rows, g, c) {
   // Saltreach and Ashfall: the bridge now crosses a shallow salt channel, not a chasm
   if (fl.townGap) { const [a, b] = fl.townGap; for (let x = a; x <= b; x++) for (let r = gv; r < FH; r++) this.set(x, y0 + r, 1); for (let x = a + 2; x <= b - 2; x++) this.set(x, y0 + gv, 5); fl.townGap = null; }
   // hatches: wherever a way down from the level above arrives, a ladder through the roof under a hatch
-  const spots = pitIn.map(p => Math.round((p[0] + p[1]) / 2)).concat(ladIn); if (!spots.length) spots.push(12);
+  const wx = NE.townHatchX ? NE.townHatchX(this, f) : null; const spots = wx != null ? [wx] : pitIn.map(p => Math.round((p[0] + p[1]) / 2)).concat(ladIn); if (!spots.length) spots.push(12);
   fl.hatches = [];
   const above = this.floors[f - 1];
   for (let hx of spots) { hx = clamp(hx, 4, W - 5); if (fl.hatches.includes(hx)) continue; fl.hatches.push(hx);
@@ -323,7 +323,7 @@ W_.genFloor = function (f) {
   // 4) bandit camp: a flat stretch with tents, a fire, a strongbox and guards
   if (f >= 3 && !fl.poi && chance(Math.min(0.4, 0.2 + depth / 6000))) {
     for (let tries = 0; tries < 80; tries++) { const w = 20, x0 = ri(14, Wd - 15 - w); let ok = true; const gs = [];
-      for (let x = x0 - 1; x <= x0 + w; x++) { if (objNear(x, 2)) { ok = false; break; } for (let r = g[x]; r < FH; r++) if (!solid(x, r)) { ok = false; break; } if (!ok) break; if (W.get(x, y0) === 0 && c[x] === 0) { ok = false; break; } gs.push(g[x]); }
+      for (let x = x0 - 1; x <= x0 + w; x++) { if (objNear(x, 2)) { ok = false; break; } for (let r = g[x]; r < Math.min(FH, g[x] + 2); r++) if (!solid(x, r)) { ok = false; break; } if (!ok) break; if (W.get(x, y0) === 0 && c[x] === 0) { ok = false; break; } gs.push(g[x]); }
       if (!ok) continue; gs.sort((a, b) => a - b); const gl = gs[gs.length >> 1]; for (let x = x0 - 1; x <= x0 + w; x++) if (c[x] > gl - 6) { ok = false; break; } if (!ok) continue;
       for (let x = x0 - 1; x <= x0 + w; x++) { for (let r = Math.min(g[x], gl); r < Math.max(g[x], gl); r++) W.set(x, y0 + r, r >= gl ? 1 : 0); g[x] = gl; }
       const cx = x0 + w / 2; fl.camp = { x0: x0 * T, x1: (x0 + w) * T };
@@ -338,19 +338,18 @@ W_.genFloor = function (f) {
   this._arts = this._arts || [];
   if (depth >= 120 && chance(Math.min(0.16, 0.06 + depth / 14000))) {
     const pool = NE.ARTIFACTS.filter(a => !this._arts.includes(a[0]) && depth >= NE.ART_MIN[a[2]]).map(a => [a[0], NE.ART_W[a[2]]]);
-    if (pool.length) for (const side of chance(0.5) ? [1, -1] : [-1, 1]) {
-      const xa = side > 0 ? 4 : Wd - 14, xb = xa + 9; let ok = true;
-      for (let x = xa; x <= xb; x++) { if (objNear(x, 1)) { ok = false; break; } for (let r = 0; r < FH; r++) { const t = W.get(x, y0 + r); if (t === 3 || (r >= g[x] && t === 0) || (LIQT[t])) { ok = false; break; } } if (!ok) break; if (c[x] === 0 && air(x, 0)) { ok = false; break; } }
-      if (!ok) continue;
-      const art = NE.wpick(pool); this._arts.push(art);
-      const wall = side > 0 ? [xb - 1, xb] : [xa, xa + 1]; const room = side > 0 ? [xa, xb - 2] : [xa + 2, xb]; const gv = Math.max(...range(room).map(x => g[x]));
-      for (let x = room[0]; x <= room[1]; x++) { for (let r = 0; r < FH; r++) W.set(x, y0 + r, 1); g[x] = gv; c[x] = gv - 4; }
-      for (const x of wall) for (let r = 0; r < Math.max(g[x], gv); r++) W.set(x, y0 + r, 1);
-      const rx = (room[0] + room[1]) / 2; fl.vault = { x: (rx + 0.5) * T, y: (y0 + gv) * T, art, wallX: (side > 0 ? wall[1] + 1 : wall[0]) * T, room, rows: [gv - 4, gv - 1], inner: side > 0 ? wall[0] : wall[1] };
+    if (pool.length) for (let tries = 0; tries < 400; tries++) {
+      const x0 = ri(5, Wd - 14), r0 = ri(1, FH - 5); let ok = true;
+      for (let x = x0 - 1; x <= x0 + 8 && ok; x++) for (let r = r0 - 1; r <= r0 + 4; r++) if (!solid(x, r)) { ok = false; break; }
+      if (!ok || objNear(x0 + 4, 8)) continue;
+      const openL = [0, 1, 2, 3].filter(k => air(x0 - 2, r0 + k)).length >= 2, openR = [0, 1, 2, 3].filter(k => air(x0 + 9, r0 + k)).length >= 2; if (!openL && !openR) continue;
+      const side = openL ? -1 : 1; const art = NE.wpick(pool); this._arts.push(art);
+      const room = [x0, x0 + 6], wall = side < 0 ? [x0 - 1, x0 - 1] : [x0 + 8, x0 + 8], gv = r0 + 4; const rx = x0 + 3;
+      fl.vault = { x: (rx + 0.5) * T, y: (y0 + gv) * T, art, wallX: (side < 0 ? wall[0] : wall[1] + 1) * T, room: side < 0 ? [x0, x0 + 7] : [x0, x0 + 7], rows: [r0, r0 + 3], inner: side < 0 ? wall[1] : wall[0] };
       fl.objs.push({ type: 'artifact', x: (rx + 0.5) * T, y: (y0 + gv) * T, art, label: 'Something old and humming', act: 'artifact', sealed: true });
-      const vb = this.container('vault', (rx + (side > 0 ? -2.5 : 3.5)) * T, (y0 + gv) * T, depth + 300); vb.sealed = true; vb.act = null; fl.objs.push(vb);
-      fl.decor.push({ k: 'vcrack', x: fl.vault.wallX, y: (y0 + g[side > 0 ? wall[1] + 1 : wall[0] - 1]) * T, s: side });
-      for (let x = room[0]; x <= room[1]; x++) for (let r = 0; r < FH; r++) fl.seen && (fl.seen[r * Wd + x] = 0);
+      const vb = this.container('vault', (rx + (side < 0 ? 2.5 : -2.5)) * T, (y0 + gv) * T, depth + 300); vb.sealed = true; vb.act = null; fl.objs.push(vb);
+      let fy = r0 + 3; while (fy < FH - 1 && air(side < 0 ? wall[0] - 1 : wall[1] + 1, fy + 1)) fy++;
+      fl.decor.push({ k: 'vcrack', x: fl.vault.wallX, y: (y0 + fy + 1) * T, s: side < 0 ? 1 : -1 });
       break; }
   }
   // 6) wandering encounters: a fist monk, a sword master or a travelling vendor (rarely, a wounded survivor)
@@ -555,7 +554,7 @@ NE.Player.prototype.update = function (dt, input) {
   const C = CS(); const d = NE.depthOfY(this.y); const L = NE.curseLayer(d); C.L = L;
   // ascent builds the curse; the deeper the layer, the harsher
   const immune = wearing(this, 'hollowheart') ? 0.5 : 1; const footed = this.onGround || this.climbing || this.hang;
-  if (footed && !this.rd) { if (C.base == null || this.y > C.base || C.base - this.y > T * 40) C.base = this.y; else if (C.base - this.y > 2) { const up = (C.base - this.y) / T; C.base = this.y; C.v = Math.min(120, C.v + up * (0.35 + L * 0.32) * curseRes(this) * immune); C.calm = 1.5; } }
+  if (footed && !this.rd) { if (C.base == null || this.y > C.base || C.base - this.y > T * 40) C.base = this.y; else if (C.base - this.y > 2) { const up = (C.base - this.y) / T; C.base = this.y; C.v = Math.min(120, C.v + up * (0.22 + L * 0.2) * curseRes(this) * immune); C.calm = 1.5; } }
   C.calm = Math.max(0, (C.calm || 0) - dt); if (!C.calm) C.v = Math.max(0, C.v - dt * (this.onGround && Math.abs(this.vx) < 5 ? 1.4 : 0.6));
   // thresholds trigger symptoms from the layers you've reached
   const pool = Object.keys(SYM).filter(k => SYM[k].L <= L);
