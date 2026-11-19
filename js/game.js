@@ -62,11 +62,11 @@ G.bindInput = function () {
 NE.BIND_DEFS = [
   ['left', 'Move left', ['KeyA', 'ArrowLeft']], ['right', 'Move right', ['KeyD', 'ArrowRight']], ['up', 'Climb up / grab rope', ['KeyW', 'ArrowUp']], ['down', 'Climb down / crouch', ['KeyS', 'ArrowDown']],
   ['jump', 'Jump (also off ropes & walls)', ['Space', null]], ['sprint', 'Run (or double-tap a direction)', ['ShiftLeft', 'ShiftRight']], ['crouch', 'Crouch / crawl (double-tap: go prone)', ['ControlLeft', 'KeyC']],
-  ['interact', 'Interact / search', ['KeyE', null]], ['light', 'Lantern on / off', ['KeyF', null]], ['reload', 'Reload / clear jam', ['KeyR', null]], ['throw', 'Throw', ['KeyG', null]], ['cycleThrow', 'Cycle throwable', ['KeyQ', null]],
+  ['interact', 'Interact / search', ['KeyE', null]], ['light', 'Lantern on / off', ['KeyF', null]], ['reload', 'Reload / clear jam', ['KeyR', null]], ['throw', 'Throw', ['KeyG', null]], ['cycleThrow', 'Cycle throwable', ['KeyT', null]], ['dash', 'Dash (dodge through attacks)', ['KeyQ', null]], ['grapple', 'Grappling hook (if carried)', ['KeyZ', null]],
   ['weapon', 'Cycle weapon', ['Digit1', null]], ['bandage', 'Quick-bandage worst bleed', ['KeyB', null]], ['pulse', 'Hive Pulse (once awakened)', ['KeyX', null]],
   ['menu', 'Hex menu', ['KeyM', null]], ['inventory', 'Inventory', ['Tab', 'KeyI']], ['health', 'Health & triage', ['KeyH', null]], ['status', 'Status', ['KeyV', null]], ['craft', 'Crafting', ['KeyK', null]], ['map', 'Map', ['KeyN', null]], ['journal', 'Journal', ['KeyJ', null]],
 ];
-NE.binds = () => { const S = G.store.settings; S.binds = S.binds || {}; return S.binds; };
+NE.binds = () => { const S = G.store.settings; S.binds = S.binds || {}; if (S.binds.cycleThrow && S.binds.cycleThrow[0] === 'KeyQ' && !S.binds.dash) S.binds.cycleThrow = ['KeyT', S.binds.cycleThrow[1]]; return S.binds; };
 NE.bindOf = a => { const b = NE.binds()[a]; if (b) return b; const d = NE.BIND_DEFS.find(x => x[0] === a); return d ? d[2] : [null, null]; };
 NE.keyName = function (code) { if (!code) return '—'; const m = { Space: 'Space', ShiftLeft: 'L-Shift', ShiftRight: 'R-Shift', ControlLeft: 'L-Ctrl', ControlRight: 'R-Ctrl', AltLeft: 'L-Alt', AltRight: 'R-Alt', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', Tab: 'Tab', Enter: 'Enter', Backspace: 'Bksp', CapsLock: 'Caps', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\' }; if (m[code]) return m[code]; if (code.startsWith('Key')) return code.slice(3); if (code.startsWith('Digit')) return code.slice(5); if (code.startsWith('Numpad')) return 'Num' + code.slice(6); return code; };
 NE.keyLabel = a => NE.keyName(NE.bindOf(a)[0] || NE.bindOf(a)[1]);
@@ -95,6 +95,8 @@ G.onKey = function (code) {
   if (act === 'bandage' && run) NE.quickBandage(p);
   if (act === 'throw' && run) { const id = G.throwSel(); if (id) NE.throwItem(G, p, id); else G.toast('Nothing to throw.'); }
   if (act === 'cycleThrow') G.cycleThrow();
+  if (act === 'dash' && run) p.dash(G.ctl().mx);
+  if (act === 'grapple' && run && p.grapple) p.grapple();
   if (act === 'weapon') G.cycleWeapon();
   if (act === 'pulse' && run) G.hivePulse(p);
 };
@@ -105,9 +107,10 @@ G.onClick = function () { if (G.infest) return G.skipInfest(); if (G.player && G
 G.startGrab = function () {
   if (!G.playing() || NE.UI.panel) return; const p = G.player; const m = G.mouse;
   if (NE.dist(m.wx, m.wy, p.x, p.cy) > 40) return;
-  G.grab = G.phys.nearestPoint(m.wx, m.wy, 9, b => b.owner !== p && !(b.owner && b.owner.alive)); if (G.grab) G.grab.body.dragBy = p;
+  G.grab = G.phys.nearestPoint(m.wx, m.wy, 9, b => b.owner !== p && !(b.owner && b.owner.alive)); if (G.grab) { G.grab.body.dragBy = p; return; }
+  const w = p.weaponDef(); if (!w.gun && !p.rd && !p.climbing && !p.anat.uncon) { p.guard = { t0: G.t }; NE.Audio.play('cloth', 0.4); }
 };
-G.releaseGrab = function () { const gp = G.grab; if (!gp) return; const b = gp.body; G.grab = null; const v = b.vel(); const sp = Math.hypot(v.x, v.y); const cap = 230 / Math.sqrt(Math.max(0.5, b.mass || 1)); if (sp > cap) { const k = cap / sp; for (const q of b.pts) { q.ox = q.x - (q.x - q.ox) * k; q.oy = q.y - (q.y - q.oy) * k; } } b.dragT = G.t + 0.6; setTimeout(() => { if (b.dragT <= G.t) b.dragBy = null; }, 700); };
+G.releaseGrab = function () { const p = G.player; if (p && p.guard) { const quick = G.t - p.guard.t0 < 0.17; p.guard = null; if (quick) p.poke(); } const gp = G.grab; if (!gp) return; const b = gp.body; G.grab = null; const v = b.vel(); const sp = Math.hypot(v.x, v.y); const cap = 230 / Math.sqrt(Math.max(0.5, b.mass || 1)); if (sp > cap) { const k = cap / sp; for (const q of b.pts) { q.ox = q.x - (q.x - q.ox) * k; q.oy = q.y - (q.y - q.oy) * k; } } b.dragT = G.t + 0.6; setTimeout(() => { if (b.dragT <= G.t) b.dragBy = null; }, 700); };
 G.ctl = function () {
   const K = G.keys; const p = G.player; const block = NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen();
   if (block) return { mx: 0 };
@@ -141,16 +144,18 @@ G.decal = function (x, y, col) {
 // knocked down: mash Space / click to claw your way back up and shove off whoever is standing over you
 G.struggle = function () {
   const p = G.player, A = p.anat; const ex = G.actors.find(a => a.alive && a.D && a.exec && a.target === p);
-  if (ex && ex.exec) ex.exec.t = Math.max(0, ex.exec.t - 0.07); p.strug = Math.min(1, (p.strug || 0) + (ex ? 0.1 : 0.06) * (A.blood > 3000 ? 1 : 0.6) * (0.6 + A.org.brain / 250)); G.shake(0.6); NE.Audio.play('step', 0.5);
+  if (ex && ex.exec) ex.exec.t = Math.max(0, ex.exec.t - 0.15); p.strug = Math.min(1, (p.strug || 0) + (ex ? 0.2 : 0.17) * (A.blood > 3000 ? 1 : 0.8) * (0.8 + A.org.brain / 500)); G.shake(0.6); NE.Audio.play('step', 0.5);
   if (p.strug >= 1) { p.strug = 0; A.uncon = false; A.cons = Math.max(A.cons, 45); A.secondWind = 8; A.stam = Math.max(A.stam, 35); A.painSpike *= 0.5; p.knockT = 0;
     const foes = G.actors.filter(a => a.alive && a.D && NE.dist(a.x, a.y, p.x, p.y) < 30);
     for (const e of foes) { e.exec = null; e.charge = null; e.windT = 0; e.stagger = 1.1; e.knockT = 0.4; e.vx += Math.sign(e.x - p.x || 1) * 230; e.vy -= 70; e.onGround = false; e.cd = 1.4; }
     NE.Audio.play('shout', 0.9); NE.Audio.play('hit', 1); G.shake(4); G.slowmo = 0.25; G.say(pick(['Get OFF me!', 'Not like this—', 'NO!']), 1); G.toast(foes.length ? 'You fight back and throw them off!' : 'You drag yourself back to your senses.');
     G.domText('strug', null); } };
 G.struggleTick = function (dt) { const p = G.player; if (!p || !p.alive || !p.anat.uncon || G.state !== 'run') { if (p) p.strug = 0; G.domText('strug', null); return; }
-  p.strug = Math.max(0, (p.strug || 0) - dt * 0.12); const ex = G.actors.some(a => a.alive && a.D && a.exec && a.target === p); const n = Math.round(p.strug * 10);
-  G.domText('strug', (ex ? 'THEY\'RE STANDING OVER YOU — ' : 'KNOCKED DOWN — ') + 'MASH [SPACE] TO FIGHT BACK  ' + '▮'.repeat(n) + '▯'.repeat(10 - n), 0.7, 'strug' + (ex ? ' hot' : '')); };
-G.clearWorld = function () { G.prone = false; G.minion = null; G.infest = null; G.hideCine && G.hideCine(); G.domText('burst-t', null); G.domText('desc-lbl', null); G.bullets = []; G.pools = []; G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
+  p.strug = Math.max(0, (p.strug || 0) - dt * 0.04); if (G.keys.Space) { p.strug += dt * 0.22; if (p.strug >= 1) return G.struggle(); } const ex = G.actors.some(a => a.alive && a.D && a.exec && a.target === p); const n = Math.round(p.strug * 10);
+  G.domText('strug', (ex ? 'THEY\'RE STANDING OVER YOU — ' : 'KNOCKED DOWN — ') + 'MASH OR HOLD [SPACE] TO FIGHT BACK  ' + '▮'.repeat(n) + '▯'.repeat(10 - n), 0.7, 'strug' + (ex ? ' hot' : '')); };
+// dash afterimages: a fading silhouette of the body's joints
+G.ghost = function (a) { G.ghosts = G.ghosts || []; G.ghosts.push({ pts: a.rag.pts.map(q => ({ x: q.x, y: q.y })), life: 1, col: a.vglow || '#e8d8b0' }); };
+G.clearWorld = function () { G.ghosts = []; G.prone = false; G.minion = null; G.infest = null; G.hideCine && G.hideCine(); G.domText('burst-t', null); G.domText('desc-lbl', null); G.bullets = []; G.pools = []; G.actors = []; G.parts = []; G.tracers = []; G.noises = []; G.gas = []; G.fires = []; G.dyn = []; G.lights = []; G.amb = []; G.blackout = 0; G.grab = null; G.player = null; G.goop = null; G.wisp = null; };
 G.toTitle = function () { G.autosave(); try { sessionStorage.removeItem('ne_live'); } catch (e) { } G.clearWorld(); G.state = 'title'; G.world = null; if (G.net) G.net.close(); NE.UI.showTitle(); NE.Audio.music('title'); };
 G.toLobby = function () {
   G.clearWorld(); G.state = 'lobby'; G.run = null; G.meta.started = true; G.meta.run = null; try { sessionStorage.setItem('ne_live', '1'); } catch (e) { }
@@ -211,9 +216,9 @@ G.spawnFloor = function (fl, restoring) {
     if (s.kind === 'prop') { const pal = fl.biome.pal; if (s.p === 'crate') G.phys.box('crate', s.x, s.y, 7, 7, 3, '#6a5034'); else if (s.p === 'barrel') G.phys.box('barrel', s.x, s.y - 2, 6, 9, 4.5, pick(['#5a6a4a', '#7a3a2a', '#3a4a6a'])); else if (s.p === 'debris') G.phys.box('debris', s.x, s.y, rf(4, 7), rf(3, 5), 3, pal.tile); else { const b = G.phys.stick(s.p, s.x, s.y, 4, 0, 1.2, s.p === 'brick' ? 2 : 0.5); b.item = s.p; } continue; }
     if (restoring || guest) continue; // enemies come from the save file / the co-op host
     if (s.kind === 'enemy' && fl.town) continue;
-    if (s.kind === 'enemy') { const e = new NE.Enemy(G, s.x, s.y, s.type, fl.depth); e.guard = !!s.guard; G.actors.push(e); }
+    if (s.kind === 'enemy') { const e = new NE.Enemy(G, s.x, s.y, s.type, fl.depth); e.post = !!s.guard; G.actors.push(e); }
     else if (s.kind === 'survivor' || s.kind === 'trader') { const n = new NE.NPC(G, s.x, s.y, s.kind); if (s.kind === 'trader') n.stock = G.traderStock(fl.depth); G.actors.push(n); }
-    else if (s.kind === 'standoff') { const grp = []; for (let i = 0; i < 2; i++) { const e = new NE.Enemy(G, s.x + i * 12, s.y, fl.depth > 400 ? pick(['scav', 'gunner']) : 'scav', fl.depth); e.hostile = false; e.guard = true; e.facing = -1; grp.push(e); G.actors.push(e); } fl.objs.push({ type: 'standoff', x: s.x, y: s.y, grp, done: false }); }
+    else if (s.kind === 'standoff') { const grp = []; for (let i = 0; i < 2; i++) { const e = new NE.Enemy(G, s.x + i * 12, s.y, fl.depth > 400 ? pick(['scav', 'gunner']) : 'scav', fl.depth); e.hostile = false; e.post = true; e.facing = -1; grp.push(e); G.actors.push(e); } fl.objs.push({ type: 'standoff', x: s.x, y: s.y, grp, done: false }); }
   }
   G.tagProps(fl, nb0);
 };
@@ -288,7 +293,7 @@ G.update = function (dt, rdt) {
   }
   G.parts = G.parts.filter(q => q.life > 0);
   G.tracers = G.tracers.filter(t => (t.t -= rdt) > 0);
-  NE.Combat.updateBullets(dt); NE.Gore.tick(dt);
+  NE.Combat.updateBullets(dt); if (G.ghosts) { for (const gh of G.ghosts) gh.life -= dt * 4; G.ghosts = G.ghosts.filter(gh => gh.life > 0); } NE.Gore.tick(dt);
   G.noises = G.noises.filter(n => (n.t -= dt) > 0);
   // gas clouds
   for (const c of G.gas) { c.x += c.vx * dt; c.r = Math.min(c.max || 38, c.r + dt * 3); c.life -= dt; c.d = Math.min(c.d, c.life / 8); const fl = W.floors[G.floorIdx(c.y)]; if (fl) c.y = clamp(c.y + dt * 3, fl.y0 * T + 10, fl.feetY - 8); }
@@ -337,6 +342,8 @@ G.handleAnatEvents = function (p) {
   for (const e of A.ev) {
     if (e === 'bleed') G.say(pick(NE.MONO.bleed), 0.5);
     else if (e === 'artery') { G.sayCD = 0; G.say(pick(NE.MONO.artery)); G.log('Arterial bleeding! Tourniquet it.', 'bad'); }
+    else if (e === 'disl') { G.sayCD = 0; G.say(pick(['My shoulder— it\'s out!', 'Something popped. Wrong.', 'Joint\'s out of place...'])); G.shake(2); G.log('Joint dislocated. Pop it back in (Anatomy).', 'bad'); }
+    else if (e === 'amputated') { G.log('The limb is off. Tie off the stump — then a prosthetic can be fitted.', 'bad'); }
     else if (e === 'fracture') { G.sayCD = 0; G.say(pick(NE.MONO.fracture)); G.shake(3); G.log('Bone fractured.', 'bad'); }
     else if (e === 'uncon') { G.log('You black out...', 'bad'); NE.Audio.play('death'); }
     else if (e === 'wake') { G.say(pick(NE.MONO.wake)); }
@@ -407,7 +414,7 @@ G.explode = function (x, y, power, remote) {
   for (let i = 0; i < 14; i++) G.addP(x, y, rf(-60, 60), rf(-60, 20), rf(0.5, 1.2), pick(['#ffd060', '#ff8020', '#fff0b0']), 'spark', 0.3);
   // blow the rock apart (each side does this; the result is identical)
   const W = G.world; if (W && !W.lobby) { const R = 2.6 * power, tx0 = Math.floor(x / T), ty0 = Math.floor(y / T); for (let ty = Math.floor(ty0 - R); ty <= ty0 + R; ty++) for (let tx = Math.floor(tx0 - R); tx <= tx0 + R; tx++) { const d = Math.hypot(tx + 0.5 - x / T, ty + 0.5 - y / T); if (d > R) continue; const t = W.get(tx, ty); if (!W.diggable(tx, ty)) continue; if (W.damageTile(tx, ty, (R - d + 1) * 6) === 'broke' && chance(0.35)) { const db = G.phys.box('debris', tx * T + 4, ty * T + 4, rf(3, 5), rf(3, 4), 2.5, W.biomeAtY(ty * T).pal.tile); db.setVel((tx * T - x) * 4, (ty * T - y) * 4 - 60); db.noActor = true; setTimeout(() => db.noActor = false, 600); } } }
-  for (const a of G.actors) { if (!a.alive || a.isPuppet || a.isRemote) continue; const d = NE.dist(a.x, a.cy, x, y); const rr = 45 * power; if (d < rr) { const k = 1 - d / rr; for (let i = 0; i < 3; i++) a.hurt(pick(NE.PARTS), 14 * k + 4, 'frag', 'Explosion', { x: (a.x - x) / (d || 1), y: -0.5 }); a.vy -= 120 * k; a.vx += (a.x - x) / (d || 1) * 120 * k; NE.Gore.blast(a, k, x, y); } }
+  for (const a of G.actors) { if (!a.alive || a.isPuppet || a.isRemote) continue; const d = NE.dist(a.x, a.cy, x, y); const rr = 45 * power; if (d < rr) { const k = 1 - d / rr; for (let i = 0; i < 3; i++) a.hurt(pick(NE.PARTS), 14 * k + 4, 'frag', 'Explosion', { x: (a.x - x) / (d || 1), y: -0.5 }); a.vy -= 120 * k; a.vx += (a.x - x) / (d || 1) * 120 * k; NE.Gore.blast(a, k, x, y); if (a.alive && k > 0.25) a.knockdown((a.x - x) / (d || 1) * 170 * k, -170 * k, 0.8 + k * 1.4); } }
   for (const a of G.actors) { if (a.alive || !a.rag || a.gone) continue; const d = NE.dist(a.x, a.y - 6, x, y); if (d < 45 * power) NE.Gore.blast(a, 1 - d / (45 * power), x, y); }
   if (G.goop && NE.dist(G.goop.x, G.goop.y, x, y) < 40) G.goop.vy -= 150;
 };
@@ -527,7 +534,7 @@ G.onEnemyDeath = function (e, cause) {
   e.gear = {};
   G.dyn.push({ type: 'container', ct: 'corpse', actor: e, x: e.x, y: e.y, label: (e.D ? e.D.name : e.name || 'Body') + ' (body)', act: 'search', items, searched: false, depth: 0 });
 };
-G.standoffBreak = function (e) { for (const o of G.nearObjs()) if (o.type === 'standoff' && o.grp.includes(e)) { o.done = true; for (const x of o.grp) { x.hostile = true; x.guard = false; } } };
+G.standoffBreak = function (e) { for (const o of G.nearObjs()) if (o.type === 'standoff' && o.grp.includes(e)) { o.done = true; for (const x of o.grp) { x.hostile = true; x.post = false; } } };
 
 // ---------------- traders ----------------
 NE.PRICE = { pickaxe: 28, dynamite: 22, nectar: 140, bandage: 8, suture: 16, morphine: 30, bloodbag: 40, antibiotics: 22, antirad: 24, adrenaline: 26, painkillers: 12, water: 8, ration: 10, splint: 10, tourniquet: 12, forceps: 14, ammo9: 1.5, ammo762: 3, pistol: 60, rifle: 120, keycard: 30, respirator: 30, filter: 10, platevest: 90, milhelmet: 60, battery: 6, flare: 6, antiseptic: 10, lockpick: 6, axe: 30, crowbar: 18 };
@@ -616,7 +623,7 @@ G.endRun = function (extracted, cause) {
   xp = Math.round(xp);
   M.xp += xp; let lv = 0; while (M.xp >= NE.xpForLevel(M.level)) { M.xp -= NE.xpForLevel(M.level); M.level++; M.points++; lv++; }
   const unlocks = [];
-  const un = (kind, list) => { for (const o of list) { if (!o.unlock || M.unlocked[kind].includes(o.id)) continue; const u = o.unlock; let ok = false; if (u.type === 'depth') ok = depth >= u.v; if (u.type === 'triage') ok = R.triage; if (u.type === 'specops') ok = R.specops; if (ok) { M.unlocked[kind].push(o.id); unlocks.push(o.name); } } };
+  const un = (kind, list) => { for (const o of list) { if (!o.unlock || M.unlocked[kind].includes(o.id)) continue; const u = o.unlock; let ok = false; if (u.type === 'depth') ok = depth >= u.v; if (u.type === 'triage') ok = R.triage; if (u.type === 'specops') ok = R.specops; if (u.type === 'kills') ok = R.kills >= u.v; if (u.type === 'medtent') ok = !!R.medtent; if (u.type === 'gifts') ok = (R.abil || []).length >= u.v; if (ok) { M.unlocked[kind].push(o.id); unlocks.push(o.name); } } };
   un('backpacks', NE.BACKPACKS); un('outfits', NE.OUTFITS);
   M.best.depth = Math.max(M.best.depth, depth); M.best.time = Math.max(M.best.time, R.t); M.best.kills = Math.max(M.best.kills || 0, R.kills);
   const s = M.survivor; M.cemetery.unshift({ name: s.name, occ: NE.OCCUPATIONS.find(o => o.id === s.occ).name, age: s.age, depth, cause, time: Math.round(R.t), kills: R.kills, extracted: false, date: new Date().toLocaleDateString(), look: s.look, abil: (R.abil || []).slice() });
@@ -656,6 +663,7 @@ G.render = function (dt) {
   for (const a of G.actors) if (a.alive && a !== p && Math.abs(a.y - F.y) < 260) a.draw(ctx);
   if (p.alive || !G.goop) p.draw(ctx);
   if (p.charge && p.alive) { const k = Math.min(1, p.charge.t / 0.82), bx = Math.round(p.x) - 6, by = Math.round(p.y - p.h) - 8; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, 14, 4); ctx.fillStyle = p.charge.t < 0.32 ? '#8a7a5a' : k >= 1 ? ((G.t * 12 | 0) % 2 ? '#fff4c0' : '#ffb020') : '#ffb020'; ctx.fillRect(bx, by, Math.round(12 * k), 2); }
+  if (G.ghosts && G.ghosts.length) { for (const gh of G.ghosts) { ctx.globalAlpha = Math.max(0, gh.life) * 0.45; ctx.fillStyle = gh.col; for (const q of gh.pts) ctx.fillRect(Math.round(q.x) - 1, Math.round(q.y) - 1, 2, 2); } ctx.globalAlpha = 1; }
   if (G.goop) G.drawGoop(ctx);
   if (G.minion) G.drawMinion(ctx);
   if (G.infest) G.drawInfest(ctx);

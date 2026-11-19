@@ -210,7 +210,7 @@ UI.drawECG = function (dt) {
 UI.render.inventory = function (b) {
   const g = G(), p = g.player, inv = p.inv; const wt = inv.weight();
   const eqSlot = (lab, e, slot) => '<div class="eq" data-slot="' + slot + '">' + (e ? ic(e.id) : '<div class="eq-empty"></div>') + '<div><small>' + lab + '</small><b>' + (e ? esc(NE.ITEMS[e.id].name) : '—') + '</b>' + (e && e.dur != null ? '<i>' + Math.round(e.dur) + '% dur</i>' : '') + (e && e.mag != null ? '<i>' + e.mag + ' in mag</i>' : '') + '</div></div>';
-  let h = '<div class="inv"><div class="inv-eq"><h4>EQUIPPED</h4>' + eqSlot('WEAPON', p.equip.weapon, 'weapon') + eqSlot('HEAD', p.gear.head, 'head') + eqSlot('BODY', p.gear.body, 'body') + eqSlot('FACE', p.gear.face, 'face') +
+  let h = '<div class="inv"><div class="inv-eq"><h4>EQUIPPED</h4>' + eqSlot('WEAPON', p.equip.weapon, 'weapon') + eqSlot('HEAD', p.gear.head, 'head') + eqSlot('BODY', p.gear.body, 'body') + eqSlot('FACE', p.gear.face, 'face') + eqSlot('HANDS', p.gear.hands, 'hands') + eqSlot('FEET', p.gear.feet, 'feet') + eqSlot('BELT', p.gear.belt, 'belt') + eqSlot('CHARM', p.gear.charm, 'charm') +
     '<div class="eq">' + icn('ui_town') + '<div><small>WAIST LANTERN</small><b>' + Math.round(p.light.bat) + '% oil</b></div></div>' +
     '<h4>BACKPACK</h4><div class="dim">' + esc((NE.BACKPACKS.find(x => x.id === g.meta.equipped.backpack) || NE.BACKPACKS[0]).name) + '</div>' + bar(wt, inv.carry, wt > inv.carry ? '#e04040' : '#c0a040', wt.toFixed(1) + ' / ' + inv.carry.toFixed(1) + ' kg') + (wt > inv.carry ? '<div class="bad">Overencumbered — slow, no sprint.</div>' : '') + '</div>';
   h += '<div class="inv-gwrap"><div class="g-head"><span>BACKPACK GRID</span><small>' + inv.usedCells + '/' + inv.cols * inv.rows + ' cells • drag to move • [R] rotate while dragging • double-click to use/equip</small></div>' + UI.gridHTML(inv, p) + '</div>';
@@ -264,6 +264,7 @@ UI.itemDetail = function (e) {
   if (it.cat === 'food') h += btn('use', it.thirst ? 'Drink' : 'Eat');
   if (it.med && it.med !== 'drug') h += btn('treat', 'Treat a body part...');
   if (it.med === 'drug') h += btn('use', 'Take');
+  if (it.prost) h += btn('fitp', 'Fit to a stump...');
   if (e.id === 'nectar') h += btn('use', 'Drink the nectar');
   if (e.id === 'battery') h += btn('use', 'Refill lantern'); if (e.id === 'filter') h += btn('use', 'Load into respirator');
   if (it.cat === 'weapon') h += p.equip.weapon === e ? btn('unequip', 'Holster') : btn('equip', 'Hold');
@@ -276,6 +277,7 @@ UI.itemAct = function (a, e) {
   const g = G(), p = g.player; if (!e) return; const it = NE.ITEMS[e.id];
   if (a === 'use') { NE.consume(p, e); if (!p.inv.items.includes(e)) UI.sel = null; }
   else if (a === 'treat') { UI.pendingItem = e; return UI.open('health'); }
+  else if (a === 'fitp') { const sl = it.prost.slot; const k = ['l' + sl, 'r' + sl].find(q => p.anat.parts[q].severed && !p.anat.parts[q].prost); if (!k) { g.toast('You have no ' + sl + ' stump to fit it to.'); NE.Audio.play('deny'); return; } UI.hpart = k; return UI.open('health'); }
   else if (a === 'equip') { p.equip.weapon = e; g.toast('Holding ' + it.name + '.'); }
   else if (a === 'unequip') p.equip.weapon = null;
   else if (a === 'wear') { const sl = it.slot; p.inv.remove(e); if (p.gear[sl]) p.inv.addEntry(p.gear[sl]); p.gear[sl] = e; if (sl === 'face' && p.filterT <= 0) g.toast('Respirator needs a filter to work.'); UI.sel = null; }
@@ -314,7 +316,7 @@ UI.drawBody = function () {
   for (const k of NE.PARTS) {
     const P = A.parts[k]; const [cx, cy] = center(k); let ox = -14;
     const mark = (icon, col) => { c.drawImage(NE.icon(icon, col, 2), cx + ox, cy - 8, 12, 12); ox += 11; };
-    if (A.partBleed(k) > 0.05) mark('drop'); if (P.frac) mark('splint'); if (P.bandage) { c.fillStyle = 'rgba(232,226,208,0.85)'; c.fillRect(cx - 8, cy + 6, 16, 3); } if (P.tq) { c.fillStyle = '#111'; c.fillRect(cx - 9, cy - 12, 18, 3); } if (P.splint) mark('splint'); if (P.wounds.some(w => w.bullet)) mark('ammo', '#d0d0d0');
+    if (A.partBleed(k) > 0.05) mark('drop'); if (P.frac) mark('splint'); if (P.bandage) { c.fillStyle = 'rgba(232,226,208,0.85)'; c.fillRect(cx - 8, cy + 6, 16, 3); } if (P.tq) { c.fillStyle = '#111'; c.fillRect(cx - 9, cy - 12, 18, 3); } if (P.splint) mark('splint'); if (P.wounds.some(w => w.bullet)) mark('ammo', '#d0d0d0'); if (P.disl) mark('bone');
   }
   const v = $('.hl-vit'); if (v) v.innerHTML = '<span>♥ ' + Math.round(A.bpm) + '</span><span class="' + (A.blood < 3800 ? 'bad' : '') + '">🩸 ' + Math.round(A.blood) + 'mL</span><span class="' + (A.pain > A.threshold ? 'bad' : '') + '">⚡ ' + Math.round(A.pain) + '</span><span>🌡 ' + A.temp.toFixed(1) + '</span>';
 };
@@ -322,8 +324,10 @@ UI.live.health = function () { UI.drawBody(); UI._hiT = (UI._hiT || 0) + 1; if (
 UI.healthInfo = function () {
   const p = G().player, A = p.anat, k = UI.hpart, P = A.parts[k]; const el = $('.hl-info'); if (!el) return;
   let h = '<h3>' + NE.PART_NAMES[k] + ' <small>' + Math.round(P.hp) + '/' + Math.round(P.max) + ' HP</small></h3><div class="wounds">';
-  if (!P.wounds.length && !P.frac) h += '<div class="dim">No injuries.</div>';
+  if (!P.wounds.length && !P.frac && !P.disl && !P.severed) h += '<div class="dim">No injuries.</div>';
   for (const w of P.wounds) { const W = NE.WOUNDS[w.t]; const bl = A.woundBleed(P, w, k) * p.stats.bleed; h += '<div class="wd ' + (w.closed ? 'closed' : 'open') + '"><b>' + W.name + '</b> ' + (w.closed ? (w.sutured ? '<span class="good">stitched</span>' : '<span class="dim">closed</span>') : '<span class="bad">' + bl.toFixed(2) + ' mL/s</span>') + (w.bullet ? ' <span class="warn">fragment lodged</span>' : '') + (w.dirty > 0.2 ? ' <span class="warn">dirty</span>' : '') + (w.inf > 30 ? ' <span class="bad">infected</span>' : '') + '</div>'; }
+  if (P.disl) h += '<div class="wd open"><b>Dislocated joint</b> <span class="bad">limb barely works</span></div>';
+  if (P.severed && k !== 'head') h += '<div class="wd ' + (P.prost ? '' : 'open') + '"><b>' + (P.prost ? esc(P.prost.name) : 'Severed') + '</b> ' + (P.prost ? '<span class="good">' + Math.round(P.prost.eff * 100) + '% function</span>' : '<span class="bad">stump</span>') + '</div>';
   if (P.frac) h += '<div class="wd open"><b>Fracture</b> ' + (P.splint ? '<span class="good">splinted — healing</span>' : '<span class="bad">unsplinted</span>') + '</div>';
   if (P.bandage) h += '<div class="wd"><b>Dressing</b> ' + Math.round(P.bandage.q * 100) + '% quality, ' + Math.round(P.bandage.soak * 100) + '% soaked' + (P.bandage.dirty ? ' <span class="warn">dirty rag</span>' : '') + '</div>';
   if (P.tq) h += '<div class="wd open"><b>Tourniquet</b> on for ' + Math.round(P.tqT) + 's ' + (P.tqT > 150 ? '<span class="bad">— limb is dying!</span>' : '') + ' <button class="btn sm" data-rm="1">Remove</button></div>';
@@ -333,6 +337,17 @@ UI.healthInfo = function () {
   meds.forEach((e, i) => { const ok = NE.canTreat(p, e.id, k); const it = NE.ITEMS[e.id]; h += '<button class="tr' + (ok === true ? '' : ' no') + (UI.pendingItem && UI.pendingItem.id === e.id ? ' pend' : '') + '" data-m="' + i + '" title="' + esc(ok === true ? it.desc : ok) + '">' + ic(e.id) + '<span>' + esc(it.name) + '<small>' + (ok === true ? (it.uses ? e.n + ' uses' : '×' + p.inv.count(e.id)) + ' • ' + NE.treatDuration(p, e).toFixed(1) + 's' : esc(ok)) + '</small></span></button>'; });
   if (P.wounds.some(w => w.bullet) && !p.inv.has('forceps')) { const tools = []; const s3 = new Set(); for (const e of p.inv.items) if (NE.DIG_TOOLS[e.id] && !s3.has(e.id)) { s3.add(e.id); tools.push(e); }
     if (tools.length) { h += '</div><h4>DIG OUT FRAGMENT <small class="dim">no forceps — improvise (hurts, dirtier, can slip)</small></h4><div class="treats">'; tools.forEach((e, i) => { h += '<button class="tr" data-dig="' + p.inv.items.indexOf(e) + '">' + ic(e.id) + '<span>' + esc(NE.ITEMS[e.id].name) + '<small>' + Math.round(NE.DIG_TOOLS[e.id] * 100) + '% chance • ~6s</small></span></button>'; }); } }
+  // procedures: no supplies needed (or a blade / a prosthetic) — joint resets, amputations, fitting limbs
+  if (k !== 'head' && k !== 'torso') { let ph = '';
+    if (P.disl) ph += '<button class="tr" data-op="reset">' + ic('splint') + '<span>Pop the joint back in<small>No tools • ~' + (NE.OP_DUR.reset * p.stats.treat).toFixed(1) + 's • agony, may slip</small></span></button>';
+    if (P.severed && !P.prost) { const pr = []; const s4 = new Set(); for (const e of p.inv.items) { const d = NE.ITEMS[e.id].prost; if (d && d.slot === k.slice(1) && !s4.has(e.id)) { s4.add(e.id); pr.push(e); } }
+      pr.forEach(e => { const d = NE.ITEMS[e.id].prost; ph += '<button class="tr" data-fit="' + p.inv.items.indexOf(e) + '">' + ic(e.id) + '<span>Fit ' + esc(NE.ITEMS[e.id].name) + '<small>' + Math.round(d.eff * 100) + '% function • ~' + (NE.OP_DUR.fit * p.stats.treat).toFixed(0) + 's</small></span></button>'; });
+      if (!pr.length) ph += '<div class="dim">Stump. Find a ' + (k.endsWith('leg') ? 'peg leg or prosthetic leg' : 'peg arm or prosthetic arm') + ' to fit here (medical tents, traders).</div>'; }
+    if (P.prost) ph += '<button class="tr" data-op="unfit">' + ic(P.prost.id) + '<span>Unstrap ' + esc(P.prost.name) + '<small>' + Math.round(P.prost.eff * 100) + '% function</small></span></button>';
+    if (!P.severed) { const tl = []; const s5 = new Set(); for (const e of p.inv.items) if (NE.AMP_TOOLS[e.id] && !s5.has(e.id)) { s5.add(e.id); tl.push(e); }
+      tl.sort((a, b) => NE.AMP_TOOLS[a.id] - NE.AMP_TOOLS[b.id]); const arm = UI.ampArm === k;
+      if (tl.length) ph += '<button class="tr' + (arm ? ' pend' : ' no') + '" data-amp="' + p.inv.items.indexOf(tl[0]) + '" title="Removes the limb with all its wounds and infection. Tourniquet first or the stump will bleed you out.">' + ic(tl[0].id) + '<span>' + (arm ? 'CLICK AGAIN: cut it off' : 'Amputate (' + esc(NE.ITEMS[tl[0].id].name) + ')') + '<small>' + (P.tq ? '<span class="good">tourniquet on</span>' : '<span class="bad">no tourniquet!</span>') + ' • ~' + (NE.AMP_TOOLS[tl[0].id] * p.stats.treat).toFixed(0) + 's • irreversible</small></span></button>'; }
+    if (ph) h += '</div><h4>PROCEDURES</h4><div class="treats">' + ph; }
   h += '</div><h4>MEDICATION</h4><div class="treats">';
   const drugs = []; const s2 = new Set(); for (const e of p.inv.items) { const it = NE.ITEMS[e.id]; if (it.med === 'drug' && !s2.has(e.id)) { s2.add(e.id); drugs.push(e); } }
   if (!drugs.length) h += '<div class="dim">None.</div>';
@@ -342,6 +357,9 @@ UI.healthInfo = function () {
   el.querySelectorAll('[data-dig]').forEach(bn => bn.onclick = () => { NE.startTreat(p, p.inv.items[+bn.dataset.dig], k, 'dig'); setTimeout(UI.healthInfo, 50); });
   el.querySelectorAll('[data-d]').forEach(bn => bn.onclick = () => { NE.startTreat(p, drugs[+bn.dataset.d], 'torso'); });
   const rm = el.querySelector('[data-rm]'); if (rm) rm.onclick = () => NE.startTreat(p, null, k, 'removeTq');
+  el.querySelectorAll('[data-op]').forEach(bn => bn.onclick = () => { NE.startTreat(p, null, k, bn.dataset.op); setTimeout(UI.healthInfo, 50); });
+  el.querySelectorAll('[data-fit]').forEach(bn => bn.onclick = () => { NE.startTreat(p, p.inv.items[+bn.dataset.fit], k, 'fit'); setTimeout(UI.healthInfo, 50); });
+  el.querySelectorAll('[data-amp]').forEach(bn => bn.onclick = () => { if (UI.ampArm !== k) { UI.ampArm = k; NE.Audio.play('deny'); UI.healthInfo(); clearTimeout(UI._ampT); UI._ampT = setTimeout(() => { UI.ampArm = null; }, 3000); return; } UI.ampArm = null; NE.startTreat(p, p.inv.items[+bn.dataset.amp], k, 'amputate'); setTimeout(UI.healthInfo, 50); });
 };
 
 // ----- CRAFT -----
@@ -641,7 +659,7 @@ UI.standoff = function (o) {
   UI.dialog('Standoff', '<i>Two figures step out of the dark, weapons up. "That\'s far enough. Drop your meds and walk away, and nobody bleeds."</i>', [
     { label: 'Hand over your meds', hint: 'They take every medical item.', fn: () => { const meds = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'med'); meds.forEach(e => p.inv.remove(e)); g.log('You hand over ' + meds.length + ' medical items. They let you pass.', 'bad'); o.grp.forEach(e => { e.faction = 'neutral'; e.hostile = false; e.leaving = true; }); } },
     { label: 'Talk them down', hint: Math.round(chanceTalk * 100) + '% (Psychology)', fn: () => { if (Math.random() < chanceTalk) { g.log('"...Fine. Go. Don\'t come back this way."', 'good'); o.grp.forEach(e => { e.faction = 'neutral'; e.hostile = false; }); } else { g.log('"Wrong answer."', 'bad'); o.grp.forEach(e => { e.hostile = true; e.guard = false; e.onAggro(p); }); } } },
-    { label: 'Fight', hint: 'You get the first move.', fn: () => { o.grp.forEach(e => { e.hostile = true; e.guard = false; e.cd = 1.2; e.onAggro(p); }); } },
+    { label: 'Fight', hint: 'You get the first move.', fn: () => { o.grp.forEach(e => { e.hostile = true; e.post = false; e.cd = 1.2; e.onAggro(p); }); } },
   ]);
 };
 UI.runEnd = function (d) {

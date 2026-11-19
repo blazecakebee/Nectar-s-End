@@ -29,7 +29,7 @@ const S = NE.Save = {
   serializeRun(G) {
     const W = G.world, p = G.player, R = G.run; if (!W || W.lobby || !p || !R) return null;
     const floors = W.floors.map(fl => { const o = {}; fl.objs.forEach((ob, i) => { if (ob.type === 'container') o[i] = { s: ob.searched ? 1 : 0, it: ob.items || null, l: ob.locked || null, tr: ob.trap || null }; else if (ob.type === 'dead') o[i] = 'x'; else if (ob.type === 'dispenser') o[i] = { u: ob.uses }; }); return { o, seen: S.rle(fl.seen) }; });
-    const actors = G.actors.filter(a => a.alive && !a.isPlayer && !a.isPuppet && !a.isRemote && !a.town).map(a => ({ k: a.isNPC ? 'npc' : 'enemy', type: a.type, kind: a.kind, x: a.x, y: a.y, hostile: a.hostile, guard: a.guard, weapon: a.weapon, ammo: a.ammo, gear: a.gear, look: a.look, name: a.name, stock: a.stock, treated: a.treated, faction: a.faction, anat: S.anat(a.anat) }));
+    const actors = G.actors.filter(a => a.alive && !a.isPlayer && !a.isPuppet && !a.isRemote && !a.town).map(a => ({ k: a.isNPC ? 'npc' : 'enemy', type: a.type, kind: a.kind, x: a.x, y: a.y, hostile: a.hostile, post: a.post, weapon: a.weapon, ammo: a.ammo, gear: a.gear, look: a.look, name: a.name, stock: a.stock, treated: a.treated, faction: a.faction, anat: S.anat(a.anat) }));
     const dyn = G.dyn.filter(o => o.type === 'container').map(o => ({ ct: o.ct, x: o.x, y: o.y, label: o.label, items: o.items, searched: o.searched }));
     const inv = p.inv.items; const run = Object.assign({}, R, { log: R.log.slice(-150) });
     return { v: 2, seed: W.seed, floors: W.floors.length, mods: [...W.mods], fl: floors, actors, dyn, run, t: Date.now(),
@@ -40,7 +40,7 @@ const S = NE.Save = {
     const W = G.world, p = G.player;
     d.fl.forEach((fs, f) => { const fl = W.floors[f]; if (!fl) return; if (fs.seen) S.unrle(fs.seen, fl.seen); for (const i in fs.o) { const ob = fl.objs[i], st = fs.o[i]; if (!ob) continue; if (st === 'x') { ob.type = 'dead'; ob.act = null; continue; } if (st.u != null) { ob.uses = st.u; continue; } ob.searched = !!st.s; ob.items = st.it; ob.locked = st.l; ob.trap = st.tr; } });
     for (const a of d.actors) {
-      let e; if (a.k === 'enemy') { e = new NE.Enemy(G, a.x, a.y, a.type, 0); e.weapon = a.weapon; e.ammo = a.ammo; e.gear = a.gear || {}; e.hostile = a.hostile; e.guard = a.guard; e.faction = a.faction || e.faction; }
+      let e; if (a.k === 'enemy') { e = new NE.Enemy(G, a.x, a.y, a.type, 0); e.weapon = a.weapon; e.ammo = a.ammo; e.gear = a.gear || {}; e.hostile = a.hostile; e.post = a.post; e.faction = a.faction || e.faction; }
       else { e = new NE.NPC(G, a.x, a.y, a.kind); e.name = a.name; e.stock = a.stock; e.treated = a.treated; if (a.kind === 'survivor' && a.treated) e.sitting = false; }
       if (a.look) { e.look = a.look; } Object.assign(e.anat, a.anat); G.actors.push(e);
     }

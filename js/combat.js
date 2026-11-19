@@ -19,9 +19,9 @@ C.weaponOf = function (a) {
   if (a.D) { if (a.weapon && NE.ITEMS[a.weapon] && NE.ITEMS[a.weapon].melee) return NE.ITEMS[a.weapon]; if (!a.weapon) return { id: a.type === 'feral' ? 'claws' : 'fists', name: 'Claws', w: 0.3, melee: { dmg: a.D.dmg || 6, kind: a.D.kind || 'blunt', reach: a.D.reach || 9, stam: 3, cd: a.D.cd || 0.8 } }; }
   return null;
 };
-C.strike = function (a, w, heavy) {
+C.strike = function (a, w, heavy, force) {
   w = w || C.weaponOf(a); if (!w || a.strk) return false; const id = w.id || 'fists';
-  let kind = STRIKE[id] || (w.melee.kind === 'sharp' && (w.w || 1) < 0.6 ? 'thrust' : 'swing'); if (heavy && id !== 'spear') kind = 'overhead';
+  let kind = STRIKE[id] || (w.melee.kind === 'sharp' && (w.w || 1) < 0.6 ? 'thrust' : 'swing'); if (heavy && id !== 'spear') kind = 'overhead'; if (force) kind = force;
   const pf = PROF[id] || {}; a.strk = { t: 0, dur: (kind === 'thrust' ? 0.16 : clamp(0.16 + (w.w || 1) * 0.06, 0.18, 0.4)) * (heavy ? 1.25 : 1) * (pf.dur || 1), kind, heavy: heavy || 0, arc: pf.arc || 1, ex: pf.ext || 1 }; a.hitSet = new Set();
   NE.Audio.play('swing', heavy ? 1.1 : 0.7); return true;
 };
@@ -31,7 +31,7 @@ C.tick = function (a, dt, tx, ty, active) {
   let target = Math.atan2(ty - sy, tx - sx); if (a.wa == null) a.wa = target;
   let ext = 0, off = 0, boost = 1; const S = a.strk;
   if (S) { S.t += dt; const k = clamp(S.t / S.dur, 0, 1);
-    if (S.kind === 'thrust') { ext = Math.sin(k * Math.PI) * 6 * S.ex; boost = 2.2; }
+    if (S.kind === 'thrust') { ext = Math.sin(k * Math.PI) * (S.poke || S.lunge ? 8 : 6) * S.ex; boost = 2.2; }
     else if (S.kind === 'overhead') { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(2.6, -1.1, Math.min(1, k * 1.15)) * Math.min(1.25, S.arc); boost = 3.2 / Math.max(0.8, S.arc * 0.9); ext = Math.sin(k * Math.PI) * 2 * S.ex; }
     else { const up = Math.cos(target) >= 0 ? -1 : 1; off = up * lerp(1.9, -0.8, Math.min(1, k * 1.25)) * S.arc; boost = 2.6 * S.arc; }
     if (S.t >= S.dur) a.strk = null; }
@@ -39,7 +39,7 @@ C.tick = function (a, dt, tx, ty, active) {
   const maxRate = 30 / (1 + wt * 0.45) * boost * (a.isPlayer && a.stats.swing ? a.stats.swing : 1); const d = angDiff(a.wa, target + off); const step = clamp(d, -maxRate * dt, maxRate * dt);
   a.wav = step / Math.max(dt, 1e-4); a.wa += step; a.wext = lerp(a.wext || 0, ext, Math.min(1, dt * 30));
   const dx = Math.cos(a.wa), dy = Math.sin(a.wa); a.wdir = { x: dx, y: dy };
-  const reach = 7.5 + a.wext; const hx = sx + dx * reach, hy = sy + dy * reach, tipx = hx + dx * L, tipy = hy + dy * L;
+  const reach = 9 + a.wext; const hx = sx + dx * reach, hy = sy + dy * reach, tipx = hx + dx * L, tipy = hy + dy * L;
   const prev = a.wtip; a.wtip = { hx, hy, x: tipx, y: tipy };
   if (a.isPlayer && Math.abs(a.wav) > 7 && !S) a.anat.stam -= dt * Math.abs(a.wav) * 0.12 * (0.6 + wt * 0.5);
   if (!prev || dt <= 0) return;
@@ -61,18 +61,43 @@ C.sweep = function (a, w, p0, p1, tv, dt, striking) {
       if ((a.hitCD.get(t) || 0) > now) continue;
       let hit = null; for (const s of samples) if (t.contains(s.x, s.y, 1.2)) { if (!hit || s.f > hit.f) hit = s; }
       if (!hit) continue; a.hitCD.set(t, now + 0.24);
+      // ---- defense: dodging, parrying and blocking (the answer to just trading blows)
+      if (t.dashIF > 0) { if (t.isPlayer) G.toast('Dodged!'); continue; }
+      const front = Math.sign(a.x - t.x) === t.facing || Math.abs(a.x - t.x) < 2; const hvy = a.strk && a.strk.heavy > 1;
+      if (t.guard && front && t.alive && !t.rd) {
+        const since = G.t - t.guard.t0;
+        const bw = t.abil && t.abil.includes('bulwark'); if (since < (bw ? 0.42 : 0.3) && !(hvy && (w.w || 0) >= 3)) { // perfect parry
+          NE.Audio.play('parry'); G.slowmo = Math.max(G.slowmo || 0, 0.22); for (let i = 0; i < 10; i++) G.addP(hit.x, hit.y, rf(-80, 80), rf(-80, 20), 0.35, '#fff6c0', 'spark', 0.4);
+          a.strk = null; a.charge = null; a.windT = 0; if (a.D) { a.stagger = 1.3; a.vx -= Math.sign(t.x - a.x) * 140; } else { a.cd = Math.max(a.cd || 0, 0.9); a.vx -= Math.sign(t.x - a.x) * 120; a.knockT = 0.3; }
+          if (t.isPlayer) { G.toast('PARRY!'); t.anat.stam = Math.min(t.anat.stamMax, t.anat.stam + 8); t.cd = 0; } else if (a.isPlayer) G.toast('Parried!');
+          continue; }
+        // block: absorbs most of it but costs stamina; heavy blows break a guard
+        const dm0 = m.dmg * (a.isPlayer ? a.stats.melee * 1.2 : 1) * (hvy ? a.strk.heavy : 1); const cost = (5 + dm0 * 0.7) * (bw ? 0.5 : 1);
+        if (t.isPlayer) t.anat.stam -= cost; else t.guardHP = (t.guardHP == null ? 30 : t.guardHP) - cost;
+        const broke = hvy || (t.isPlayer ? t.anat.stam <= 0 : t.guardHP <= 0);
+        NE.Audio.play('block'); G.shake(1.2); for (let i = 0; i < 4; i++) G.addP(hit.x, hit.y, rf(-40, 40), rf(-50, 10), 0.25, '#ffe0a0', 'spark', 0.4);
+        t.vx += Math.sign(t.x - a.x) * (broke ? 160 : 70); if (a.strk && m.kind === 'blunt') { a.strk = null; a.wa -= Math.sign(a.wav || 1) * 0.6; }
+        if (broke) { t.guard = null; t.guardHP = null; if (t.isPlayer) { G.toast('Guard broken!'); t.hurtT = 0.6; t.cd = Math.max(t.cd || 0, 0.7); } else t.stagger = 1.1; NE.Audio.play('crack', 0.6); if (hvy) t.hurt(t.partNear(hit.x, hit.y), m.dmg * 0.35, m.kind === 'sharp' ? 'blunt' : m.kind, a.isPlayer ? a.surv.first : (a.D ? a.D.name : 'Someone'), vd); }
+        else if (a.isPlayer) G.toast('Blocked');
+        continue; }
       const spd = tv * (0.35 + 0.65 * hit.f); const cap = a.isPlayer ? 2.1 : 1.15;
       let dmg = m.dmg * clamp((spd - 40) / 150, 0.25, cap) * (a.isPlayer ? a.stats.melee * 1.2 : 1) * a.anat.armFactor();
       if (a.strk && a.strk.kind === 'thrust' && m.kind === 'sharp') dmg *= 1.25; const hv = a.strk && a.strk.heavy ? a.strk.heavy : 1; dmg *= hv; if (a.abil && a.abil.includes('sting')) dmg *= 1.4;
+      if (a.strk && a.strk.poke) dmg *= 0.7; if (a.strk && a.strk.lunge) dmg *= 1.3;
+      const punish = !t.isPlayer && (t.backT > 0 || t.stagger > 0 || t.rd || t.getUpT > 0); if (punish && a.isPlayer) dmg *= 1.3; // hit them while they recover
       const part = t.partNear(hit.x, hit.y); const kind = m.kind === 'sharp' && a.strk && a.strk.kind === 'thrust' ? 'sharp' : m.kind;
       t.hurt(part, dmg, kind, a.isPlayer ? a.surv.first : (a.D ? a.D.name : 'Someone'), vd); t.lastBy = a;
       if (a.isPlayer && a.abil && a.abil.includes('rot') && t.alive && chance(0.3)) { t.stagger = Math.max(t.stagger || 0, 0.6); if (t.anat) t.anat.tox = (t.anat.tox || 0) + 10; G.addP(t.x, t.y - t.h + 3, 0, -10, 0.8, '#8ab040', 'glow', 0); }
       if (t.isPlayer && t.abil && t.abil.includes('thorns') && a.alive && a.hurt) a.hurt(pick(['larm', 'rarm']), 5, 'sharp', 'Spined hide', { x: -vd.x, y: -vd.y });
-      if (!t.isPlayer && dmg > 6) { t.stagger = Math.max(t.stagger || 0, clamp(dmg / 45, 0.12, 0.7) * (m.stun || 1) * (hv > 1 ? 1.4 : 1)); }
+      if (!t.isPlayer && (dmg > 6 || (a.strk && a.strk.poke))) { t.stagger = Math.max(t.stagger || 0, a.strk && a.strk.poke ? 0.35 : clamp(dmg / 45, 0.12, 0.7) * (m.stun || 1) * (hv > 1 ? 1.4 : 1)); }
       else if (t.isPlayer && dmg > 14) { t.stagger = 0; t.hurtT = 0.5; }
       if (a.abil && a.abil.includes('sting') && t.alive && t.anat) t.anat.tox = (t.anat.tox || 0) + 15;
       const push = Math.min(a.isPlayer ? 260 * hv : 160 * hv, spd * (a.isPlayer ? 0.6 : 0.35) * hv) * (0.55 + (w.w || 0.5) * 0.4) * (a.isPlayer && a.stats.swing ? a.stats.swing : 1) * (m.stun ? 1.2 : 1);
       const dirx = Math.sign(t.x - a.x) || Math.sign(vd.x) || 1; t.vx += dirx * push; t.vy += Math.min(-30, vd.y * push * 0.4 - (a.isPlayer ? 40 : 0)); t.onGround = false; if (a.isPlayer) t.knockT = clamp(push / 500, 0.12, 0.45);
+      // impact: brief hit-stop on every solid blow, and the big ones throw bodies off their feet
+      if (a.isPlayer || t.isPlayer) G.slowmo = Math.max(G.slowmo || 0, Math.min(hv > 1 ? 0.2 : 0.13, (hv > 1 ? 0.09 : 0.035) + dmg / 350)); if (a.isPlayer && hv > 1) { G.shake(Math.min(5, 1.5 + dmg / 15)); for (let i = 0; i < 6; i++) G.addP(hit.x, hit.y, dirx * rf(40, 120), rf(-60, 10), 0.25, '#fff0c0', 'spark', 0.3); NE.Audio.play('thud', 0.7); } if (dmg > 18) NE.Audio.play('crack', clamp(dmg / 60, 0.3, 0.9));
+      const flat = t.alive && ((hv > 1 && ((w.w || 0) >= 2 || (m.stun || 0) >= 1.6)) || (a.strk && a.strk.lunge && ((w.w || 0) >= 1.5 || chance(0.3))) || dmg > 40);
+      if (flat && (!t.isPlayer || dmg > 22)) t.knockdown(dirx * push * 0.9, -110 - push * 0.2, t.isPlayer ? 0.55 : 0.9 + hv * 0.25);
       const rp = t.rag.pts[NE.RAGIDX(part, t.facing)]; if (rp) { rp.ox -= vd.x * spd * 0.012; rp.oy -= vd.y * spd * 0.012; }
       NE.Audio.play(kind === 'sharp' || kind === 'bite' ? 'slash' : 'hit', clamp(spd / 200, 0.4, 1.2)); if (a.isPlayer || t.isPlayer) G.shake(clamp(dmg / 12, 0.8, hv > 1 ? 5 : 3)); if (hv > 1) { G.slowmo = 0.12; for (let i = 0; i < 6; i++) G.addP(hit.x, hit.y, rf(-60, 60), rf(-60, 10), 0.3, '#fff0c0', 'spark', 0.5); }
       if (kind === 'sharp' || dmg > 12) C.spray(hit.x, hit.y, vd.x, vd.y, Math.round(dmg * 0.8));

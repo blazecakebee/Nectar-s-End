@@ -74,6 +74,24 @@ A.play = function (name, vol) {
     case 'squelch': A.noise(0.18, 300 + Math.random() * 200, 3, 0.35 * vol, 'lowpass'); A.tone(140, 0.15, 0.08 * vol, 'sine', 70); break;
     // respawn: a wet gasp of new breath, a rising hive-shimmer and the first heartbeats of the new host
     case 'respawn': A.noise(0.5, 700, 1.2, 0.35, 'bandpass'); A.tone(220, 0.9, 0.12, 'sine', 880); A.tone(330, 1.1, 0.08, 'triangle', 1320); A.tone(660, 1.3, 0.05, 'sine', 1760); setTimeout(() => { A.tone(60, 0.18, 0.5, 'sine', 40); }, 650); setTimeout(() => { A.tone(55, 0.18, 0.45, 'sine', 38); }, 900); setTimeout(() => { A.tone(60, 0.18, 0.4, 'sine', 40); }, 1500); break;
+    case 'dash': A.noise(0.22, 1800, 1.2, 0.35 * vol, 'bandpass'); A.noise(0.12, 300, 0.8, 0.25 * vol, 'lowpass'); break;
+    case 'whoosh': A.noise(0.12, 2400, 1.6, 0.25 * vol, 'bandpass'); break;
+    case 'lunge': A.noise(0.3, 900, 1, 0.4 * vol, 'bandpass'); A.tone(160, 0.12, 0.12 * vol, 'square', 90); break;
+    case 'block': A.tone(380, 0.12, 0.18 * vol, 'square', 220); A.noise(0.1, 2500, 2, 0.35 * vol, 'bandpass'); A.noise(0.15, 300, 0.8, 0.3 * vol, 'lowpass'); break;
+    case 'parry': A.tone(1250, 0.35, 0.16 * vol, 'triangle', 1180); A.tone(1870, 0.25, 0.08 * vol, 'sine', 1800); A.noise(0.08, 4000, 2, 0.4 * vol, 'highpass'); break;
+    case 'cloth': A.noise(0.15, 1400, 0.8, 0.15 * vol, 'bandpass'); break;
+    case 'bandage': A.noise(0.5, 2200, 0.6, 0.18 * vol, 'bandpass'); setTimeout(() => A.noise(0.3, 1600, 0.6, 0.15 * vol, 'bandpass'), 260); break;
+    case 'cinch': A.noise(0.25, 900, 2, 0.3 * vol, 'bandpass'); A.tone(120, 0.2, 0.12 * vol, 'sawtooth', 80); break;
+    case 'gasp': A.noise(0.5, 700, 0.6, 0.35 * vol, 'bandpass'); A.noise(0.35, 500, 0.6, 0.25 * vol, 'lowpass'); break;
+    case 'pant': A.noise(0.25, 900, 0.7, 0.18 * vol, 'bandpass'); break;
+    case 'swim': A.noise(0.35, 600, 0.6, 0.25 * vol, 'lowpass'); A.noise(0.15, 2200, 0.6, 0.1 * vol, 'bandpass'); break;
+    case 'metal': A.tone(620, 0.18, 0.1 * vol, 'square', 540); A.noise(0.08, 3200, 3, 0.18 * vol, 'bandpass'); break;
+    case 'drip': A.tone(1200 + Math.random() * 600, 0.06, 0.05 * vol, 'sine', 600); break;
+    case 'flow': A.noise(0.4, 500, 0.6, 0.06 * vol, 'lowpass'); break;
+    case 'gobble': A.tone(110, 0.4, 0.4 * vol, 'sawtooth', 40); A.noise(0.5, 300, 1.5, 0.5 * vol, 'lowpass'); setTimeout(() => A.tone(70, 0.3, 0.35 * vol, 'sine', 35), 220); break;
+    case 'pop': A.tone(90, 0.12, 0.4 * vol, 'square', 40); A.noise(0.1, 600, 1, 0.5 * vol, 'lowpass'); break;
+    case 'saw': A.noise(0.3, 1200, 3, 0.3 * vol, 'bandpass'); A.tone(220, 0.25, 0.08 * vol, 'sawtooth', 180); break;
+    case 'gulp': A.tone(140, 0.25, 0.4 * vol, 'sine', 60); A.noise(0.4, 400, 0.7, 0.4 * vol, 'lowpass'); A.tone(70, 0.4, 0.3 * vol, 'sine', 40); break;
     case 'relichum': A.tone(523, 0.9, 0.05 * vol, 'sine', 528); A.tone(784, 0.9, 0.035 * vol, 'sine', 790); A.tone(1046, 0.6, 0.02 * vol, 'triangle', 1050); break;
     case 'screech': A.tone(1400, 0.7, 0.12, 'sawtooth', 2600); A.tone(900, 0.5, 0.1, 'square', 300); A.noise(0.25, 4000, 0.4, 0.4, 'highpass'); A.noise(0.6, 220, 1.5, 0.6, 'lowpass'); A.tone(55, 0.8, 0.35, 'sawtooth', 25); break;
     case 'retract': A.noise(0.7, 500, 2, 0.35, 'lowpass'); A.tone(300, 0.8, 0.12, 'sine', 60); A.tone(160, 0.5, 0.1, 'triangle', 40); break;

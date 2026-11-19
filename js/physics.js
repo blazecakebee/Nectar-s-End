@@ -35,7 +35,7 @@ class Phys {
       if (b.drive) b.drive(b, dt);
       for (const p of b.pts) {
         let vx = (p.x - p.ox) * b.damp, vy = (p.y - p.oy) * b.damp;
-        const mx = 9; if (vx > mx) vx = mx; if (vx < -mx) vx = -mx; if (vy > mx) vy = mx; if (vy < -mx) vy = -mx;
+        const mx = b.kind === 'rag' ? 5 : 7; if (vx > mx) vx = mx; if (vx < -mx) vx = -mx; if (vy > mx) vy = mx; if (vy < -mx) vy = -mx;
         p.ox = p.x; p.oy = p.y; p.x += vx; p.y += vy + g * b.grav;
         if (p.water = W.isWater(p.x, p.y)) { p.ox = NE.lerp(p.ox, p.x, 0.08); p.oy = NE.lerp(p.oy, p.y, 0.08); p.y -= g * 0.6 * b.grav; }
       }

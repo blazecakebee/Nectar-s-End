@@ -1,6 +1,43 @@
 {
  "log": [
   {
+   "version": "0.7.1",
+   "date": "2026-11-18",
+   "title": "Shared water, party health bars",
+   "changes": [
+    "Co-op: only the host runs the water, lava and honey flow now. The host streams every changed cell near your partner several times a second, so both screens show the same pools, floods and waterfalls.",
+    "Saves keep liquid exactly as you left it: flooded holes, drained pools and spent springs all come back when you load. They also come back when the host reloads in co-op.",
+    "Party health in co-op: your partner's card sits under your portrait. It shows health, blood and stamina bars, how far away they are (left/right or meters up/down), and their worst problems (bleeding rate, broken bones, DOWN — revive!, DEAD). A raised brood minion shows its HP there too.",
+    "Your partner also has a name tag and health bar floating over their head. It turns red when they're down."
+   ]
+  },
+  {
+   "version": "0.7.0",
+   "date": "2026-11-18",
+   "title": "Bodies, blood and the deep",
+   "changes": [
+    "Combat rework: Q dashes through attacks (with i-frames, afterimages and a whoosh). Right-click raises a guard. Raise it just before a hit to PARRY, which staggers the attacker; holding it blocks for stamina. Heavy blows break guards. A quick right-click tap pokes with your weapon, and attacking while sprinting or right after a dash LUNGES for 30% more damage. Throwable cycling moved to T.",
+    "Enemies now telegraph their swings, raise their own guards, lunge at you, and back off to recover. Hitting them while they recover deals 30% more damage. Heavy hits land with real weight: hit-stop, screen shake, sparks and knockdowns.",
+    "Full ragdolls: explosions, hard falls, heavy blows and blackouts throw bodies limp. When they settle, they get back up. Arms and legs bend independently and knees buckle on hard landings. Arms are longer and reach out to poke.",
+    "Waking up from a knockdown is much easier: about 6 presses, or just hold SPACE.",
+    "Dislocations: blunt hits, falls and big knockdowns can pop a joint out. The limb barely works until you pop it back in (Anatomy → Procedures). That's free but agonising, and it can slip.",
+    "Self-amputation: with a saw, axe, cleaver, machete or even a knife, you can take off a limb (Anatomy → Procedures). This removes every wound and infection on it. Put a tourniquet on first.",
+    "Prosthetics in Worn / Average / Pristine tiers: peg legs, hook arms, scrap-metal arms and legs, Saw-Blade Arms (fight unarmed with a spinning saw), and very rare Artificer limbs that work better than flesh. Most give 50-80% function. Fit them in Anatomy.",
+    "New Grappling Hook item: press Z to fire it at the rock above and reel yourself up. Hold a direction to swing, S to let out rope, and jump or Z to let go.",
+    "Liquids now flow: water, lava and honey pour down shafts, spread, stack and flood the holes you dig. Springs pour from cave ceilings. Water and lava meeting cool into rock.",
+    "New animations: swimming strokes, doubled-over panting when out of stamina, and proper self-treatment. You wrap bandages, haul on tourniquets, stitch, splint, saw, and sit down to work on a leg. Each has its own sound.",
+    "Four new deep biomes past the Magma Abyss: Hive Warrens (1300m, sticky honey), Drowned Abyss (1600m, flooding), Bone Ossuary (1900m) and The Nectar Heart (2300m).",
+    "10 new enemies: Acid Spitter, Hulking Brute, Hive Swarmling (packs), Hive Warden, Drowned Diver, Ossuary Revenant, Wailing Mourner, Skulker (near-invisible), Bloated Host (bursts into spores) and Nectar Knight. Enemies can also spawn as Armoured, Frenzied, Hulking, Veteran or Nectar-Touched variants.",
+    "The Vespa burst no longer latches. Press E on someone close to SWALLOW them whole for big XP and extra seconds.",
+    "12 new Vespa gifts: Emergency Molt, Brood Shield, Barbed Strikes, Hive Resonance, Adrenal Sac, Chitin Bulwark, Spring Tendons, Gorging Gut, Wax Glands, Quill Burst, Gill Slits and Echo Sense. Gift order is random every run, but your first gifts are modest and the run-defining ones only show up later.",
+    "30 new armour pieces in regional sets: Mosshide, Spelunker, Nomad, Ruin-Guard, Furclad, Ice-Cutter, Shardplate, Prism, Obsidian, Firewalker, Chitin, Diver, Ossuary and Workshop. Some keep you warm or cool, block radiation or gas, or soften falls.",
+    "10 utility pieces in four new slots (hands, feet, belt, charm): Hiking Boots (cling to walls), Running Shoes, Climbing Gloves, Weighted Knuckle Gloves, a Canteen Belt (thirst -40%), a Larder Pouch (hunger -40%), a Load-Bearing Harness, a Medic's Armband, Night-Eye Goggles and a Lucky Rabbit's Foot.",
+    "20 new backpacks and outfits. The Gear Rack is now a tabbed card grid with All / Owned / Locked filters, a live preview and a stats panel, and you can buy locked items right there.",
+    "Medical Cabinets now only appear inside medical tents, and they stock prosthetics and surgical gear. Lockers stand inside little sheds. 30 new region-themed containers: ore carts, sarcophagi, frozen climbers, specimen cases, wax cells, sea-chests, ossuary boxes and more.",
+    "Fixes: the Paramedic pack's half-weight medical bonus now actually works. Guard-post enemies no longer block every hit. Taking off gear no longer freezes the game."
+   ]
+  },
+  {
    "version": "0.6.8",
    "date": "2026-11-18",
    "title": "Real weapon models",

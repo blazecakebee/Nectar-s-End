@@ -82,7 +82,7 @@ class World {
     if (f === 0) { flatten(3, 16, FH - 4, 8); res.push([2, 17]); fl.objs.push({ type: 'elevator', kind: 'arrival', x: 9 * T, label: 'The winch lift (it only goes down)', act: 'arrival' }); }
     if (NE.isTownFloor(f)) return this.genTown(f, fl, rows, g, c);
     // POI pocket
-    const poiW = { grotto: [['medic', 2], ['camp', 2], ['triage', 1.2], ['armory', 1], ['none', 2]], desert: [['triage', 2], ['camp', 2], ['armory', 1.5], ['medic', 1], ['none', 1.5]], ice: [['medic', 2], ['camp', 2], ['armory', 1.5], ['none', 2]], crystal: [['lab', 3], ['armory', 1.5], ['medic', 1.2], ['none', 1]], magma: [['lab', 1.5], ['armory', 2], ['camp', 1.5], ['medic', 1], ['none', 1]] }[B];
+    const poiW = { grotto: [['medic', 2], ['camp', 2], ['triage', 1.2], ['armory', 1], ['none', 2]], desert: [['triage', 2], ['camp', 2], ['armory', 1.5], ['medic', 1], ['none', 1.5]], ice: [['medic', 2], ['camp', 2], ['armory', 1.5], ['none', 2]], crystal: [['lab', 3], ['armory', 1.5], ['medic', 1.2], ['none', 1]], magma: [['lab', 1.5], ['armory', 2], ['camp', 1.5], ['medic', 1], ['none', 1]] , hive: [['medic', 2], ['camp', 1], ['lab', 1], ['none', 2]], drowned: [['medic', 1.5], ['armory', 1.5], ['camp', 1], ['none', 2]], ossuary: [['triage', 1.5], ['medic', 1], ['lab', 1], ['none', 2]], heart: [['medic', 1.5], ['lab', 1.5], ['armory', 1], ['none', 1.5]] }[B] || [['none', 1]];
     const poi = f === 0 ? 'none' : NE.wpick(poiW); let poiX = -1, poiW2 = 0;
     if (poi !== 'none') { poiW2 = ri(12, 15); poiX = tryX(poiW2, 1); if (poiX > 0) flatten(poiX, poiX + poiW2, FH - 4, 8); }
     // crawlspace with hidden cache (decided before carving so its entrances line up)
@@ -140,12 +140,12 @@ class World {
     if (B === 'grotto') for (let k = 0; k < ri(3, 6); k++) fl.objs.push({ type: 'glowshroom', x: ri(5, W - 6) * T + 4 });
     if (B === 'magma') for (let k = 0; k < ri(2, 4); k++) fl.objs.push({ type: 'ember', x: ri(5, W - 6) * T + 4 });
     // forage (biome perk)
-    const forage = { grotto: [['mushroom', 3], ['herb', 2]], desert: [['cactus', 3], ['herb', 1]], ice: [['mushroom', 1]], crystal: [['datashard', 1], ['mushroom', 1]], magma: [['datashard', 1]] }[B];
+    const forage = { grotto: [['mushroom', 3], ['herb', 2]], desert: [['cactus', 3], ['herb', 1]], ice: [['mushroom', 1]], crystal: [['datashard', 1], ['mushroom', 1]], magma: [['datashard', 1]] , hive: [['honey', 3], ['herb', 1]], drowned: [['mushroom', 2]], ossuary: [['herb', 1]], heart: [['honey', 2], ['herb', 1]] }[B] || [['mushroom', 1]];
     for (let k = 0; k < (B === 'grotto' ? ri(2, 4) : B === 'desert' ? ri(1, 3) : ri(0, 1)); k++) { const x = tryX(0, 0); if (x > 0) fl.objs.push({ type: 'forage', item: NE.wpick(forage), x: (x + 0.5) * T, label: '', act: 'pick' }); }
     // POI contents
     if (poiX > 0) this.buildPOI(fl, poi, poiX, poiX + poiW2);
     // containers
-    const ctab = { grotto: [['crate', 3], ['locker', 1], ['duffel', 1]], desert: [['crate', 2], ['locker', 1], ['urn', 3]], ice: [['locker', 2], ['crate', 2], ['duffel', 1]], crystal: [['locker', 2], ['weaponchest', 1], ['duffel', 1]], magma: [['locker', 2], ['weaponchest', 1.5], ['crate', 1]] }[B];
+    const ctab = { grotto: [['crate', 3], ['locker', 1], ['duffel', 1]], desert: [['crate', 2], ['locker', 1], ['urn', 3]], ice: [['locker', 2], ['crate', 2], ['duffel', 1]], crystal: [['locker', 2], ['weaponchest', 1], ['duffel', 1]], magma: [['locker', 2], ['weaponchest', 1.5], ['crate', 1]] , hive: [['crate', 1], ['locker', 1]], drowned: [['locker', 2], ['crate', 1]], ossuary: [['urn', 2], ['locker', 1]], heart: [['locker', 1], ['weaponchest', 1]] }[B] || [['crate', 1]];
     for (let k = 0; k < ri(1, 3) + (f === 0 ? 1 : 0); k++) { const x = tryX(1, 0); if (x > 0) { if (g[x + 1] !== g[x]) g[x + 1] = g[x]; fl.objs.push(this.container(NE.wpick(ctab), (x + 1) * T, 0, depth)); } }
     // old expedition lanterns
     for (let k = 0; k < ri(2, 4); k++) fl.objs.push({ type: 'lamp', x: ri(5, W - 6) * T + 4, y: 0, on: chance(0.75), col: biome.pal.lamp, flick: chance(0.5) ? rf(0.1, 0.8) : 0 });
