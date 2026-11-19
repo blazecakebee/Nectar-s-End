@@ -675,7 +675,7 @@ if (!document.getElementById('ward2-css')) { const st = document.createElement('
 .w2-det{border:1px solid rgba(232,226,208,.18);background:rgba(0,0,0,.28);padding:8px;display:flex;flex-direction:column;gap:6px;overflow:auto}
 .w2-det .st{display:flex;justify-content:space-between;border-bottom:1px dashed rgba(232,226,208,.12);padding:2px 0}
 `; document.head.appendChild(st); }
-const packCells = o => Math.max(4, 4 + Math.floor((o.slots + 8 - 20) / 2)) * 10;
+const packCells = o => Math.max(4, 4 + Math.floor((o.slots + 8 - 20) / 3)) * 8;
 UI.render.wardrobe = function (b) {
   const g = G(), M = g.meta, surv = M.survivor; UI.w2 = UI.w2 || { tab: 'backpacks', filt: 'all', sel: null };
   const S = UI.w2; const list = S.tab === 'backpacks' ? NE.BACKPACKS : NE.OUTFITS; const eqKey = S.tab === 'backpacks' ? 'backpack' : 'outfit';
@@ -1635,8 +1635,8 @@ const gearIconCanvas = (id, scale) => {
 };
 NE.gearIconCanvas = gearIconCanvas;
 // every wearable that doesn't have its own hand-painted atlas sprite gets a generated one
-const OWN = new Set(['milhelmet', 'platevest']); // these shared an atlas sprite with another piece
-for (const id in IT) { const it = IT[id]; if (!it.slot || (NE.atlasKey(id) && !OWN.has(id))) continue; if (HL[id] || BL[id] || UTIL[id]) it.icon = 'gi_' + id; }
+// pieces with their own Pixel Atlas sprite use it directly; anything left (e.g. the armband) gets the generated one
+for (const id in IT) { const it = IT[id]; if (!it.slot) continue; if (NE.ATLAS && NE.ATLAS[id] != null) { it.icon = id; continue; } if (HL[id] || BL[id] || UTIL[id]) it.icon = 'gi_' + id; }
 const icon0 = NE.icon;
 NE.icon = function (key, col, scale, itemId) { if (typeof key === 'string' && key.startsWith('gi_')) { const c = gearIconCanvas(key.slice(3), scale); if (c) return c; } return icon0.call(this, key, col, scale, itemId); };
 })(window.NE);
@@ -1682,7 +1682,7 @@ UI.dollPicker = function (b, sl) {
   h += cands.length ? '<div class="dim" style="margin-top:.3em">In your pack — click to equip:</div>' + cands.map(x => row(x, false)).join('') : '<div class="dim" style="margin-top:.3em">Nothing in your pack fits this slot.</div>';
   return h;
 };
-const drawDoll = (cv, p) => { const x = cv.getContext('2d'); x.imageSmoothingEnabled = false; x.clearRect(0, 0, cv.width, cv.height);
+const drawDoll = (cv, p) => { const x = cv.getContext('2d'); x.imageSmoothingEnabled = false; x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, cv.width, cv.height); const Z = 2.3; x.setTransform(Z, 0, 0, Z, cv.width / 2 - 20 * Z, cv.height - 3 - 58 * Z);
   const fake = { x: 20, y: 58, facing: 1, vx: 0, onGround: true, walkPh: 0, look: p.look }; const pts = NE.ragPose(fake).map(q => ({ x: q[0], y: q[1] }));
   const g = p.gear; const o = { facing: 1, anat: p.anat, pack: p.packCol, weapon: p.weaponId ? p.weaponId() : null, aimDir: 0, shirt: p.shirt, pants: p.pants, skinCol: p.skinCol, vespa: G.state !== 'lobby', vcol: p.vglow, lantern: 1,
     helmId: g.head ? g.head.id : null, vestId: g.body ? g.body.id : null, vest: g.body ? IT[g.body.id].col : null, helmet: g.head ? IT[g.head.id].col : null, acc: NE.accOf(p), mask: !!g.face,
@@ -1693,7 +1693,7 @@ UI.render.inventory = function (b) {
   inv0.call(this, b); const p = G.player; const box = b.querySelector('.inv-eq'); if (!box || !p) return;
   const old = box.innerHTML; const cut = old.indexOf('<div class="eq">'); const tail = cut >= 0 ? old.slice(old.lastIndexOf('<div class="eq">')) : '';
   let arm = 0; const rs = {}; for (const k in p.gear) { const e = p.gear[k]; if (!e) continue; const it = IT[e.id]; arm += it.armor || 0; for (const r of RES) if (it.res && it.res[r]) rs[r] = 1 - (1 - (rs[r] || 0)) * (1 - it.res[r]); }
-  let h = '<h4>EQUIPMENT</h4><div class="doll"><div class="dcol">' + SLOTS.slice(0, 4).map(([s, n]) => slotHTML(p, s, n)).join('') + '</div><canvas id="dollcv" width="40" height="64"></canvas><div class="dcol">' + SLOTS.slice(4).map(([s, n]) => slotHTML(p, s, n)).join('') + '</div></div>';
+  let h = '<h4>EQUIPMENT</h4><div class="doll"><div class="dcol">' + SLOTS.slice(0, 4).map(([s, n]) => slotHTML(p, s, n)).join('') + '</div><canvas id="dollcv" width="64" height="84"></canvas><div class="dcol">' + SLOTS.slice(4).map(([s, n]) => slotHTML(p, s, n)).join('') + '</div></div>';
   h += '<div class="dsum">Armour <b>' + Math.round(arm * 100) + '</b> ' + RES.filter(r => rs[r]).map(r => '<span>' + lab(r) + ' ' + Math.round(rs[r] * 100) + '%</span>').join(' ') + '</div>';
   if (UI.dollSel) h += '<div class="dpick">' + UI.dollPicker(b, UI.dollSel) + '</div>';
   box.innerHTML = h + tail; box.classList.add('rpg');
@@ -1705,7 +1705,7 @@ UI.render.inventory = function (b) {
   const un = box.querySelector('[data-uneq]'); if (un) un.onclick = () => { const sl = UI.dollSel; if (sl === 'weapon') p.equip.weapon = null; else if (p.gear[sl]) { if (p.inv.addEntry(p.gear[sl])) p.gear[sl] = null; else G.toast('Backpack full.'); } rr(); };
 };
 const ca0 = UI.closeAll; UI.closeAll = function () { UI.dollSel = null; return ca0.apply(this, arguments); };
-const st = document.createElement('style'); st.textContent = '.inv-eq.rpg{min-width:17em}.doll{display:flex;gap:.3em;align-items:center}.doll .dcol{flex:1;display:flex;flex-direction:column;gap:.2em}.doll canvas{width:80px;height:128px;image-rendering:pixelated;background:radial-gradient(#2a241c,#120e0a);border:1px solid var(--line)}' +
+const st = document.createElement('style'); st.textContent = '.inv-eq.rpg{min-width:17em}.doll{display:flex;gap:.3em;align-items:center}.doll .dcol{flex:1;display:flex;flex-direction:column;gap:.2em}.doll canvas{width:128px;height:168px;image-rendering:pixelated;background:radial-gradient(#2a241c,#120e0a);border:1px solid var(--line)}' +
   '.dslot{display:flex;gap:.3em;align-items:center;border:1px solid var(--line);padding:.15em;cursor:pointer;font-size:.8em;min-height:2.4em}.dslot:hover,.dslot.on{border-color:var(--good,#8c6);background:rgba(140,200,100,.08)}.dslot img,.dslot .eq-empty{width:1.8em;height:1.8em;flex:none}.dslot small{display:block;color:var(--dim);font-size:.75em}.dslot b{font-size:.85em;font-weight:normal;display:block;max-width:7.5em;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.dslot i{font-size:.7em;color:var(--dim)}' +
   '.dsum{font-size:.78em;margin:.3em 0;color:var(--dim)}.dsum b{color:#e8d8b0}.dsum span{margin-left:.5em}.dpick{border:1px solid var(--line);padding:.3em;margin:.3em 0;max-height:16em;overflow:auto}.dcand{display:flex;gap:.3em;align-items:flex-start;padding:.2em;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}.dcand:hover{background:rgba(255,255,255,.05)}.dcand.cur{cursor:default;background:rgba(255,220,120,.05)}.dcand img{width:1.8em;height:1.8em;flex:none}.dcand b{font-size:.82em}.dst{font-size:.72em;display:flex;flex-wrap:wrap;gap:.1em .5em}.dst .good{color:#8fd070}.dst .bad{color:#e07060}';
 document.head.appendChild(st);
@@ -1766,7 +1766,7 @@ NE.Player.prototype.update = function (dt) {
   const bz = k === 'berserk' && this.alive && A.blood < 2000; if (bz !== !!this._bz) { s.melee *= bz ? 1.4 : 1 / 1.4; s.painTol += bz ? 40 : -40; this._bz = bz; if (bz) G.toast('BERSERK — the pain is very far away.'); }
   const wr = (this.warT || 0) > 0; if (wr) this.warT -= dt; if (wr !== !!this._wr) { s.speed *= wr ? 1.2 : 1 / 1.2; this._wr = wr; }
   if (k === 'regen' && this.alive) for (const pk of NE.PARTS) { const P = A.parts[pk]; if (!P.severed) P.hp = Math.min(P.max, P.hp + dt); }
-  if (k === 'regrow' && this.alive) for (const pk of ['larm', 'rarm', 'lleg', 'rleg']) { const P = A.parts[pk]; if (P.severed && !P.prost) { P.regrowT = (P.regrowT || 0) + dt; if (P.regrowT >= 180) { P.severed = false; P.hp = P.max * 0.3; P.wounds = []; P.tq = false; P.bandage = null; P.regrowT = 0; G.toast('Your ' + NE.PART_NAMES[pk].toLowerCase() + ' has grown back. Pale and tender, but yours.'); NE.Audio.play('squelch'); } } }
+  if (k === 'regrow' && this.alive) for (const pk of ['larm', 'rarm', 'lleg', 'rleg']) { const P = A.parts[pk]; if (P.severed && !P.prost) { P.regrowT = (P.regrowT || 0) + dt; if (P.regrowT >= 180) { P.severed = false; P.hp = P.max * 0.3; P.wounds = []; P.tq = false; P.bandage = null; P.regrowT = 0; if (this.sev) delete this.sev[pk]; G.toast('Your ' + NE.PART_NAMES[pk].toLowerCase() + ' has grown back. Pale and tender, but yours.'); NE.Audio.play('squelch'); } } }
   return pu0.apply(this, arguments);
 };
 // parry: widen by stretching the time since the block began
@@ -1786,4 +1786,21 @@ const pose0 = NE.ragPose; NE.ragPose = function (a) { const out = pose0(a); cons
   if (s !== 1 && a.x != null) for (const q of out) { q[0] = a.x + (q[0] - a.x) * (0.6 + 0.4 * s); q[1] = a.y + (q[1] - a.y) * s; } return out; };
 const hs0 = UI0().hudStatic; UI0().hudStatic = function () { hs0.apply(this, arguments); const p = G.player; const el = document.querySelector('.p-occ'); if (p && el && p.look && !/"/.test(el.textContent)) el.textContent += ' • ' + NE.heightStr(NE.heightOf(p.look)); };
 function UI0() { return NE.UI; }
+})(window.NE);
+
+// severed limbs are drawn from the anatomy itself (not only the gore-time record), so stumps and prosthetics survive
+// healing, a doctor's visit and save/reload
+(function (NE) {
+'use strict';
+NE.sevOf = a => { const A = a.anat; if (!A || !A.parts) return a.sev; let o = null; for (const k in A.parts) if (A.parts[k].severed) { o = o || Object.assign({}, a.sev || {}); if (o[k] == null) o[k] = -1e9; } return o || a.sev; };
+})(window.NE);
+
+// prosthetics are never stripped by healing: a doctor's visit, resting or any faded-out recovery keeps fitted limbs
+(function (NE) {
+'use strict';
+const G = NE.G, UI = NE.UI;
+const snap = () => { const p = G.player; if (!p || !p.anat) return null; const o = {}; for (const k of NE.PARTS) { const P = p.anat.parts[k]; if (P.severed) o[k] = P.prost ? Object.assign({}, P.prost) : null; } return { p, o, sev: Object.assign({}, p.sev || {}) }; };
+const keep = s => { if (!s || s.p !== G.player) return; const A = s.p.anat; for (const k in s.o) { const P = A.parts[k]; if (!P.severed) { P.severed = true; P.hp = 0; } if (s.o[k] && !P.prost) P.prost = s.o[k]; if (P.prost) { P.wounds = []; P.tq = false; P.bandage = null; } } s.p.sev = Object.assign(s.p.sev || {}, s.sev); };
+const fade0 = UI.fade; UI.fade = function (cb) { return fade0.call(this, () => { const s = snap(); cb(); keep(s); }); };
+const doc0 = UI.doctor; UI.doctor = function (npc) { const s = snap(); const r = doc0.apply(this, arguments); keep(s); return r; };
 })(window.NE);

@@ -64,8 +64,8 @@ NE.computeStats = function (meta, surv) {
 class Inv {
   // Tarkov-style grid: COLS wide, rows from the pack's slot count (2 cells per slot). Every entry has gx, gy and rot.
   constructor(slots, carry) { this.items = []; this.slots = slots; this.carry = carry; this.medHalf = false; }
-  get cols() { return 10; }
-  get rows() { return Math.max(4, 4 + Math.floor((this.slots - 20) / 2)); } // starting rucksack 10x4 = 40 cells; each better pack adds a row or more
+  get cols() { return 8; }
+  get rows() { return Math.max(4, 4 + Math.floor((this.slots - 20) / 3)); } // starting rucksack 10x4 = 40 cells; each better pack adds a row or more
   dims(e, rot) { const s = NE.isize(e.id); return (rot != null ? rot : e.rot) ? [s[1], s[0]] : [s[0], s[1]]; }
   occupied(skip) { const C = this.cols, g = new Uint8Array(C * this.rows); for (const e of this.items) { if (e === skip || e.gx == null) continue; const [w, h] = this.dims(e); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const k = (e.gy + y) * C + e.gx + x; if (k < g.length) g[k] = 1; } } return g; }
   fits(x, y, w, h, skip, occ) { if (x < 0 || y < 0 || x + w > this.cols || y + h > this.rows) return false; occ = occ || this.occupied(skip); for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) if (occ[(y + yy) * this.cols + x + xx]) return false; return true; }
@@ -219,8 +219,8 @@ class Anatomy {
     // ----- survival needs (player only)
     if (!this.npc) {
       const mv = env.sprint ? 1.6 : 1;
-      this.hunger = Math.max(0, this.hunger - dt * 100 / 1300 * s.hunger * mv * (s.heart ? 1.3 : 1));
-      this.thirst = Math.max(0, this.thirst - dt * 100 / 900 * s.thirst * mv * (this.temp > 38 ? 1.4 : 1) * (1 + (env.thirstMul ? env.thirstMul - 1 : 0) * s.heat));
+      this.hunger = Math.max(0, this.hunger - dt * 100 / 1650 * s.hunger * mv * (s.heart ? 1.3 : 1));
+      this.thirst = Math.max(0, this.thirst - dt * 100 / 1150 * s.thirst * mv * (this.temp > 38 ? 1.4 : 1) * (1 + (env.thirstMul ? env.thirstMul - 1 : 0) * s.heat));
       if (env.water) this.wet = 1; else this.wet = Math.max(0, this.wet - dt * (env.fire ? 0.08 : 0.008));
       let tt = 37 - (env.cold || 0) * 2.2 * s.cold - this.wet * 2.2 * s.cold * (env.cold ? 1 : 0.4);
       tt += (env.heat || 0) * 1.3 * s.heat; if (env.fire) tt = Math.max(tt, 37.4);
@@ -237,7 +237,7 @@ class Anatomy {
       this.gas = env.gas || 0;
       if (this.gas > 0) { this.org.lungs -= dt * 1.0 * this.gas * s.gas; this.org.eyes -= dt * 0.35 * this.gas * s.gas; this.stam -= dt * 12 * this.gas; if (chance(dt * 0.3)) this.ev.push('gas'); } else if (this.org.lungs < (s.lungs || 100)) this.org.lungs += dt * 0.05;
       if (this.infection > 70) { this.org.heart -= dt * 0.08; this.org.liver -= dt * 0.12; }
-      if (this.thirst <= 0) this.org.stomach -= dt * 0.05; if (this.hunger <= 0) this.org.stomach -= dt * 0.03;
+      if (this.thirst <= 0) this.org.stomach -= dt * 0.09; if (this.hunger <= 0) this.org.stomach -= dt * 0.07;
       const st = (env.dark ? 6 : 0) + (env.threat ? 14 : 0) + Math.max(0, this.pain - this.threshold) * 0.4 + (this.blood < 3800 ? 8 : 0);
       this.stress = clamp(lerp(this.stress, st * s.stress * 3.5, dt * 0.06), 0, 100);
     } else { this.stress = Math.max(0, this.stress - dt * 2); }

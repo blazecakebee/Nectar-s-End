@@ -1,6 +1,61 @@
 {
  "log": [
   {
+   "version": "0.9.2",
+   "date": "2026-11-19",
+   "title": "Gentler hunger for slow explorers",
+   "changes": [
+    "Hunger and thirst drain about 10% slower (a full stomach lasts about 27 minutes, a full canteen about 19), so taking your time is less likely to starve you.",
+    "Simulated again: careful, average and fast players still never die of hunger or thirst. Slow but thorough players now die of it about 1 time in 30 (was 1 in 6). Slow players who skip half the loot reach 2000m about 80% of the time (was about 70%)."
+   ]
+  },
+  {
+   "version": "0.9.1",
+   "date": "2026-11-19",
+   "title": "Food & water rebalance",
+   "changes": [
+    "I simulated runs over the real generated levels for several play styles. Before this change a run found about 4× more food than it burned, so nobody ever went hungry.",
+    "Bodies rarely carry food now (35% of what they used to). Forage is a third thinner, though herbs, ginger and mandrake are untouched. Containers hold noticeably less food and water.",
+    "Going without matters: with an empty stomach you now die of starvation in about 25 minutes and of dehydration in about 18, instead of about an hour.",
+    "Hunger and thirst drain slightly slower, so slow, careful players aren't punished just for taking their time.",
+    "Dry biomes ease off: thirst drains less fast in the Sunscorched Sandstone (×1.5), the Magma Abyss (×1.7), the Hive Warrens (×1.15) and the Nectar Heart (×1.3). New Rock Seeps you can drink from appear in every biome, most often in the dry ones.",
+    "Simulated results, counting starvation and dehydration only (not combat). Careful, average and fast players survive to 2500m in every simulated run, but they now regularly run low and need towns, forage and seeps. Slow players who loot thoroughly die about 1 time in 6, always deep. Slow players who skip half the loot usually starve or dry out by about 1500–2200m."
+   ]
+  },
+  {
+   "version": "0.9.0",
+   "date": "2026-11-19",
+   "title": "The Abyss Calls",
+   "changes": [
+    "The Curse of the Abyss: climbing back up strains your body, more the deeper you are, and the deep presses on you now and then even while you descend. There are 8 symptoms, one unlocked per layer: dizziness, nausea, numb limbs, hallucinations, curse bleeding, sensory loss, frenzy and finally metamorphosis. Metamorphosis grows fur, claws and new eyes, and if it completes you lose your humanity. A curse meter and your active symptoms show under your vitals. Resting at an inn clears the curse, though not the changes to your flesh.",
+    "Each symptom has its own remedy: Ginger Root, Settling Tincture, Circulation Salve, Clarity Drops, Coagulant Pills, Waking Salts, Calmroot Tea and Anti-Hollow Serum. Each one cures its symptom and protects you from it for 6 minutes. The Ascent Balm cures everything at once, the Abyssal Mandrake slows the change, and the Delver's Whistle makes the curse build slower. Remedies can be found, foraged, bought or crafted.",
+    "Artifacts: 16 extremely rare relics graded from 4th to Special, inspired by Made in Abyss. Each is sealed in a hidden vault behind a cracked, faintly glimmering wall that you have to dig through, and each can be found only once per run. They include the Star Compass, Unheard Bell ([Y] stops time nearby), Sovereign of Dawn, Hollow's Heart, Blaze Reap, Thousand-Men Pins, Gangway (fires a light beam), Eternal Fortune (cheats death once), Sun-Sphere, Prayer Bone Whistle, Gentle Knock, Sea-Glass Bubble, Thinking Stone, Ever-Burning Lantern, Moon-Reed Flute and Stilling Ward.",
+    "The world is over twice as wide. Towns are three times further apart: the first is at 250m, then one every 750m. Every town is now entered through a hatch in a solid roof, so water and debris from above can't pour in. Saltreach's chasm is now a shallow salt channel.",
+    "Terrain now slopes downward across each level, the random holes and pits are almost all gone, and some passages squeeze very narrow.",
+    "Every biome comes in 3 sub-biomes and each run picks one, for 27 in total. Examples: Fungal, Verdant or Weeping Grotto; Blue Glacier or Aurora Caverns; Kelp Forest, Dead Reef or Black Trench. Each has its own colours, plants and animals. Fireflies, moths, bats, crabs, beetles, frogs, jellyfish, bees, salamanders and more wander the caves.",
+    "There is much less loot. Food and water are rarer, every container holds less, and the wider world spreads containers more thinly. Trap chests are gone. Every container now belongs to its biome: 25 new ones bring the total to 49, and the mining lockers and supply crates that used to appear everywhere are gone.",
+    "Bandit camps: tents, a campfire and 3–4 armed guards protect a locked Bandit Strongbox full of weapons and rare gear.",
+    "Wandering encounters: Fist Monks teach the Way of the Open Palm (stronger, faster punches that can stagger), Sword Masters teach the Patient Blade (stronger, faster sharp weapons and a wider parry window), and Wandering Vendors sell gear you can't buy anywhere else. Wounded survivors are now rare.",
+    "New gear: Climber's Rig, Crampon Boots, Scuba Mask, Air Tank, Swim Fins, Rocket Boots (mid-air bursts), Salvaged Jetpack, Wayfarer's Cloak, Hunter's Spurs, Duelist's Gauntlets, Lucky Coin, Owl-Eye Amulet, Plague Doctor's Mask and Delver's Whistle. You now have limited breath underwater.",
+    "Ledge hanging: fall past an edge while moving toward it to grab on and dead-hang. Press up or jump to pull yourself over, down to let go, or away plus jump to kick off the wall.",
+    "Digging reworked: every hit bites out a chunk of rock instead of one tile, pickaxes and other tools bite far bigger chunks, and you can hold the button to keep digging.",
+    "18 new crafting recipes, including the Herbal Poultice, Honey Dressing, Blood Tonic, Mushroom Broth, every curse remedy, and climbing and diving gear. All the new items use icons from the game's pixel-art icon set.",
+    "The map is now drawn from each level's real tiles and colours, shows people, containers, hatches, fires and your partner, and you reveal a wider area as you explore. A new live minimap sits just left of your portrait: drag it anywhere and it remembers where you put it. [U] hides it.",
+    "The equipment doll now shows your character much closer.",
+    "Balance: you walk 30% slower, but sprint relatively faster, so running away still works. Enemies hit 20% harder and are smarter: they hop obstacles, chase you up ledges, sidestep your heavy wind-ups, spread out instead of queueing, call nearby friends, and gunners back off to keep their distance. Backpacks are tighter, with an 8-wide grid that grows more slowly."
+   ]
+  },
+  {
+   "version": "0.8.1",
+   "date": "2026-11-19",
+   "title": "Real icons for the new gear, prosthetics stay on",
+   "changes": [
+    "Every new helmet, armour piece, boot, glove, belt and charm now uses a proper hand-made pixel icon from the game's icon set: bronze plumed helms, horned helms, gas masks, diving and welding helmets, chainmail, bone armour, parkas, plate carriers and more. No two share an icon. The Combat Helmet and Plate Carrier now have their own instead of copies of the Caving Helmet and Leather Jacket.",
+    "Hook arms, mechanical arms, artificer claw arms and the Grappling Hook have new icons too.",
+    "Prosthetics are never removed by getting patched up at a doctor, resting, or saving and loading. Missing limbs and fitted prosthetics are now always drawn from your actual body state."
+   ]
+  },
+  {
    "version": "0.8.0",
    "date": "2026-11-19",
    "title": "Prosthetics that hold, gear you can see, one last life in co-op",

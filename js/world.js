@@ -5,7 +5,8 @@ const G_t = () => (NE.G && NE.G.t) || performance.now() / 1000;
 const { ri, rf, pick, chance, clamp } = NE; const T = NE.T;
 const TL = NE.TL = { AIR: 0, SOLID: 1, PLAT: 2, LADDER: 3, SHARDS: 4, WATER: 5, CRUMBLE: 6, VENT: 7, METAL: 8, LAVA: 9, ICE: 10 };
 NE.depthOfY = y => Math.max(0, (y - 10 * T) / T * NE.MPT);
-NE.isTownFloor = f => { if (f < 2) return false; const d = f * NE.FH * NE.MPT, dp = (f - 1) * NE.FH * NE.MPT; return Math.floor(d / 250) > Math.floor(dp / 250); };
+NE.TOWN_FIRST = 250; NE.TOWN_EVERY = 750;
+NE.isTownFloor = f => { if (f < 2) return false; const d = f * NE.FH * NE.MPT, dp = (f - 1) * NE.FH * NE.MPT; const k = v => v < NE.TOWN_FIRST ? -1 : Math.floor((v - NE.TOWN_FIRST) / NE.TOWN_EVERY); return k(d) > k(dp); };
 NE.isExtFloor = NE.isTownFloor;
 NE.LOBBY_PAL = { bg: '#0f0c0a', back: '#1d1813', back2: '#251f19', tile: '#4a3d32', tile2: '#3a3028', edge: '#7a6a50', top: '#5a6a30', plat: '#6a5038', ladder: '#9a7a48', lamp: '#ffc070' };
 
@@ -66,12 +67,14 @@ class World {
     const nG = noise1(), nC = noise1(), nW = noise1();
     const g = new Array(W), c = new Array(W);
     const chamber = rf(0.6, 1.4);
+    const tdir = (f % 2) ? 1 : -1; const trend = x => { const k = tdir > 0 ? x / W : 1 - x / W; return Math.round(-2 + k * 3.4); };
     for (let x = 0; x < W; x++) {
-      g[x] = clamp(FH - 4 + Math.round(nG(x) * 1.7), FH - 6, FH - 3);
+      g[x] = clamp(FH - 4 + trend(x) + Math.round(nG(x) * 1.1), FH - 7, FH - 2);
       c[x] = clamp(2 + Math.round(nC(x) * 1.9 * chamber + Math.sin(x * 0.21 + f) * 0.8), 0, 5); // lower, wavier ceilings = narrower, organic passages
     }
     for (let x = 1; x < W; x++) { if (g[x] > g[x - 1] + 1) g[x] = g[x - 1] + 1; if (g[x] < g[x - 1] - 1) g[x] = g[x - 1] - 1; }
     for (let x = 0; x < W; x++) if (g[x] - c[x] < 6) c[x] = Math.max(0, g[x] - 6);
+    if (f > 0) for (let k = 0; k < ri(0, 2); k++) if (chance(0.55)) { const w = ri(8, 18), x0 = ri(20, W - 22 - w); const tight = chance(0.4) ? 3 : 4; for (let i = 0; i < w; i++) { const ease = Math.min(i, w - 1 - i); c[x0 + i] = Math.max(c[x0 + i], g[x0 + i] - Math.max(tight, 6 - ease)); } }
     const fl = { f, y0, depth, biome, g, c, objs: [], spawns: [], decor: [], ladIn: this.ladNext.slice(), pitIn: this.pitNext.slice(), ext: false, seen: new Uint8Array(W * FH), poi: null };
     const res = []; const free = (a, b) => a >= 4 && b <= W - 5 && !res.some(r => !(b < r[0] || a > r[1]));
     const tryX = (wd, pad) => { for (let k = 0; k < 50; k++) { const x = ri(4, W - 5 - wd); if (free(x - (pad || 0), x + wd + (pad || 0))) { res.push([x - (pad || 0), x + wd + (pad || 0)]); return x; } } return -1; };
@@ -87,7 +90,7 @@ class World {
     const poi = f === 0 ? 'none' : NE.wpick(poiW); let poiX = -1, poiW2 = 0;
     if (poi !== 'none') { poiW2 = ri(12, 15); poiX = tryX(poiW2, 1); if (poiX > 0) flatten(poiX, poiX + poiW2, FH - 4, 8); }
     // crawlspace with hidden cache (decided before carving so its entrances line up)
-    let crawl = null; if (f > 0 && chance(0.22)) { const w = ri(7, 10); const x = tryX(w, 2); if (x > 0) { crawl = [x, x + w]; flatten(x - 2, x + w + 2, FH - 4, 6); } }
+    let crawl = null; if (f > 0 && chance(0.12)) { const w = ri(7, 10); const x = tryX(w, 2); if (x > 0) { crawl = [x, x + w]; flatten(x - 2, x + w + 2, FH - 4, 6); } }
     // carve air
     for (let x = 2; x < W - 2; x++) { const edge = Math.max(0, Math.round(nW(x * 0.5) * 1.2)); for (let r = c[x] + (x < 4 || x > W - 5 ? edge : 0); r < g[x]; r++) rows[r][x] = 0; }
     // wavy side walls
@@ -113,8 +116,8 @@ class World {
       chutes.push([xe - 1, xe, dir]); }
     this.ladNext = [];
     // open pits (risky shortcut drops)
-    const pits = []; for (let k = 0; k < (f === 0 ? 0 : ri(0, 2)); k++) { const w = ri(2, 3); const x = tryX(w, 2); if (x > 0) { pits.push([x, x + w - 1]); for (let i = 0; i < w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0; } }
-    if (f > 0 && chance(0.55)) { const w = ri(5, 8), x = tryX(w, 2); if (x > 0) { for (let i = 0; i <= w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0;
+    const pits = []; for (let k = 0; k < 0; k++) { const w = ri(2, 3); const x = tryX(w, 2); if (x > 0) { pits.push([x, x + w - 1]); for (let i = 0; i < w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0; } }
+    if (f > 0 && chance(0.18)) { const w = ri(5, 8), x = tryX(w, 2); if (x > 0) { for (let i = 0; i <= w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0;
         for (let r = g[x] + 2, side = 0; r < FH - 1; r += 3, side ^= 1) { const sx = side ? x + w - 1 : x, d = side ? -1 : 1; rows[r][sx] = 1; rows[r][sx + d] = 1; if (rows[r + 1]) rows[r + 1][sx] = 1; }
         pits.push([x, x + w, 0, 1]); } }
     this.pitNext = pits.concat(chutes);
@@ -146,7 +149,7 @@ class World {
     if (poiX > 0) this.buildPOI(fl, poi, poiX, poiX + poiW2);
     // containers
     const ctab = { grotto: [['crate', 3], ['locker', 1], ['duffel', 1]], desert: [['crate', 2], ['locker', 1], ['urn', 3]], ice: [['locker', 2], ['crate', 2], ['duffel', 1]], crystal: [['locker', 2], ['weaponchest', 1], ['duffel', 1]], magma: [['locker', 2], ['weaponchest', 1.5], ['crate', 1]] , hive: [['crate', 1], ['locker', 1]], drowned: [['locker', 2], ['crate', 1]], ossuary: [['urn', 2], ['locker', 1]], heart: [['locker', 1], ['weaponchest', 1]] }[B] || [['crate', 1]];
-    for (let k = 0; k < ri(1, 3) + (f === 0 ? 1 : 0); k++) { const x = tryX(1, 0); if (x > 0) { if (g[x + 1] !== g[x]) g[x + 1] = g[x]; fl.objs.push(this.container(NE.wpick(ctab), (x + 1) * T, 0, depth)); } }
+    for (let k = 0; k < ri(1, 2) + (f === 0 ? 1 : 0); k++) { const x = tryX(1, 0); if (x > 0) { if (g[x + 1] !== g[x]) g[x + 1] = g[x]; fl.objs.push(this.container(NE.wpick(ctab), (x + 1) * T, 0, depth)); } }
     // old expedition lanterns
     for (let k = 0; k < ri(2, 4); k++) fl.objs.push({ type: 'lamp', x: ri(5, W - 6) * T + 4, y: 0, on: chance(0.75), col: biome.pal.lamp, flick: chance(0.5) ? rf(0.1, 0.8) : 0 });
     // background decor
@@ -156,7 +159,7 @@ class World {
       const n = clamp(Math.floor(rf(0.3, 1.7) + Math.sqrt(depth) / 15), 0, depth < 300 ? 2 : 3); // grows slowly and caps at 3 per level
       const tbl = depth < 120 ? [['scav', 5], ['gunner', depth > 60 ? 1 : 0.01]] : biome.enemies; // only people near the surface
       for (let k = 0; k < n; k++) { const ty = NE.wpick(tbl); const pack = (ty === 'trog' && chance(0.35) && k === 0) ? 2 : 1; for (let q = 0; q < pack; q++) fl.spawns.push({ kind: 'enemy', type: ty, x: ri(8, W - 8) * T }); }
-      if (f >= 2 && chance(0.13)) fl.spawns.push({ kind: 'survivor', x: ri(10, W - 10) * T });
+      if (f >= 2 && chance(0.03)) fl.spawns.push({ kind: 'survivor', x: ri(10, W - 10) * T });
       if (depth > 300 && chance(0.05)) fl.spawns.push({ kind: 'trader', x: ri(10, W - 10) * T });
       if (f >= 3 && chance(0.12)) fl.spawns.push({ kind: 'standoff', x: ri(15, W - 15) * T });
     }
@@ -199,7 +202,7 @@ class World {
   container(ct, x, y, depth) {
     const C = NE.CONTAINERS[ct]; const o = { type: 'container', ct, x, y, label: C.name, act: 'search', items: null, searched: false, depth: depth || 0 };
     if (C.lock && chance(C.lock)) o.locked = ct === 'weaponchest' ? 'security' : 'lock';
-    if (depth > 150 && chance(0.06 + depth / 6000)) o.trap = pick(['needle', 'grenade']);
+    
     return o;
   }
   buildPOI(fl, poi, x0, x1) {

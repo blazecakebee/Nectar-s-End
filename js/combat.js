@@ -81,7 +81,7 @@ C.sweep = function (a, w, p0, p1, tv, dt, striking) {
         else if (a.isPlayer) G.toast('Blocked');
         continue; }
       const spd = tv * (0.35 + 0.65 * hit.f); const cap = a.isPlayer ? 2.1 : 1.15;
-      let dmg = m.dmg * clamp((spd - 40) / 150, 0.25, cap) * (a.isPlayer ? a.stats.melee * 1.2 : 1) * a.anat.armFactor();
+      let dmg = m.dmg * clamp((spd - 40) / 150, 0.25, cap) * (a.isPlayer ? a.stats.melee * 1.2 * (NE.styleMul ? NE.styleMul(a, w) : 1) : (NE.ENEMY_DMG || 1.2)) * a.anat.armFactor();
       if (a.strk && a.strk.kind === 'thrust' && m.kind === 'sharp') dmg *= 1.25; const hv = a.strk && a.strk.heavy ? a.strk.heavy : 1; dmg *= hv; if (a.abil && a.abil.includes('sting')) dmg *= 1.4;
       if (a.strk && a.strk.poke) dmg *= 0.7; if (a.strk && a.strk.lunge) dmg *= 1.3;
       const punish = !t.isPlayer && (t.backT > 0 || t.stagger > 0 || t.rd || t.getUpT > 0); if (punish && a.isPlayer) dmg *= 1.3; // hit them while they recover
@@ -150,7 +150,7 @@ C.updateBullets = function (dt) {
         if (a === b.sh || b.hit.has(a) || !a.alive || a.hidden) continue; const sh = b.sh;
         if (sh && ((sh.isPlayer && (a.isRemote || a.town)) || (sh.isRemote && a.isPlayer))) continue;
         if (!a.contains(b.x, b.y, 0.5)) continue; b.hit.add(a);
-        const part = a.partNear(b.x, b.y); const dmg = b.dmg * (part === 'head' ? 1.5 : 1);
+        const part = a.partNear(b.x, b.y); const dmg = b.dmg * (part === 'head' ? 1.5 : 1) * (sh && !sh.isPlayer && !sh.isRemote && sh.D ? (NE.ENEMY_DMG || 1.2) : 1);
         a._cal = b.cal; a.hurt(part, dmg, 'bullet', b.name, { x: ux, y: uy }); a._cal = 0; a.lastBy = sh; if (a.onAggro && sh) a.onAggro(sh);
         const rp = a.rag.pts[NE.RAGIDX(part, a.facing)]; if (rp) { rp.ox -= ux * dmg * 0.09 * b.cal; rp.oy -= uy * dmg * 0.09 * b.cal; } a.vx += ux * dmg * 1.1 * b.cal; if (!a.isPlayer && b.cal >= 2) a.stagger = Math.max(a.stagger || 0, 0.15 * b.cal);
         C.spray(b.x, b.y, ux, uy, Math.round(dmg * 0.7)); C.spray(b.x, b.y, -ux * 0.4, -uy * 0.4 - 0.3, Math.round(dmg * 0.15));

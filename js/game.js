@@ -206,7 +206,7 @@ G.startRun = function (restore) {
   G.eventT = rf(45, 70); G.sayCD = 0;
   G.cam.x = p.x - VW / 2; G.cam.y = p.y - VH * 0.55;
   NE.UI.showRun(); NE.Audio.play('ding'); G.musicFor();
-  if (!restore) { G.startInfest(); setTimeout(() => G.say(pick(NE.MONO.start)), 6200); G.log('Lowered to 0m — ' + f0.biome.name + '.', 'sys'); G.log('Perk: ' + f0.biome.perk, 'good'); G.log('Danger: ' + f0.biome.challenge, 'bad'); G.log('A town waits every 250m. There is no way back up.', 'sys'); }
+  if (!restore) { G.startInfest(); setTimeout(() => G.say(pick(NE.MONO.start)), 6200); G.log('Lowered to 0m — ' + f0.biome.name + '.', 'sys'); G.log('Perk: ' + f0.biome.perk, 'good'); G.log('Danger: ' + f0.biome.challenge, 'bad'); G.log('The first town waits at 250m, then one every 750m. Climbing back up strains the body: the Abyss does not like you rising.', 'sys'); }
   else G.toast('Welcome back, ' + surv.first + '. ' + Math.round(NE.depthOfY(p.y)) + 'm.');
   if (G.net && G.net.on) G.net.enterRun(); G.autosave();
 };
@@ -606,7 +606,7 @@ G.depthTrack = function (p) {
 };
 G.markSeen = function (p, dt) {
   G.seenT = (G.seenT || 0) - dt; if (G.seenT > 0) return; G.seenT = 0.25; const W = G.world; const ptx = Math.floor(p.x / T), pty = Math.floor(p.y / T); const R = Math.round(12 * p.stats.sight * (p.light.on ? 1.2 : 0.7));
-  for (let ty = pty - R; ty <= pty + R; ty++) { const fl = W.floors[Math.floor(ty / NE.FH)]; if (!fl) continue; for (let tx = ptx - R; tx <= ptx + R; tx++) { if (tx < 0 || tx >= W.W) continue; if ((tx - ptx) ** 2 + (ty - pty) ** 2 > R * R) continue; fl.seen[(ty - fl.y0) * W.W + tx] = 1; } }
+  for (let ty = pty - R; ty <= pty + R; ty++) { const fl = W.floors[Math.floor(ty / NE.FH)]; if (!fl) continue; const RX = Math.round(R * 1.8); for (let tx = ptx - RX; tx <= ptx + RX; tx++) { if (tx < 0 || tx >= W.W) continue; if ((tx - ptx) ** 2 / (RX * RX) + (ty - pty) ** 2 / (R * R) > 1) continue; fl.seen[(ty - fl.y0) * W.W + tx] = 1; } }
 };
 G.playerDeath = function () {
   const p = G.player; p.die(p.anat.cause); NE.UI.closeAll(); G.releaseGrab();
