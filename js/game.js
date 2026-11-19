@@ -106,6 +106,7 @@ G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = 
 G.onClick = function () { if (G.infest) return G.skipInfest(); if (G.player && G.player.alive && G.player.anat.uncon && G.state === 'run') return G.struggle(); if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
 G.startGrab = function () {
   if (!G.playing() || NE.UI.panel) return; const p = G.player; const m = G.mouse;
+  if (p && p.alive && p.charge && p.lunge && p.lunge()) return; // full wind-up + RMB = lunge
   if (NE.dist(m.wx, m.wy, p.x, p.cy) > 40) return;
   G.grab = G.phys.nearestPoint(m.wx, m.wy, 9, b => b.owner !== p && !(b.owner && b.owner.alive)); if (G.grab) { G.grab.body.dragBy = p; return; }
   const w = p.weaponDef(); if (!w.gun && !p.rd && !p.climbing && !p.anat.uncon) { p.guard = { t0: G.t }; NE.Audio.play('cloth', 0.4); }

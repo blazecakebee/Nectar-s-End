@@ -341,8 +341,17 @@ NE.ragPose = function (a) {
     const k = (a.getUpT - 0.25) / 0.35; P[0] = [2.5 * k + 1, -10 + 5 * k]; P[1] = [1.5 * k + 0.6, -7.5 + 4 * k]; P[2] = [-0.5, -4 + 2 * k]; P[7] = [1.5, -3]; P[8] = [-1.2, 0]; P[9] = [2.5, -2.4]; P[10] = [1.5, 0]; P[3] = [1.5, -4 + 3 * k]; P[4] = [3, -0.5]; P[5] = [2.5, -4 + 3 * k]; P[6] = [4, 0];
   } else if (a.landT > 0) {
     const k = Math.min(1, a.landT / 0.14) * (a.landK || 1); P[0] = [0.8, -14 + 3 * k]; P[1] = [0.4, -11 + 2.6 * k]; P[2] = [-0.3, -6.5 + 2 * k]; P[7] = [0.8, -3.5 + k]; P[9] = [2, -3.3 + k]; P[8] = [-1.4, 0]; P[10] = [1.6, 0]; P[3] = [-1.5, -8]; P[4] = [-2.2, -5.5 + k]; P[5] = [1.6, -8]; P[6] = [2.4, -5.5 + k];
-  } else if (a.dashT > 0) { // dash: low forward lunge, back leg driving
-    P[0] = [3.6, -11.6]; P[1] = [2.6, -9.2]; P[2] = [0.2, -5.6]; P[7] = [-2, -3.4]; P[8] = [-5.2, -0.4]; P[9] = [3, -3.6]; P[10] = [3.6, 0]; P[3] = [0.5, -8]; P[4] = [-2.8, -7]; P[5] = [2, -8]; P[6] = [-0.5, -6];
+  } else if (a.dashT > 0) { // dash: dive forward, tuck and roll across the ground, come up on your feet
+    const pr = 1 - a.dashT / (a.dashDur || 0.32);
+    if (pr < 0.14) { const k = pr / 0.14; P[0] = [2 + 2.5 * k, -13 + 4 * k]; P[1] = [1.4 + 2 * k, -10 + 3.4 * k]; P[2] = [0, -6]; P[7] = [-1.5, -3.6]; P[8] = [-4.5, -0.6]; P[9] = [2.6, -3.8]; P[10] = [3.2, 0]; P[3] = [3, -7]; P[4] = [5.5, -5]; P[5] = [3.5, -7]; P[6] = [6, -5]; }
+    else if (pr > 0.86) { const k = (pr - 0.86) / 0.14; P[0] = [1.8, -9 - 4 * k]; P[1] = [1.2, -7 - 3 * k]; P[2] = [-0.3, -4 - 2 * k]; P[7] = [1.5, -3]; P[8] = [-1, 0]; P[9] = [2.6, -2.6]; P[10] = [1.6, 0]; P[3] = [0.5, -5]; P[4] = [2, -3]; P[5] = [1.5, -5]; P[6] = [3, -3]; }
+    else { const th = (pr - 0.14) / 0.72 * Math.PI * 2, c = Math.cos(th), sn = Math.sin(th); const cx = 0, cy = -3.6; // tucked ball spinning forward
+      const B = [[1.2, -2.6], [0.6, -1.2], [-1.2, 1], [1.8, 0.2], [2.4, 1.6], [2, -0.6], [2.6, 0.8], [1, 1.8], [-1, 2.4], [1.6, 1.4], [-0.6, 2.6]];
+      for (let i = 0; i < 11; i++) { const [x, y] = B[i]; P[i] = [cx + x * c - y * sn, cy + x * sn + y * c]; } }
+  } else if (a.search && a.onGround) { // kneel at the container and dig through it
+    const t = performance.now() / 1000, r1 = Math.sin(t * 7), r2 = Math.sin(t * 7 + 2.1);
+    P[0] = [2.4 + r1 * 0.3, -10.2]; P[1] = [1.4, -7.8]; P[2] = [-0.6, -4.2]; P[7] = [1.6, -3]; P[8] = [-1.4, 0]; P[9] = [2.8, -2.4]; P[10] = [2.2, 0];
+    P[5] = [3.2, -6.4]; P[6] = [5.2 + r1 * 1.2, -4.6 + Math.max(0, r1) * 1.6]; P[3] = [2.8, -6.6]; P[4] = [4.6 + r2 * 1.2, -4.8 + Math.max(0, r2) * 1.6];
   } else if (a.treating && (a.treating.part === 'lleg' || a.treating.part === 'rleg')) { // sit down to work on a leg: injured leg stretched out
     P[0] = [2.2, -9]; P[1] = [1.2, -6.6]; P[2] = [-0.8, -2.2]; const inj = (a.treating.part[0] === (f > 0 ? 'r' : 'l')) ? 9 : 7, oth = inj === 9 ? 7 : 9;
     P[inj] = [2.4, -1.4]; P[inj + 1] = [5.6, -0.4]; P[oth] = [2.2, -4]; P[oth + 1] = [2.8, 0];
@@ -368,13 +377,13 @@ NE.ragPose = function (a) {
   // arms: aim / swing / treat
   const ch = out[1];
   if (!a.crawl && !a.climbing && a.treating && !a.dead) NE.treatArms(a, out, f);
-  else if (!a.crawl && !a.climbing) {
+  else if (!a.crawl && !a.climbing && !(a.search && a.onGround) && !(a.dashT > 0)) {
     if (a.aimDir && a.gunOut) { const d = a.aimDir; out[6] = [ch[0] + d.x * 8, ch[1] + 1 + d.y * 8]; out[5] = [ch[0] + d.x * 4, ch[1] + d.y * 4 + 2]; if (a.twoHand) { out[4] = [ch[0] + d.x * 6, ch[1] + d.y * 6 + 1.5]; out[3] = [ch[0] + d.x * 2.5, ch[1] + 2.5]; } }
     else if (a.wdir) { const d = a.wdir, e = a.wext || 0; out[6] = [ch[0] + d.x * (9 + e), ch[1] + 1 + d.y * (9 + e)]; out[5] = [ch[0] + d.x * (4.6 + e * 0.5) - f * 0.3, ch[1] + 2 + d.y * (4.6 + e * 0.5)]; if (a.twoHand) { out[4] = [ch[0] + d.x * (7 + e), ch[1] + 1.5 + d.y * (7 + e)]; out[3] = [ch[0] + d.x * 3.2, ch[1] + 2.5 + d.y * 3.2]; } else if (a.guard) { out[4] = [ch[0] + f * 3.5, ch[1] - 1]; out[3] = [ch[0] + f * 1.5, ch[1] + 2.5]; } else { out[4] = [ch[0] + f * 3, ch[1] + 2.2]; out[3] = [ch[0] + f * 1, ch[1] + 3.5]; } } // off hand stays up in a fighting stance
     else if (a.swingT > 0) { const t = 1 - a.swingT / a.swingDur; const ang = lerp(-1.9, 0.8, Math.min(1, t * 1.6)); const dx = Math.cos(ang) * f, dy = Math.sin(ang); out[6] = [ch[0] + dx * 8.5, ch[1] + 1 + dy * 8.5]; out[5] = [ch[0] + dx * 4.2, ch[1] + 1 + dy * 4.2]; }
     else if (a.holdT > 0) { out[6] = [ch[0] + f * 4, ch[1] - 1]; }
   }
-  if (a.aimDir && !a.crawl && !a.climbing && !a.dead) { out[0][0] += a.aimDir.x * 0.5; out[0][1] += a.aimDir.y * 0.7; } // head follows where you look
+  if (a.aimDir && !a.crawl && !a.climbing && !a.dead && !(a.dashT > 0)) { out[0][0] += a.aimDir.x * 0.5; out[0][1] += a.aimDir.y * 0.7; } // head follows where you look
   return out;
 };
 // self-treatment animations: hands go to the wound and move the way the job demands
@@ -407,9 +416,10 @@ NE.treatMotion = function (kind, t, prog) {
     default: return [Math.sin(t * 8) * 1, 0];
   }
 };
+const KS_ROLL = [0.85, 0.85, 0.85, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8];
 NE.driveRag = function (rag, a, dt) {
   if (a.limpRag) return; const tgt = NE.ragPose(a); const ks0 = [0.55, 0.65, 0.75, 0.35, 0.3, 0.45, 0.4, 0.5, 0.55, 0.5, 0.55];
-  if (a.getUpT > 0) a.getUpT = Math.max(0, a.getUpT - dt); const gu = a.getUpT > 0 ? lerp(1, 0.07, a.getUpT / 0.6) : 1; const ks = gu < 1 ? ks0.map(k => k * gu) : ks0; // muscles re-engage gradually after a knockdown
+  if (a.getUpT > 0) a.getUpT = Math.max(0, a.getUpT - dt); const gu = a.getUpT > 0 ? lerp(1, 0.07, a.getUpT / 0.6) : 1; const ks = a.dashT > 0 ? KS_ROLL : gu < 1 ? ks0.map(k => k * gu) : ks0; // muscles re-engage gradually after a knockdown
   const vx = a.vx / 60, vy = a.vy / 60;
   for (let i = 0; i < rag.pts.length; i++) { const p = rag.pts[i], k = ks[i]; p.x = lerp(p.x, tgt[i][0], k); p.y = lerp(p.y, tgt[i][1], k); p.ox = lerp(p.ox, tgt[i][0] - vx, k); p.oy = lerp(p.oy, tgt[i][1] - vy, k); }
 };
@@ -448,8 +458,7 @@ NE.drawHuman = function (ctx, rag, look, o) {
   limb(2, 7, 8, pants, pants, bk + 'leg', true); if (!sv[bk + 'leg'] && !(anat && anat.parts[bk + 'leg'].prost && anat.parts[bk + 'leg'].prost.kind === 'peg')) foot(p[8], true);
   limb(1, 3, 4, shirt, skin, bk + 'arm', true); if (!sv[bk + 'arm']) hand(p[4], true); else if (anat && anat.parts[bk + 'arm'].prost) { if (anat.parts[bk + 'arm'].prost.kind === 'saw') NE.drawSawBlade(ctx, p[4].x, p[4].y, '#5a5e64'); else R(p[4].x - 1, p[4].y - 1, 2, 2, '#3a3430'); }
   // backpack (on the back side of the torso)
-  if (o.pack) { const dx = p[2].x - p[1].x, dy = p[2].y - p[1].y; const L = Math.hypot(dx, dy) || 1; const nx = dy / L * f, ny = -dx / L * f; const bx = p[1].x - f * 3 + nx * 0, by = p[1].y + 1;
-    NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 5, OL(o.pack[0])); NE.pline(ctx, bx, by, bx + dx * 0.65, by + dy * 0.65, 4, N(o.pack[0])); R(bx - 1 + (f > 0 ? 0 : 1), by + dy * 0.35, 2, 1, N(o.pack[1])); R(bx - (f > 0 ? 2 : -1), by + 1, 1, Math.round(dy * 0.5), NE.shade(o.pack[0], 0.8)); }
+  if (o.pack) NE.drawPack(ctx, p, f, o.pack, N, OL);
   // torso: 5px with outline, belt, collar
   const tc = o.vest ? (typeof o.vest === 'string' ? o.vest : '#3a3e36') : shirt, FEM = look.sex === 'f';
   if (FEM) { // feminine silhouette: bust, cinched waist, wider hips — follows the torso so every shirt/armour inherits it
@@ -530,6 +539,26 @@ NE.WMODELS = {
   rifle: { g: 5, c: 1, r: ['     kkkkkkkkk    ', 'wwwwwkMMMMMMMMMMMh', 'ww   kk  kk       ', '         k        '] },
   shotgun: { g: 5, c: 1, r: ['       kkkkkkkkkk  ', 'wwwwwkkMMMMMMMMMMMh', 'ww    k  wwwww     '] },
   hunting: { g: 6, c: 2, r: ['       MkkM          ', '     kkkkkkkkkkkk     ', 'wwwwwwMMMMMMMMMMMMMMh', 'ww    kk             '] },
+};
+// puffy backpack on the back of the torso: rounded stuffed body, bedroll on top, side pocket, shoulder strap. Bigger packs bulge more.
+const PSZ = {}; NE.packSize = col => { const k = col[0] + col[1]; if (PSZ[k] == null) { const b = (NE.BACKPACKS || []).find(x => x.col[0] === col[0] && x.col[1] === col[1]); PSZ[k] = b ? NE.clamp((b.slots - 12) / 14, 0, 1) : 0.35; } return PSZ[k]; };
+NE.drawPack = function (ctx, p, f, col, tone, OL) { tone = tone || (c => c);
+  const sz = NE.packSize(col); const ax = p[1].x, ay = p[1].y; let dx = p[2].x - ax, dy = p[2].y - ay; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L; const bx = -dy * f, by = dx * f; // b points out of the back
+  const len = L * (0.82 + 0.3 * sz), u0 = -1.4 - sz; const W = u => (3.1 + sz * 2.3) * (0.62 + 0.45 * Math.sin(Math.PI * NE.clamp((u - u0) / (len - u0), 0, 1))); // bulging profile
+  const c0 = tone(col[0]), c1 = tone(col[1]), dark = NE.shade(c0, 0.62), mid = NE.shade(c0, 0.85), hi = NE.shade(c0, 1.22), ol = OL ? OL(col[0]) : NE.shade(c0, 0.35); const px = new Map();
+  const put = (u, v, c, pri) => { const x = Math.round(ax + dx * u + bx * v), y = Math.round(ay + dy * u + by * v); const k = x * 4096 + y; const o = px.get(k); if (!o || o[1] <= pri) px.set(k, [c, pri, x, y]); };
+  for (let u = u0 - 1; u <= len + 1; u += 0.45) { const w = W(u); for (let v = 0.6; v <= 1.6 + w + 1; v += 0.45) put(u, v, ol, 0); } // outline halo
+  for (let u = u0; u <= len; u += 0.45) { const w = W(u); for (let v = 1.3; v <= 1.6 + w; v += 0.45) { const t = (v - 1.3) / (w + 0.3); const top = (u - u0) / (len - u0); put(u, v, t > 0.78 ? dark : top < 0.22 ? hi : t < 0.3 ? hi : mid, 1); } }
+  // drawstring top + bedroll across the top
+  for (let v = 1; v <= 2 + W(u0) + 0.5; v += 0.45) { put(u0 - 1.1, v, NE.shade(c1, 0.6), 2); put(u0 - 0.4, v, c1, 2); }
+  // front pocket bulge low on the bag, with a stitched flap
+  const pu0 = len * 0.52, pu1 = len * 0.88; for (let u = pu0; u <= pu1; u += 0.45) { const w = W(u); for (let v = w + 0.9; v <= w + 2.2; v += 0.45) put(u, v, v > w + 1.8 ? dark : mid, 3); put(u, w + 1.1, NE.shade(c1, 0.9), 4); }
+  for (let u = pu0 - 0.5; u <= pu1 + 0.5; u += 0.45) put(u, W(u) + 2.6, ol, 0.5);
+  // strap: over the shoulder, down the chest
+  for (let u = u0; u <= len * 0.55; u += 0.45) put(u, 0.7, NE.shade(c1, 0.75), 5);
+  for (const [, [c, , x, y]] of px) { ctx.fillStyle = c; ctx.fillRect(x, y, 1, 1); }
+  // buckle glint
+  ctx.fillStyle = '#d8c890'; ctx.fillRect(Math.round(ax + dx * (pu0 + 0.5) + bx * (W(pu0) + 1.4)), Math.round(ay + dy * (pu0 + 0.5) + by * (W(pu0) + 1.4)), 1, 1);
 };
 // spinning circular saw on a prosthetic arm: teeth rotate around a 5px disc
 NE.drawSawBlade = function (ctx, x, y, col) { x = Math.round(x); y = Math.round(y); const a0 = performance.now() / 45;

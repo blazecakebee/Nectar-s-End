@@ -219,7 +219,7 @@ class Player extends Actor {
     const g = this.g, A = this.anat, st = this.stats;
     this.cd = Math.max(0, this.cd - dt); this.swingT = Math.max(0, this.swingT - dt); this.flash = Math.max(0, this.flash - dt); this.hurtT = Math.max(0, (this.hurtT || 0) - dt);
     if (A.uncon && !this.rd) this.knockdown(0, 0, 0.6);
-    this.dashT = Math.max(0, (this.dashT || 0) - dt); this.dashIF = Math.max(0, (this.dashIF || 0) - dt); this.dashCD = Math.max(0, (this.dashCD || 0) - dt);
+    this.dashT = Math.max(0, (this.dashT || 0) - dt); this.dashIF = Math.max(0, (this.dashIF || 0) - dt); this.dashCD = Math.max(0, (this.dashCD || 0) - dt); this.lungeCD = Math.max(0, (this.lungeCD || 0) - dt);
     if (this.dashT > 0 && Math.random() < dt * 40) g.ghost(this);
     if (this.ragTick(dt)) { this.charge = null; this.guard = null; if (this.treating) this.treating = null; return; }
     if (this.guard && (A.stam <= 0 || this.weaponDef().gun)) { this.guard = null; }
@@ -253,14 +253,23 @@ class Player extends Actor {
       if (tr.sfx <= 0) { const S = { bandage: ['bandage', 0.7], tq: ['cinch', 0.9], suture: ['cloth', 0.5], splint: ['cloth', 0.8], clean: ['cloth', 0.6], forceps: ['cloth', 1.1], dig: ['squelch', 1.0], amputate: ['saw', 0.32], reset: ['gasp', 1.4], fit: ['metal', 1.2], unfit: ['metal', 1.2] }[kind]; if (S) { NE.Audio.play(S[0], 0.5); tr.sfx = S[1]; if (kind === 'amputate' && chance(0.25)) NE.Audio.play('pain', 0.6); } else tr.sfx = 9; } }
     // treatment progress
     if (this.treating) { this.treating.t += dt; if (this.treating.peer && G_net()) { G_net().treatProg(this.treating); } if (this.treating.t >= this.treating.dur) { const tr = this.treating; this.treating = null; if (tr.peer) { if (G_net()) G_net().treatDone(tr); } else NE.applyTreatment(this, tr.entry, tr.part, tr.op); } }
-    if (this.search) { this.search.t += dt; if (Math.random() < dt * 6) NE.Audio.play('rummage'); if (this.search.t >= this.search.dur) { const s = this.search; this.search = null; g.finishSearch(s.obj); } }
+    if (this.search) { this.search.t += dt; const so = this.search.obj; if (so && so.x != null && Math.abs(so.x - this.x) > 1) this.facing = so.x > this.x ? 1 : -1; if (Math.random() < dt * 6) NE.Audio.play('rummage'); if (Math.random() < dt * 3 && so) g.dust(so.x + rf(-3, 3), (so.y || this.y) - rf(2, 8), 1); if (this.search.t >= this.search.dur) { const s = this.search; this.search = null; g.finishSearch(s.obj); } }
   }
   // Q: a quick low dash with a brief window where melee passes through you
   dash(mx) {
     const g = this.g, A = this.anat; if ((this.dashCD || 0) > 0 || this.rd || A.uncon || this.climbing || this.crawl || this.treating || this.search) return;
     const lf = A.legFactor().f; if (lf < 0.3) return g.toast('Your legs can\'t manage it.'); if (A.stam < 12) { NE.Audio.play('deny'); return g.say(pick(['Too winded...', 'Can\'t...', 'Need air.']), 1); }
-    const dir = mx ? Math.sign(mx) : this.facing; this.vx = dir * 340 * lf * this.gearSpd(); if (this.onGround) this.vy = Math.min(this.vy, -35); this.knockT = 0.15; this.dashT = 0.2; this.dashIF = 0.2; this.dashCD = 0.6; this.dashAt = g.t; this.dashDir = dir;
-    A.stam -= 14 * this.stats.staminaCost; this.guard = null; this.charge = null; NE.Audio.play('dash'); g.dust(this.x - dir * 3, this.y, 4); g.noise(this.x, this.y, 40);
+    const dir = mx ? Math.sign(mx) : this.facing; this.vx = dir * 340 * lf * this.gearSpd(); if (this.onGround) this.vy = Math.min(this.vy, -35); this.knockT = 0.15; this.dashT = 0.32; this.dashDur = 0.32; this.dashIF = 0.24; this.dashCD = 0.6; this.dashAt = g.t; this.dashDir = dir;
+    A.stam -= 14 * this.stats.staminaCost; this.guard = null; this.charge = null; NE.Audio.play('dash'); setTimeout(() => NE.Audio.play('thud', 0.35), 140); g.dust(this.x - dir * 3, this.y, 4); g.noise(this.x, this.y, 40);
+  }
+  // lunge: hold LMB to a full wind-up, then press RMB — throw your whole weight into a lunging strike (long cooldown)
+  lunge() {
+    const g = this.g, A = this.anat; const w = this.weaponDef(); if (w.gun || !this.charge || this.charge.t < 0.6 || this.rd || A.uncon || this.climbing || this.crawl) return false;
+    if ((this.lungeCD || 0) > 0) { g.toast('Lunge recovering (' + this.lungeCD.toFixed(1) + 's)'); NE.Audio.play('deny'); return true; }
+    if (A.stam < w.melee.stam + 6) { g.say('Too winded to lunge...', 1); return true; }
+    const thr = w.melee.kind === 'sharp' && ((w.w || 1) < 1.2 || w.id === 'spear'); this.charge = null;
+    if (NE.Combat.strike(this, w, 1.3, thr ? 'thrust' : null)) { this.strk.lunge = true; this.vx += this.facing * 125 * A.legFactor().f; if (this.onGround) this.vy = Math.min(this.vy, -20); this.knockT = 0.14; this.cd = w.melee.cd * 1.5 + 0.2; this.lungeCD = 2.6; A.stam -= (w.melee.stam * 1.1 + 8) * this.stats.staminaCost; NE.Audio.play('lunge'); g.dust(this.x, this.y, 4); }
+    return true;
   }
   // RMB tap: a fast extended-arm jab that interrupts wind-ups
   poke() {
@@ -278,8 +287,6 @@ class Player extends Actor {
     if (g.tryDig && g.tryDig(this, w.dig ? w : Object.assign({}, w, { dig: dg }))) { const af = A.armFactor(); this.swingDur = m.cd / Math.max(0.5, af); this.swingT = this.swingDur; this.cd = this.swingDur; A.stam -= m.stam * 0.6 * this.stats.staminaCost; NE.Audio.play('swing'); return; }
     if (w.twoHand && (A.parts.larm.frac && !A.parts.larm.splint || A.parts.rarm.frac && !A.parts.rarm.splint)) { g.toast('Can\'t swing that with a broken arm.'); return; }
     if (this.strk) return;
-    // lunge: attacking while running or right after a dash throws your whole weight into the strike
-    if ((this.sprint && Math.abs(this.vx) > 70) || (g.t - (this.dashAt || -9) < 0.35)) { const thr = w.melee.kind === 'sharp' && ((w.w || 1) < 1.2 || w.id === 'spear'); if (NE.Combat.strike(this, w, 1.15, thr ? 'thrust' : null)) { this.strk.lunge = true; this.vx += this.facing * 210 * A.legFactor().f; this.knockT = 0.18; this.cd = w.melee.cd * 0.9; A.stam -= (w.melee.stam * 0.9 + 6) * this.stats.staminaCost; NE.Audio.play('lunge'); g.dust(this.x, this.y, 3); } return; }
     this.charge = { t: 0, w }; // hold to wind up a heavy attack, release to strike
   }
   release() {
@@ -410,7 +417,7 @@ class Enemy extends Actor {
             this.guardT -= dt; c.mx = d < reach ? -Math.sign(dx) * 0.35 : 0; if (this.guardT <= 0 || ko) { this.guard = null; this.cd = Math.min(this.cd, 0.15); }
           } else if (this.windT > 0) { // readable wind-up before every swing
             this.windT -= dt; if (this.charge) this.charge.t += dt; c.mx = this.lungeNext ? 0 : 0;
-            if (this.windT <= 0) { const heavy = this.heavyNext ? 1.35 : 0; this.charge = null; const lg = this.lungeNext; this.lungeNext = false; if (lg) { this.vx = Math.sign(dx) * 240; this.knockT = 0.2; NE.Audio.play('lunge', 0.7); } NE.Combat.strike(this, mw, heavy, lg && mw.melee.kind === 'sharp' ? 'thrust' : null); if (lg && this.strk) this.strk.lunge = true; this.cd = (mw.melee.cd || 0.8) * 1.15 + rf(0.45, 0.9); this.backT = rf(0.45, 0.9); if (this.type === 'feral' || this.D.bare) NE.Audio.play('growl', 0.5); }
+            if (this.windT <= 0) { const heavy = this.heavyNext ? 1.35 : 0; this.charge = null; const lg = this.lungeNext; this.lungeNext = false; if (lg) { this.vx = Math.sign(dx) * 150; this.knockT = 0.2; NE.Audio.play('lunge', 0.7); } NE.Combat.strike(this, mw, heavy, lg && mw.melee.kind === 'sharp' ? 'thrust' : null); if (lg && this.strk) this.strk.lunge = true; this.cd = (mw.melee.cd || 0.8) * 1.15 + rf(0.45, 0.9); this.backT = rf(0.45, 0.9); if (this.type === 'feral' || this.D.bare) NE.Audio.play('growl', 0.5); }
           } else if (this.backT > 0) { this.backT -= dt; c.mx = -Math.sign(dx) * 0.55; if (d > reach + 18) this.backT = 0; }
           else if (this.cd > 0 && d < reach + 6) { c.mx = d < reach ? -Math.sign(dx) * 0.4 : 0; } // circle at the edge of reach while recovering
           else if (this.D.block && mw && t.isPlayer && d < reach + 14 && (t.charge || (t.strk && !t.strk.poke)) && !this.guardCD && chance(this.D.block * dt * 6)) { this.guard = { t0: g.t }; this.guardT = rf(0.5, 1.1); this.guardHP = 22 + this.D.block * 30; this.guardCD = 1; setTimeout(() => { this.guardCD = 0; }, 2200); }

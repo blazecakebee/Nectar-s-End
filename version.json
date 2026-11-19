@@ -1,6 +1,20 @@
 {
  "log": [
   {
+   "version": "0.7.2",
+   "date": "2026-11-18",
+   "title": "Rolls, lunges, puffy packs",
+   "changes": [
+    "Dash is now a real combat roll. You dive forward, tuck into a ball, roll across the ground and come up on your feet. You're untouchable for the first 0.24s.",
+    "Lunge has a new input: hold LMB until your wind-up is full, then press RMB. You throw your weight forward into a heavy strike. It travels much less distance than before and has a 2.6s cooldown plus a longer recovery. Sprinting or dashing no longer triggers it by accident.",
+    "Enemy lunges also travel less distance.",
+    "Searching anything now has an animation. You kneel at the container, turn to face it, and dig through it with both hands while dust kicks up.",
+    "Backpacks look like backpacks: rounded and stuffed, with a bedroll on top, a front pocket, a buckle and a shoulder strap. Bigger packs bulge more.",
+    "Every backpack and outfit has an icon again in the Gear Rack and the Quartermaster. Packs and outfits without their own art get a matching pixel icon in their colours.",
+    "In co-op, your partner's rolls, searching and out-of-breath panting now show on your screen too."
+   ]
+  },
+  {
    "version": "0.7.1",
    "date": "2026-11-18",
    "title": "Shared water, party health bars",

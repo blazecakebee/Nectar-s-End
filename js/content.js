@@ -632,7 +632,8 @@ if (!document.getElementById('ward2-css')) { const st = document.createElement('
 .w2-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(118px*var(--us,1)),1fr));gap:6px;overflow:auto;min-height:0;padding-right:4px}
 .w2-card{border:1px solid rgba(232,226,208,.18);background:rgba(0,0,0,.28);padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:3px;position:relative}
 .w2-card:hover{border-color:rgba(255,255,255,.5)}.w2-card.sel{border-color:#ffc030;box-shadow:0 0 0 1px #ffc030 inset}.w2-card.lock{opacity:.55}
-.w2-card .sw{height:calc(26px*var(--us,1));display:flex;gap:2px}.w2-card .sw i{flex:1;display:block}
+.w2-top{display:flex;gap:6px;align-items:center}.w2-ico{width:calc(32px*var(--us,1));height:calc(32px*var(--us,1));image-rendering:pixelated;flex:none}.w2-ico.big{width:calc(48px*var(--us,1));height:calc(48px*var(--us,1))}
+.w2-card .sw{height:calc(10px*var(--us,1));display:flex;gap:2px;flex:1;align-self:flex-end;margin-bottom:2px}.w2-card .sw i{flex:1;display:block}
 .w2-card b{font-size:.92em}.w2-card small{opacity:.7;font-size:.8em}.w2-card .tag{position:absolute;top:3px;right:4px;font-size:.72em;color:#7ad07a}
 .w2-det{border:1px solid rgba(232,226,208,.18);background:rgba(0,0,0,.28);padding:8px;display:flex;flex-direction:column;gap:6px;overflow:auto}
 .w2-det .st{display:flex;justify-content:space-between;border-bottom:1px dashed rgba(232,226,208,.12);padding:2px 0}
@@ -645,9 +646,10 @@ UI.render.wardrobe = function (b) {
   const shown = list.filter(o => S.filt === 'all' || (S.filt === 'owned' ? owned(o) : !owned(o)));
   const sel = list.find(o => o.id === S.sel) || list.find(o => o.id === M.equipped[eqKey]) || list[0]; S.sel = sel.id;
   const sw = o => S.tab === 'backpacks' ? '<i style="background:' + o.col[0] + '"></i><i style="background:' + o.col[1] + ';flex:.4"></i>' : (o.random ? '<i style="background:linear-gradient(90deg,#6a5a40,#3a4a60,#5a3a3a)"></i>' : '<i style="background:' + o.shirt + '"></i><i style="background:' + o.pants + '"></i>');
-  const card = o => { const un = owned(o), eq = M.equipped[eqKey] === o.id; return '<div class="w2-card' + (o.id === S.sel ? ' sel' : '') + (un ? '' : ' lock') + '" data-id="' + o.id + '"><div class="sw">' + sw(o) + '</div><b>' + esc(o.name) + '</b><small>' + (S.tab === 'backpacks' ? packCells(o) + ' cells • ' + (o.carry + 6) + 'kg' : esc((o.desc || '').split('.')[0])) + '</small>' + (eq ? '<span class="tag">WORN</span>' : un ? '' : '<span class="tag" style="color:#e0b040">🔒</span>') + '</div>'; };
+  const ico = o => '<img class="pix w2-ico" src="' + NE.iconURL((S.tab === 'backpacks' ? 'bp_' : 'of_') + o.id, null, 4) + '">';
+  const card = o => { const un = owned(o), eq = M.equipped[eqKey] === o.id; return '<div class="w2-card' + (o.id === S.sel ? ' sel' : '') + (un ? '' : ' lock') + '" data-id="' + o.id + '"><div class="w2-top">' + ico(o) + '<div class="sw">' + sw(o) + '</div></div><b>' + esc(o.name) + '</b><small>' + (S.tab === 'backpacks' ? packCells(o) + ' cells • ' + (o.carry + 6) + 'kg' : esc((o.desc || '').split('.')[0])) + '</small>' + (eq ? '<span class="tag">WORN</span>' : un ? '' : '<span class="tag" style="color:#e0b040">🔒</span>') + '</div>'; };
   const un = owned(sel), eq = M.equipped[eqKey] === sel.id;
-  let det = '<h3 style="margin:0">' + esc(sel.name) + '</h3><div class="dim">' + esc(sel.desc || '') + '</div>';
+  let det = '<div style="display:flex;gap:8px;align-items:center">' + ico(sel).replace('w2-ico', 'w2-ico big') + '<h3 style="margin:0">' + esc(sel.name) + '</h3></div><div class="dim">' + esc(sel.desc || '') + '</div>';
   if (S.tab === 'backpacks') det += '<div class="st"><span>Grid</span><b>' + NE.packGrid(sel.slots) + '</b></div><div class="st"><span>Cells</span><b>' + packCells(sel) + '</b></div><div class="st"><span>Carry</span><b>' + (sel.carry + 6) + ' kg</b></div>';
   for (const k in (sel.mods || {})) { const v = sel.mods[k]; const pct = k === 'carry' || k === 'stamina' || k === 'lungs' ? (v > 0 ? '+' : '') + v : (v > 1 ? '+' : '') + Math.round((v - 1) * 100) + '%'; det += '<div class="st"><span>' + esc({ speed: 'Move speed', noise: 'Noise', treat: 'Treatment time', cold: 'Cold', heat: 'Heat', gas: 'Spores/gas', rad: 'Radiation', carry: 'Carry (kg)', runCost: 'Sprint stamina', medEff: 'Treatment strength', melee: 'Melee damage', stress: 'Stress', infect: 'Infection', tox: 'Toxins', lungs: 'Lung capacity', hpMul: 'Health', stamina: 'Stamina' }[k] || k) + '</span><b>' + pct + '</b></div>'; }
   if (!un) det += '<div class="warn">🔒 ' + esc(sel.unlock ? sel.unlock.text : 'Locked') + (sel.price ? '<br>or buy at the Quartermaster for ' + sel.price + ' scrap' : '') + '</div>';
@@ -716,4 +718,25 @@ UI.partyTag = function () {
 };
 const tick0 = UI.tick;
 UI.tick = function (dt) { tick0.call(this, dt); UI._pt = (UI._pt || 0) - dt; if (UI._pt <= 0) { UI._pt = 0.12; try { UI.partyHud(); } catch (e) { } } try { UI.partyTag(); } catch (e) { } };
+})(window.NE);
+
+// =====================================================================================================================
+// BACKPACK & OUTFIT ICONS: atlas art where it exists, hand-drawn 16x16 pixel icons for everything else
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const cache = {};
+const BP = ['................', '.....oooooo.....', '....o222222o....', '...o2bbbbbb2o...', '..o0hhhhhhhh0o..', '..o0hmmmmmmm0o..', '..o0hmmmmmmmdo..', '..o0hmmmmmmmdo..', '..o0hpppppppdo..', '..o0hpm11mpddo..', '..o0hpmmmmpddo..', '..o0hpppppppdo..', '..o0hmmmmmmmdo..', '...odddddddddo..', '....oooooooo....', '................'];
+const OF = ['................', '.....oo..oo.....', '...ooshhhhsoo...', '..oshhssssssso..', '.osssssssssssso.', '.oss.osssssoss..', '.oo..osssssoo...', '.....osssssso...', '.....obbbbbbo...', '.....opppPppo...', '.....opppPppo...', '.....oppo.oppo..', '.....oppo.oppo..', '.....oppo.oppo..', '.....okko.okko..', '................'];
+const draw = (rows, pal, sc) => { const c = document.createElement('canvas'); c.width = c.height = 16 * sc; const x = c.getContext('2d');
+  for (let j = 0; j < 16; j++) for (let i = 0; i < 16; i++) { const ch = rows[j][i]; if (ch === '.' || !pal[ch]) continue; x.fillStyle = pal[ch]; x.fillRect(i * sc, j * sc, sc, sc); } return c; };
+NE.gearIcon = function (key, scale) {
+  const sc = Math.max(1, Math.round((scale || 4) / 2)); const ck = key + '|' + sc; if (cache[ck]) return cache[ck];
+  let c = null;
+  if (key.startsWith('bp_')) { const b = NE.BACKPACKS.find(x => 'bp_' + x.id === key); if (b) { const a = b.col[0], s = b.col[1]; c = draw(BP, { o: '#140e0a', 0: NE.shade(a, 0.7), 2: NE.shade(s, 0.7), b: s, h: NE.shade(a, 1.3), m: a, d: NE.shade(a, 0.68), p: NE.shade(a, 0.86), 1: '#e0d0a0' }, sc); } }
+  else if (key.startsWith('of_')) { const o = NE.OUTFITS.find(x => 'of_' + x.id === key); if (o) { const sh = o.random ? '#7a6a50' : o.shirt, pa = o.random ? '#4a4a5a' : o.pants; c = draw(OF, { o: '#140e0a', s: sh, h: NE.shade(sh, 1.25), b: '#2a2018', p: pa, P: NE.shade(pa, 0.7), k: '#1c1612' }, sc); } }
+  if (c) cache[ck] = c; return c;
+};
+const icon0 = NE.icon;
+NE.icon = function (key, col, scale, itemId) { if (typeof key === 'string' && (key.startsWith('bp_') || key.startsWith('of_')) && !NE.atlasKey(key)) { const c = NE.gearIcon(key, scale); if (c) return c; } return icon0.call(this, key, col, scale, itemId); };
 })(window.NE);
