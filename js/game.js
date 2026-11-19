@@ -164,7 +164,7 @@ G.toLobby = function () {
   G.save();
   G.world = NE.World.lobbyWorld(); G.phys = new NE.Phys(G.world);
   const fl = G.world.floors[0]; G.player = new NE.Player(G, 6 * T, fl.feetY, G.meta.survivor, G.meta); G.actors.push(G.player); G.player.infest = G.infestLevel();
-  for (let i = 0; i < 3; i++) G.phys.box('crate', (24 + i * 1.2) * T, fl.feetY - 6 - i * 9, 7, 7, 3, '#6a5034');
+  // (loose crates removed from base camp)
   G.phys.stick('bottle', 33 * T, fl.feetY - 4, 4, 0, 1.2, 0.5);
   G.cam.x = 0; G.cam.y = fl.feetY - VH * 0.6; NE.UI.showLobby(); NE.Audio.music('camp');
   if (G.net && G.net.on) G.net.enterLobby();
@@ -687,7 +687,7 @@ G.render = function (dt) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   G.drawFX(dt);
   // crosshair
-  if ((p.alive || G.goop) && !NE.UI.panel && !NE.UI.hexOpen && !NE.UI.modalOpen()) { const m = G.mouse, mx = Math.round(m.x), my = Math.round(m.y); const O = 'rgba(20,10,4,0.85)', Y = (p && p.vglow) || '#ffc030', L = NE.shade(Y, 1.45);
+  if ((p.alive || G.goop) && !NE.UI.panel && !NE.UI.hexOpen && !NE.UI.modalOpen()) { const m = G.mouse, mx = Math.round(m.x), my = Math.round(m.y); const O = 'rgba(20,10,4,0.85)', Y = (p && G.state !== 'lobby' && p.vglow) || '#ffc030', L = NE.shade(Y, 1.45);
     const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }; const tick = (x, y, w, h) => { px(x - 1, y - 1, w + 2, h + 2, O); px(x, y, w, h, Y); };
     if (p.gunOut) { const g = 2 + Math.round(p.anat.tremor() * 4 + (p.cd > 0 ? 1 : 0)); tick(mx - g - 3, my, 3, 1); tick(mx + g + 1, my, 3, 1); tick(mx, my - g - 3, 1, 3); tick(mx, my + g + 1, 1, 3); px(mx, my, 1, 1, L); }
     else { px(mx - 2, my - 2, 5, 5, O); px(mx - 1, my, 3, 1, Y); px(mx, my - 1, 1, 3, Y); px(mx, my, 1, 1, L);
@@ -756,6 +756,7 @@ G.drawElevator = function (ctx, o, x, y) {
 G.drawLighting = function (cx, cy, fl) {
   const p = G.player, W = G.world, lx = G.lx, ctx = G.ctx; const lights = []; const st = p.stats; const sight = st.sight * (p.anat.org.eyes < 50 ? 0.8 : 1);
   let dark = fl.biome.dark + Math.min(0.04, fl.depth / 25000); if (fl.town) dark = 0.5; if (G.blackout > 0) dark = 0.985; if (W.lobby) dark = 0.45;
+  if (G.extraLights) for (const l of G.extraLights()) lights.push(l);
   if (G.goop) lights.push({ x: G.goop.x, y: G.goop.y - 4, r: 70, i: 0.85, col: G.player && G.player.vglow || '#ffc020', player: true });
   if (G.burstFx && G.burstFx.t > 0) lights.push({ x: G.burstFx.x, y: G.burstFx.y, r: 40 + (1 - G.burstFx.t) * 260, i: Math.min(1, G.burstFx.t * 1.3), col: G.burstFx.col, player: true });
   if (G.wisp) lights.push({ x: G.wisp.x, y: G.wisp.y, r: 40, i: 0.7, col: '#ffd040', player: true });

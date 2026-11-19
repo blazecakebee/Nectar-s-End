@@ -1,6 +1,16 @@
 {
  "log": [
   {
+   "version": "0.7.5",
+   "date": "2026-11-18",
+   "title": "Human eyes at base camp, the way you came in",
+   "changes": [
+    "At base camp no Vespa is inside you yet, so your character has normal human eyes. This applies to your in-world sprite, your portrait, the status panel, the Diver Dossier and your co-op partner. The glowing eyes, eye trail and Vespa-coloured crosshair only start once the parasite takes you.",
+    "Removed the loose physics crates from base camp and the first level. They were buggy and in the way.",
+    "The tent and couch at the far left of base camp are gone. In their place is the cave mouth you came in through: daylight pours past a collapsed rock pile and the splintered entrance frame. You can walk up to it, but the way out has caved in."
+   ]
+  },
+  {
    "version": "0.7.4",
    "date": "2026-11-18",
    "title": "Towns, throwables, impaling, events",

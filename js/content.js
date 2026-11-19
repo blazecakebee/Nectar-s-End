@@ -1459,3 +1459,33 @@ NE.quickBandage = function (p) {
 // progress bars (searching, treating, struggling) and charge take your Vespa's colour
 const tick0 = NE.UI.tick; NE.UI.tick = function (dt) { tick0.call(this, dt); const p = G.player; const vg = (p && p.vglow) || null; if (vg && vg !== NE.UI._vg) { NE.UI._vg = vg; const d = document.querySelector('#prog div'); if (d) { d.style.background = vg; d.style.boxShadow = '0 0 6px ' + vg; } } };
 })(window.NE);
+
+// in the pre-game lobby nobody has a Vespa inside them yet: plain human eyes, no glow trail
+(function (NE) {
+const G = NE.G; const upd0 = G.update;
+G.update = function (dt, rdt) { if (G.state === 'lobby') { if (G.player) G.player.vespa = false; if (G.net && G.net.peer) G.net.peer.vespa = false; } else if (G.state === 'run' && !G.infest) { if (G.player && G.player.alive && G.player.vespa === false) G.player.vespa = true; if (G.net && G.net.peer && G.net.peer.vespa === false) G.net.peer.vespa = true; } return upd0.call(this, dt, rdt); };
+})(window.NE);
+
+// base camp: the cave mouth you came in through (blocked — the only way is down)
+(function (NE) {
+const G = NE.G; const { rf, pick } = NE;
+G.extraLights = () => { const out = []; const W = G.world; if (W && W.lobby && W.floors[0]) for (const o of W.floors[0].objs) if (o.type === 'caveexit') out.push({ x: o.x + 4, y: o.y - 22, r: 70, i: 0.9, col: '#cfe4ff' }); return out; };
+const drawObj0 = G.drawObj;
+G.drawObj = function (ctx, o) {
+  if (o.type !== 'caveexit') return drawObj0(ctx, o); const x = Math.round(o.x) - 16, y = Math.round(o.y); const t = G.t;
+  // daylight beyond the rubble
+  const gr = ctx.createLinearGradient(x, y - 48, x + 26, y); gr.addColorStop(0, 'rgba(225,240,255,0.95)'); gr.addColorStop(0.6, 'rgba(190,215,240,0.75)'); gr.addColorStop(1, 'rgba(150,170,190,0.4)'); ctx.fillStyle = gr; ctx.fillRect(x, y - 48, 22, 48);
+  // light shafts slanting in
+  for (let i = 0; i < 3; i++) { ctx.fillStyle = 'rgba(230,240,255,' + (0.08 + 0.04 * Math.sin(t * 0.7 + i)) + ')'; for (let k = 0; k < 40; k++) ctx.fillRect(x + 18 + k + i * 6, y - 46 + k, 3, 1); }
+  // collapsed rock pile filling the passage, with a gap of sky up top
+  const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); };
+  const rock = ['#4a4038', '#5a4e44', '#3a322c', '#665a4e'];
+  [[0, -10, 12, 10], [8, -16, 10, 9], [0, -26, 9, 11], [12, -24, 9, 8], [2, -36, 8, 10], [10, -32, 8, 8], [16, -9, 8, 9], [5, -20, 7, 6]].forEach(([a, b, w, h], i) => { R(a, b, w, h, rock[i % 4]); R(a, b, w, 1, '#7a6e60'); R(a + w - 1, b, 1, h, '#2a241e'); });
+  R(14, -42, 8, 8, 'rgba(235,245,255,0.95)'); R(16, -44, 4, 2, 'rgba(255,255,255,0.9)'); // the last sliver of sky
+  // splintered beams of the old entrance frame
+  R(20, -48, 2, 48, '#5a3a20'); R(17, -48, 8, 2, '#5a3a20'); R(4, -46, 14, 2, '#4a301a'); R(22, -30, 6, 2, '#5a3a20');
+  if (Math.random() < 0.08) G.addP(x + 18, y - 40 + rf(0, 20), rf(10, 25), rf(-3, 3), rf(1.5, 2.5), 'rgba(220,230,240,0.6)', 'steam', -0.02);
+};
+const interact0 = G.interact;
+G.interact = function () { const o = G.interactTarget(); if (o && o.act === 'caveexit') { NE.Audio.play('rumble', 0.4); G.say(pick(['The way out caved in behind us. Only down now.', 'Daylight. So close, and nowhere near.', 'No going back. The lift only goes down.']), 1); G.toast('The entrance collapsed. The only way is down.'); return; } return interact0.apply(this, arguments); };
+})(window.NE);

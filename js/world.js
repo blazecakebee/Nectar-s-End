@@ -35,19 +35,20 @@ class World {
     for (let r = 0; r < H; r++) { const a = new Uint8Array(w.W); w.rows.push(a); }
     const g = [], c = [];
     for (let x = 0; x < w.W; x++) { g[x] = 13; c[x] = clamp(3 + Math.round(nz(x) * 1.4), 2, 4); if (x < 2 || x >= w.W - 2) c[x] = 13; for (let r = 0; r < H; r++) w.rows[r][x] = (r < c[x] || r >= g[x]) ? 1 : 0; }
-    for (let x = 4; x < 9; x++) w.rows[9][x] = 2;
+    for (let x = 0; x < 3; x++) for (let r = 7; r < 13; r++) w.rows[r][x] = 0; // the cave mouth you came in through
     for (let x = 49; x <= 55; x++) for (let r = 0; r < 13; r++) w.rows[r][x] = (x === 49 || x === 55) ? (r < 9 ? 8 : 0) : 0; // lift shaft up to the surface
     for (let x = 49; x <= 55; x++) c[x] = 0;
     const fy = 13 * T;
     const fl = { f: 0, y0: 0, depth: 0, g, c, biome: { id: 'lobby', name: 'Base Camp', pal: NE.LOBBY_PAL, dark: 0.55, decor: [] }, objs: [], spawns: [], decor: [], seen: null, feetY: fy };
     fl.objs.push({ type: 'terminal', x: 12 * T, y: fy, label: 'Survey Table — Skills', act: 'skills' });
+    fl.objs.push({ type: 'caveexit', x: 2 * T, y: fy, label: 'Cave mouth — the way you came in', act: 'caveexit' });
     fl.objs.push({ type: 'locker', x: 20 * T, y: fy, label: 'Gear Rack & Backpacks', act: 'wardrobe' });
     fl.objs.push({ type: 'quarter', x: 29 * T, y: fy, label: 'Quartermaster', act: 'shop' });
     fl.objs.push({ type: 'dossier', x: 38 * T, y: fy, label: 'Diver Dossier', act: 'dossier' });
     fl.objs.push({ type: 'fire', x: 44 * T, y: fy, label: 'Campfire' });
     fl.objs.push({ type: 'elevator', kind: 'descent', x: 52 * T, y: fy, label: 'Descent Winch Lift', act: 'descend' });
     for (const lx of [8, 18, 28, 37]) fl.objs.push({ type: 'lamp', x: lx * T + 4, y: c[lx] * T + 1, on: true, col: '#ffc070', flick: chance(0.4) ? rf(0.2, 0.6) : 0 });
-    fl.decor = [{ k: 'tent', x: 3 * T, y: fy }, { k: 'crates', x: 33 * T, y: fy }, { k: 'rug', x: 8 * T, y: fy }, { k: 'sofa', x: 4 * T + 6, y: fy }, { k: 'desk', x: 14 * T, y: fy }, { k: 'plant', x: 17 * T + 4, y: fy }, { k: 'fridge', x: 23 * T, y: fy }, { k: 'shelf', x: 25 * T, y: fy }, { k: 'genset', x: 34 * T + 4, y: fy }, { k: 'plant', x: 41 * T, y: fy }, { k: 'neon', x: 26 * T, y: fy }, { k: 'roots', x: 24 * T, y: 4 * T }, { k: 'roots', x: 15 * T, y: 4 * T }];
+    fl.decor = [{ k: 'crates', x: 33 * T, y: fy }, { k: 'desk', x: 14 * T, y: fy }, { k: 'plant', x: 17 * T + 4, y: fy }, { k: 'fridge', x: 23 * T, y: fy }, { k: 'shelf', x: 25 * T, y: fy }, { k: 'genset', x: 34 * T + 4, y: fy }, { k: 'plant', x: 41 * T, y: fy }, { k: 'neon', x: 26 * T, y: fy }, { k: 'roots', x: 24 * T, y: 4 * T }, { k: 'roots', x: 15 * T, y: 4 * T }];
     w.floors.push(fl); return w;
   }
   ensure(f, cb) { while (this.floors.length <= f) { const n = this.floors.length; const fl = NE.withSeed((this.seed + n * 7919) >>> 0, () => this.genFloor(n)); this.applyMods(fl); if (cb) cb(fl); } }
@@ -159,7 +160,7 @@ class World {
       if (depth > 300 && chance(0.05)) fl.spawns.push({ kind: 'trader', x: ri(10, W - 10) * T });
       if (f >= 3 && chance(0.12)) fl.spawns.push({ kind: 'standoff', x: ri(15, W - 15) * T });
     }
-    for (let k = 0; k < ri(1, 3); k++) fl.spawns.push({ kind: 'prop', p: pick(['crate', 'barrel', 'brick', 'bottle', 'debris', 'debris']), x: ri(6, W - 6) * T, dy: -8 });
+    if (f > 0) for (let k = 0; k < ri(1, 3); k++) fl.spawns.push({ kind: 'prop', p: pick(['crate', 'barrel', 'brick', 'bottle', 'debris', 'debris']), x: ri(6, W - 6) * T, dy: -8 });
     for (const r of rows) this.rows.push(r);
     // resolve y positions now that rows exist
     fl.feetY = (y0 + FH - 4) * T;
