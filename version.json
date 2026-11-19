@@ -16,7 +16,9 @@
     "Drop kicks and front kicks keep their direction even if you move the mouse mid-kick.",
     "Dash rework: covers about 8 tiles instead of 14, and the dive-and-roll plays out over about half a second instead of snapping by in a third. Dodge window 0.32s, cooldown 0.75s (Tendons: 0.45s).",
     "Height matters: short survivors are quicker and tall ones are sturdier. 4'11\" moves 20% faster, 6'6\" takes 20% less damage, sliding evenly in between (5'9\" is about +10% of each). Shown next to your height on the HUD. This replaces the old small speed penalty for being tall.",
-    "Skill tree rebalance: every perk is roughly 30–50% weaker per rank. Sprinter is now +3% run speed and -5% running stamina per rank (was +5% / -10%). Movement +2.5% speed / -3% stamina. Strength +5% melee. Brawler +6% swing. Vitality +5% health. Endurance, Tolerance, Medicine, Scavenger, Psychology and the others are trimmed to match. Overlapping perks have floors so they can't stack into near-immunity: search time at least 60%, stress 50%, trader prices 75%, treatment time 60%, bleeding 55%, stamina cost 70%."
+    "Skill tree rebalance: every perk is roughly 30–50% weaker per rank. Sprinter is now +3% run speed and -5% running stamina per rank (was +5% / -10%). Movement +2.5% speed / -3% stamina. Strength +5% melee. Brawler +6% swing. Vitality +5% health. Endurance, Tolerance, Medicine, Scavenger, Psychology and the others are trimmed to match. Overlapping perks have floors so they can't stack into near-immunity: search time at least 60%, stress 50%, trader prices 75%, treatment time 60%, bleeding 55%, stamina cost 70%.",
+    "Climbing animations: climbing a wall is now a hand-over-hand crawl. One hand reaches up, grabs and pulls while the knees frog up for footholds. Ladders and ropes get the same treatment and play it in reverse going down. Your weapon arm no longer aims at the mouse while you're on a wall.",
+    "New: climb down walls. In the air beside a wall, hold S (or S plus toward the wall) to clamber down slowly instead of sliding or falling. Costs a little stamina."
    ]
   },
   {

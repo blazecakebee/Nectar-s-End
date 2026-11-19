@@ -491,7 +491,7 @@ NE.Actor.prototype.physicsMove = function (dt, c) {
   if (jet && c.jump && !this.onGround && !this.climbing && !wet && this.airT > 0.22 && (this.jetFuel || 0) > 0 && !A.uncon) { this.jetting = true; this.jetFuel -= dt; this.vy = Math.max(-130, this.vy - 1150 * dt); if (Math.random() < dt * 30) G.addP(this.x - this.facing * 3, this.y - 10, rf(-10, 10), rf(60, 120), rf(0.2, 0.4), Math.random() < 0.5 ? '#ff9040' : '#c0c0c0', 'spark', 0.1); this.jetSnd = (this.jetSnd || 0) - dt; if (this.jetSnd <= 0) { this.jetSnd = 0.18; NE.Audio.play('hiss', 0.4); G.noise(this.x, this.y, 60); } }
   const res = pmA.call(this, dt, c); this.speedMul = sm0;
   // ---- grab a ledge while falling past it (moving toward the wall or holding up)
-  if (!this.onGround && !this.climbing && !this.wallClimb && !this.crawl && !wet && this.vy > -40 && !this.hangCD && !A.uncon && !this.rd && A.armFactor() >= 0.35 && A.stam > 3 && !this.jetting) {
+  if (!this.onGround && !this.climbing && !this.wallClimb && !this.wallDown && !c.down && !this.crawl && !wet && this.vy > -40 && !this.hangCD && !A.uncon && !this.rd && A.armFactor() >= 0.35 && A.stam > 3 && !this.jetting) {
     for (const d of c.mx ? [c.mx] : c.up ? [this.facing] : []) { const L2 = ledgeAt(this, d); if (L2) { this.hang = { d, ly: L2.ly, tx: L2.tx, x0: this.x, room: L2.room }; this._hj = true; this.vx = 0; this.vy = 0; this.y = L2.ly + this.h - 1; this.facing = d; NE.Audio.play('step', 0.6); this.wallClimb = false; break; } } }
   return res;
 };

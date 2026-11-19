@@ -45,7 +45,7 @@ class Actor {
       if (this.sliding) { this.vy = Math.min(210, Math.max(this.vy, 60) + 500 * dt); this.slideT = (this.slideT || 0) + dt; if (this.slideT > 0.09) { this.slideT = 0; if (this.isPlayer) NE.Audio.play('rope'); } }
       else this.vy = c.down ? cs * 1.5 : c.up ? -cs : 0;
       this.vx = lerp(this.vx, 0, 0.3);
-      const lx = this.ladderX(); if (lx != null) this.x = lerp(this.x, lx, 0.3); if (this.vy) this.climbPh += dt * (this.sliding ? 2 : 9);
+      const lx = this.ladderX(); if (lx != null) this.x = lerp(this.x, lx, 0.3); if (this.vy) this.climbPh += dt * (this.sliding ? 2 : 9) * (this.vy < 0 || this.sliding ? 1 : -1);
       this.y += this.vy * dt; this.collideY(this.y - this.vy * dt, true); this.onGround = false; return { landed: 0 };
     }
     this.sliding = false;
@@ -74,8 +74,12 @@ class Actor {
     this.wallLock = Math.max(0, (this.wallLock || 0) - dt); this.wallCoy = Math.max(0, (this.wallCoy || 0) - dt);
     if (this.onGround) { this.wallBoosts = 0; this.lastWall = 0; }
     const wd = this.isPlayer && !this.onGround && !this.climbing && !this.crawl && !A.uncon ? this.wallAt() : 0; if (wd) { this.wallDir = wd; this.wallCoy = 0.12; }
-    this.wallSliding = false;
-    if (wd && !this.wallClimb && c.mx === wd && this.vy > 40 && A.armFactor() > 0.4) { this.vy = Math.min(this.vy, 70 / (st.parkour || 1)); this.wallSliding = true; if (Math.random() < dt * 12) this.g.dust(this.x + wd * 3, this.y - 6, 1); }
+    this.wallSliding = false; this.wallDown = false;
+    // ---- climb down a wall: hold S (and toward the wall) while beside rock in the air to clamber down hand under hand
+    if (wd && !this.wallClimb && !inWater && c.down && (c.mx === wd || !c.mx) && A.armFactor() > 0.4 && A.stam > 1 && this.vy > -20) {
+      this.wallDown = true; this.facing = wd; this.vy = 44 * (st.climb || 1) * A.armFactor(); this.vx = wd * 10; A.stam -= dt * 2; this.climbPh -= dt * 8;
+      if (Math.random() < dt * 4) this.g.dust(this.x + wd * 3, this.y - this.h * 0.4, 1); }
+    if (wd && !this.wallClimb && !this.wallDown && c.mx === wd && this.vy > 40 && A.armFactor() > 0.4) { this.vy = Math.min(this.vy, 70 / (st.parkour || 1)); this.wallSliding = true; if (Math.random() < dt * 12) this.g.dust(this.x + wd * 3, this.y - 6, 1); }
     if (this.isPlayer && jumpPress && !this.onGround && !this.climbing && this.wallCoy > 0 && A.stam > 4 && legs.broken < 2) {
       const d = this.wallDir; const boost = c.sprint && c.mx === d && (this.wallBoosts || 0) < 2 && this.lastWall !== -d;
       if (boost) { this.vy = -230 * (st.parkour || 1); this.vx = -d * 40; this.wallBoosts = (this.wallBoosts || 0) + 1; this.wallLock = 0.12; A.stam -= 7; NE.Audio.play('land', 0.35); }
@@ -213,7 +217,7 @@ class Player extends Actor {
   setAbilities(list) { this.abil = list.slice(); this.muts = NE.mutsOf(list); const s = this.stats; if (!this._st0) this._st0 = { bleed: s.bleed, cold: s.cold, noise: s.noise, fall: s.fall }; Object.assign(s, this._st0); const has = id => list.includes(id); if (has('honeyblood')) s.bleed *= 0.65; if (has('frost')) s.cold *= 0.4; if (has('phantom')) s.noise *= 0.6; if (has('leap')) s.fall *= 0.7; s.jump = has('leap') ? 1.22 : 1; s.regen = has('regen'); s.heart = list.includes('heart'); s.amber = list.includes('amber'); s.mand = list.includes('mand'); this.glide = list.includes('wings'); }
   weaponId() { return this.equip.weapon ? this.equip.weapon.id : null; }
   weaponDef() { const e = this.equip.weapon; return e ? NE.ITEMS[e.id] : this.stats.mand ? JAWS : FISTS; }
-  get gunOut() { const w = this.equip.weapon; return !!(w && NE.ITEMS[w.id].gun) && !this.climbing && !this.crawl; }
+  get gunOut() { const w = this.equip.weapon; return !!(w && NE.ITEMS[w.id].gun) && !this.climbing && !this.wallClimb && !this.wallDown && !this.crawl; }
   get twoHand() { const w = this.equip.weapon; return !!(w && NE.ITEMS[w.id].twoHand); }
   update(dt, input) {
     const g = this.g, A = this.anat, st = this.stats;
@@ -240,7 +244,7 @@ class Player extends Actor {
     if (!c.mx && !this.climbing && !A.uncon) this.facing = dx >= 0 ? 1 : -1;
     if (this.charge) { this.charge.t += dt; A.stam -= dt * 3; if (!g.mouse.l || A.uncon || this.climbing) this.release(); }
     { const wq = this.weaponDef(); if (wq.gun && wq.gun.auto && g.mouse.l && this.cd <= 0 && G_playing(g)) this.attack(); }
-    { const w = this.weaponDef(); const ok = !w.gun && !this.climbing && !this.crawl && !this.treating && !this.search && !A.uncon && !(A.parts.larm.severed && A.parts.rarm.severed); const gx = this.guard ? this.x + this.facing * 14 : g.mouse.wx, gy = this.guard ? this.y - this.h - 6 : g.mouse.wy; NE.Combat.tick(this, dt, gx, gy, ok); }
+    { const w = this.weaponDef(); const ok = !w.gun && !this.climbing && !this.wallClimb && !this.wallDown && !this.crawl && !this.treating && !this.search && !A.uncon && !(A.parts.larm.severed && A.parts.rarm.severed); const gx = this.guard ? this.x + this.facing * 14 : g.mouse.wx, gy = this.guard ? this.y - this.h - 6 : g.mouse.wy; NE.Combat.tick(this, dt, gx, gy, ok); }
     // waist lantern (oil)
     if (this.light.on) { this.light.bat = Math.max(0, this.light.bat - dt * 100 / (360 * st.battery)); if (this.light.bat <= 0) { this.light.on = false; g.toast('Your lantern sputters out.'); } }
     if (this.gear.face && g.env.gas > 0 && this.filterT > 0) this.filterT = Math.max(0, this.filterT - dt);

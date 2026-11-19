@@ -28,6 +28,14 @@ NE.makeSurvivor = function () {
 
 const ADD = new Set(['stamina', 'carry', 'painTol', 'slots', 'craft', 'clot']);
 function applyMods(s, m) { if (!m) return; for (const k in m) { if (k === 'lungs') s.lungs = m[k]; else if (ADD.has(k)) s[k] += m[k]; else s[k] = (s[k] == null ? 1 : s[k]) * m[k]; } }
+// climbing gait: each hand snaps up to a new hold (fast reach), then slides down relative to the body as you pull up;
+// legs do the same half a cycle later. Running climbPh backwards plays it as a descent.
+NE.climbLimbs = function (ph, wall) { const TAU = Math.PI * 2; const fr = t => ((t % 1) + 1) % 1;
+  const limb = (t, lo, hi, x0, pull) => { if (t < 0.32) { const k = t / 0.32, e = k * k * (3 - 2 * k); return [x0 - Math.sin(k * Math.PI) * pull, lo + (hi - lo) * e, Math.sin(k * Math.PI)]; } const k = (t - 0.32) / 0.68; return [x0, hi + (lo - hi) * k, 0]; };
+  const t = fr(ph / TAU); const hx = wall ? 3.3 : 0, fx = wall ? 2.8 : 0;
+  const h1 = limb(t, -10.5, -17.2, hx, 1.6), h2 = limb(fr(t + 0.5), -10.5, -17.2, hx, 1.6);
+  const f1 = limb(fr(t + 0.5), -0.3, -4.6, fx, 1.2), f2 = limb(t, -0.3, -4.6, fx, 1.2);
+  return { h1, h2, f1, f2, k1: (f1[1] + 0.3) / -4.3 * 1.6, k2: (f2[1] + 0.3) / -4.3 * 1.6, bob: Math.cos(t * TAU * 2) * 0.45 }; };
 NE.computeStats = function (meta, surv) {
   const s = { speed: 1, stamina: 0, staminaCost: 1, fall: 1, noise: 1, climb: 1, gas: 1, sight: 1, aim: 1, tox: 1, rad: 1, infect: 1, bleed: 1, painTol: 0, fracture: 1, hunger: 1, thirst: 1, cold: 1, melee: 1, carry: 0, slots: 0, stress: 1, barter: 1, treat: 1, search: 1, loot: 1, coldblood: false, medEff: 1, battery: 1, craft: 0, lungs: 100, heat: 1 };
   const P = (meta && meta.perks) || {}; const r = id => P[id] || 0;
@@ -318,19 +326,19 @@ NE.ragPose = function (a) {
     const o = [[6.2 + heave, -2.6], [3 + heave, -2.4], [-2, -1.7], A2[0], idle ? [6, 0] : A2[1], A1[0], idle ? [5, 0] : A1[1],
       [-4.2, -1.1], dead ? [-8.2, -0.6] : [-7.4 + s * 0.8, -1.4 - Math.max(0, s) * 0.6], [-4, -1.2], dead ? [-8, -0.4] : [-7.4 - s * 0.8, -1.4 - Math.max(0, -s) * 0.6]];
     for (let i = 0; i < 11; i++) { P[i][0] = o[i][0]; P[i][1] = o[i][1]; }
-  } else if (a.climbing) {
-    const al = Math.sin((a.climbPh || 0));
-    P[3] = [-1.5, -12]; P[4] = [-1.5, -15 + al * 1.5]; P[5] = [1.5, -12]; P[6] = [1.5, -15 - al * 1.5];
-    P[7] = [-1, -4 + al]; P[8] = [-1, -0.5 + al]; P[9] = [1, -4 - al]; P[10] = [1, -0.5 - al]; P[0] = [0, -14];
-  } else if (a.crouch) {
+  } else if (a.climbing) { // ladder/rope: hand over hand, one knee up while the other leg pushes (reverses going down)
+    if (a.sliding) { P[0] = [0, -14.5]; P[1] = [0, -11.5]; P[3] = [-1, -14]; P[4] = [-0.8, -17]; P[5] = [1, -14]; P[6] = [0.8, -16.5]; P[7] = [-1.5, -4]; P[8] = [-0.5, -1]; P[9] = [1.5, -4]; P[10] = [0.5, -1]; }
+    else { const L = NE.climbLimbs(a.climbPh || 0, 0); P[0] = [0.3, -14 + L.bob]; P[1] = [0.2, -11 + L.bob]; P[2] = [0, -6.5 + L.bob];
+      P[3] = [-1.6, L.h1[1] * 0.5 - 6]; P[4] = [-1, L.h1[1]]; P[5] = [1.6, L.h2[1] * 0.5 - 6]; P[6] = [1, L.h2[1]];
+      P[7] = [-1.4 + L.k1, (L.f1[1] - 6.5) / 2 - L.k1 * 0.6]; P[8] = [-0.8, L.f1[1]]; P[9] = [1.4 + L.k2, (L.f2[1] - 6.5) / 2 - L.k2 * 0.6]; P[10] = [0.8, L.f2[1]]; }
+  } else if (a.crouch && !a.wallDown && !a.wallClimb) {
     P[0] = [1.2, -10]; P[1] = [0.6, -7.5]; P[2] = [-0.5, -4]; P[7] = [1.5, -3]; P[8] = [-1, 0]; P[9] = [2.5, -2.6]; P[10] = [1.5, 0];
     P[3] = [0, -5]; P[4] = [1, -3]; P[5] = [1.5, -5]; P[6] = [2.5, -3];
     if (mv > 0.1) { P[8][0] += s * 1.5; P[10][0] -= s * 1.5; }
-  } else if (a.wallClimb) {
-    const al = Math.sin((a.climbPh || 0)); // hands claw up the rock face alternately, knees push
-    P[0] = [1.2, -14]; P[1] = [0.8, -11]; P[2] = [0.4, -6.5];
-    P[5] = [2.4, -12 + al]; P[6] = [3, -15 + al * 2]; P[3] = [2, -11 - al]; P[4] = [2.8, -14 - al * 2];
-    P[9] = [2.4, -4.5 - al]; P[10] = [2.6, -1.5 - al * 1.5]; P[7] = [1.8, -4 + al]; P[8] = [2.2, -1 + al * 1.5];
+  } else if (a.wallClimb || a.wallDown) { // crawling up (or down) the rock face: reach, grab, pull; knees frog up to find footholds
+    const L = NE.climbLimbs(a.climbPh || 0, 1); P[0] = [1.9, -14.2 + L.bob]; P[1] = [1.3, -11.2 + L.bob]; P[2] = [0.5, -6.6 + L.bob];
+    P[4] = [L.h1[0], L.h1[1]]; P[3] = [(L.h1[0] + 1.3) / 2 - 1.3, (L.h1[1] - 11) / 2 + 0.8]; P[6] = [L.h2[0], L.h2[1]]; P[5] = [(L.h2[0] + 1.3) / 2 - 1.3, (L.h2[1] - 11) / 2 + 0.8];
+    P[8] = [L.f1[0], L.f1[1]]; P[7] = [2.2 + L.k1 * 0.6, (L.f1[1] - 6.6) / 2 - L.k1 * 0.8]; P[10] = [L.f2[0], L.f2[1]]; P[9] = [2.2 + L.k2 * 0.6, (L.f2[1] - 6.6) / 2 - L.k2 * 0.8];
   } else if (a.wallSliding) {
     P[3] = [1.5, -12]; P[4] = [2.5, -14]; P[5] = [2, -11]; P[6] = [3, -13.5]; P[7] = [1.5, -4.5]; P[8] = [2.5, -2]; P[9] = [0.5, -4]; P[10] = [0, -1]; P[0] = [-0.5, -14];
   } else if (a.inWater && !a.onGround) { // swimming: body tilts into the stroke, arms windmill, legs flutter-kick
@@ -380,13 +388,13 @@ NE.ragPose = function (a) {
   // arms: aim / swing / treat
   const ch = out[1];
   if (!a.crawl && !a.climbing && a.treating && !a.dead) NE.treatArms(a, out, f);
-  else if (!a.crawl && !a.climbing && !(a.search && a.onGround) && !(a.dashT > 0)) {
+  else if (!a.crawl && !a.climbing && !a.wallClimb && !a.wallDown && !(a.search && a.onGround) && !(a.dashT > 0)) {
     if (a.aimDir && a.gunOut) { const d = a.aimDir; out[6] = [ch[0] + d.x * 8, ch[1] + 1 + d.y * 8]; out[5] = [ch[0] + d.x * 4, ch[1] + d.y * 4 + 2]; if (a.twoHand) { out[4] = [ch[0] + d.x * 6, ch[1] + d.y * 6 + 1.5]; out[3] = [ch[0] + d.x * 2.5, ch[1] + 2.5]; } }
     else if (a.wdir) { const d = a.wdir, e = a.wext || 0; out[6] = [ch[0] + d.x * (9 + e), ch[1] + 1 + d.y * (9 + e)]; out[5] = [ch[0] + d.x * (4.6 + e * 0.5) - f * 0.3, ch[1] + 2 + d.y * (4.6 + e * 0.5)]; if (a.twoHand) { out[4] = [ch[0] + d.x * (7 + e), ch[1] + 1.5 + d.y * (7 + e)]; out[3] = [ch[0] + d.x * 3.2, ch[1] + 2.5 + d.y * 3.2]; } else if (a.guard) { out[4] = [ch[0] + f * 3.5, ch[1] - 1]; out[3] = [ch[0] + f * 1.5, ch[1] + 2.5]; } else { out[4] = [ch[0] + f * 3, ch[1] + 2.2]; out[3] = [ch[0] + f * 1, ch[1] + 3.5]; } } // off hand stays up in a fighting stance
     else if (a.swingT > 0) { const t = 1 - a.swingT / a.swingDur; const ang = lerp(-1.9, 0.8, Math.min(1, t * 1.6)); const dx = Math.cos(ang) * f, dy = Math.sin(ang); out[6] = [ch[0] + dx * 8.5, ch[1] + 1 + dy * 8.5]; out[5] = [ch[0] + dx * 4.2, ch[1] + 1 + dy * 4.2]; }
     else if (a.holdT > 0) { out[6] = [ch[0] + f * 4, ch[1] - 1]; }
   }
-  if (a.aimDir && !a.crawl && !a.climbing && !a.dead && !(a.dashT > 0)) { out[0][0] += a.aimDir.x * 0.5; out[0][1] += a.aimDir.y * 0.7; } // head follows where you look
+  if (a.aimDir && !a.crawl && !a.climbing && !a.wallClimb && !a.wallDown && !a.dead && !(a.dashT > 0)) { out[0][0] += a.aimDir.x * 0.5; out[0][1] += a.aimDir.y * 0.7; } // head follows where you look
   return out;
 };
 // self-treatment animations: hands go to the wound and move the way the job demands
