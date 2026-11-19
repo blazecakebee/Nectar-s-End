@@ -1779,12 +1779,16 @@ const sr0 = G.startRun; G.startRun = function (restore) { const r = sr0.apply(th
 const ms0 = NE.makeSurvivor; NE.makeSurvivor = function () { const s = ms0.apply(this, arguments); const b = s.look.sex === 'm' ? 1.5 : -1.5; s.look.height = clamp(Math.round((ri(59, 78) + ri(59, 78)) / 2 + b), 59, 78); return s; };
 NE.heightOf = look => (look && look.height) || 69; NE.heightStr = h => Math.floor(h / 12) + '\'' + (h % 12) + '"';
 const cs0 = NE.computeStats; NE.computeStats = function (meta, surv) { const s = cs0.apply(this, arguments); const k = (NE.heightOf(surv && surv.look) - 69) / 9.5;
-  s.melee *= 1 + 0.1 * k; s.carry += 4 * k; s.speed *= 1 - 0.05 * k; s.climb *= 1 - 0.08 * k; s.hpMul = (s.hpMul || 1) * (1 + 0.05 * k); s.height = NE.heightOf(surv && surv.look); return s; };
+  s.melee *= 1 + 0.1 * k; s.carry += 4 * k; s.climb *= 1 - 0.08 * k; s.hpMul = (s.hpMul || 1) * (1 + 0.05 * k); s.height = NE.heightOf(surv && surv.look);
+  // short and quick vs tall and sturdy: 4'11" moves 20% faster, 6'6" shrugs off 20% of incoming damage, sliding linearly between
+  const hb = NE.heightBonus(s.height); s.speed *= 1 + hb.spd; s.heightDef = hb.def; return s; };
+NE.heightBonus = h => { const t = clamp((h - 59) / (78 - 59), 0, 1); return { spd: 0.2 * (1 - t), def: 0.2 * t }; };
+const hurtH = NE.Actor.prototype.hurt; NE.Actor.prototype.hurt = function (part, dmg, kind, src, dir) { if (this.isPlayer && this.stats && this.stats.heightDef > 0 && dmg > 0) dmg *= 1 - this.stats.heightDef; return hurtH.call(this, part, dmg, kind, src, dir); };
 const sc = a => (a && a.look && a.look.height ? a.look.height / 69 : 1);
 const pose0 = NE.ragPose; NE.ragPose = function (a) { const out = pose0(a); const s = sc(a);
   if (a.rag && a._hs !== s) { const k = s / (a._hs || 1); for (const c of a.rag.cons) c.len *= k; a._hs = s; a.hReach = (s - 1) * 12; }
   if (s !== 1 && a.x != null) for (const q of out) { q[0] = a.x + (q[0] - a.x) * (0.6 + 0.4 * s); q[1] = a.y + (q[1] - a.y) * s; } return out; };
-const hs0 = UI0().hudStatic; UI0().hudStatic = function () { hs0.apply(this, arguments); const p = G.player; const el = document.querySelector('.p-occ'); if (p && el && p.look && !/"/.test(el.textContent)) el.textContent += ' • ' + NE.heightStr(NE.heightOf(p.look)); };
+const hs0 = UI0().hudStatic; UI0().hudStatic = function () { hs0.apply(this, arguments); const p = G.player; const el = document.querySelector('.p-occ'); if (p && el && p.look && !/"/.test(el.textContent)) { const h = NE.heightOf(p.look), hb = NE.heightBonus(h); el.textContent += ' • ' + NE.heightStr(h) + ' (' + [hb.spd >= 0.005 ? '+' + Math.round(hb.spd * 100) + '% speed' : '', hb.def >= 0.005 ? '+' + Math.round(hb.def * 100) + '% defense' : ''].filter(Boolean).join(', ') + ')'; } };
 function UI0() { return NE.UI; }
 })(window.NE);
 
