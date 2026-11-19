@@ -86,7 +86,7 @@ C.sweep = function (a, w, p0, p1, tv, dt, striking) {
       if (a.strk && a.strk.poke) dmg *= 0.7; if (a.strk && a.strk.lunge) dmg *= 1.3;
       const punish = !t.isPlayer && (t.backT > 0 || t.stagger > 0 || t.rd || t.getUpT > 0); if (punish && a.isPlayer) dmg *= 1.3; // hit them while they recover
       const part = t.partNear(hit.x, hit.y); const kind = m.kind === 'sharp' && a.strk && a.strk.kind === 'thrust' ? 'sharp' : m.kind;
-      t.hurt(part, dmg, kind, a.isPlayer ? a.surv.first : (a.D ? a.D.name : 'Someone'), vd); t.lastBy = a;
+      t.hurt(part, dmg, kind, a.isPlayer ? a.surv.first : (a.D ? a.D.name : 'Someone'), vd); t.lastBy = a; if (NE.tryImpale) NE.tryImpale(a, t, w, part, dmg, kind);
       if (a.isPlayer && a.abil && a.abil.includes('rot') && t.alive && chance(0.3)) { t.stagger = Math.max(t.stagger || 0, 0.6); if (t.anat) t.anat.tox = (t.anat.tox || 0) + 10; G.addP(t.x, t.y - t.h + 3, 0, -10, 0.8, '#8ab040', 'glow', 0); }
       if (t.isPlayer && t.abil && t.abil.includes('thorns') && a.alive && a.hurt) a.hurt(pick(['larm', 'rarm']), 5, 'sharp', 'Spined hide', { x: -vd.x, y: -vd.y });
       if (!t.isPlayer && (dmg > 6 || (a.strk && a.strk.poke))) { t.stagger = Math.max(t.stagger || 0, a.strk && a.strk.poke ? 0.35 : clamp(dmg / 45, 0.12, 0.7) * (m.stun || 1) * (hv > 1 ? 1.4 : 1)); }

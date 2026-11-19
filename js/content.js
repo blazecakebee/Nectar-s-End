@@ -16,7 +16,7 @@ Object.assign(NE.ICONS, {
 });
 
 // ======================================================================= ITEMS
-const IT = NE.ITEMS;
+const IT = NE.ITEMS; NE._origItems = new Set(Object.keys(IT));
 NE.SAW_DMG = { saw_arm_w: 16, saw_arm_a: 20, saw_arm_p: 25 };
 // prosthetics: strap onto a stump in the Anatomy tab. Most give 55-80% of a real limb; artificer work beats flesh.
 const PROS = [
@@ -306,6 +306,7 @@ W_.genFloor = function (f) {
     if (B === 'hive' || B === 'heart') for (let r = y0; r < y0 + FH; r++) for (let x = 0; x < W.W; x++) if (W.get(x, r) === 5) W.set(x, r, 11);
     if (B === 'heart' && chance(0.5)) { const tx = ri(8, W.W - 9); if (!busy((tx + 0.5) * T)) fl.objs.push({ type: 'relic', x: (tx + 0.5) * T, y: (y0 + fl.g[tx]) * T, label: 'Relic Flower', act: 'harvest', hue: ri(0, 2) }); }
   }
+  if (!town && f > 0) NE.sculptFloor(this, fl);
   // register every liquid cell in this band with the flow simulation
   this.liq = this.liq || new Map(); this.liqGen = this.liqGen || new Map();
   for (let r = y0; r < y0 + FH; r++) for (let x = 0; x < this.W; x++) { const t = this.get(x, r); if (LIQ[t]) { const k = r * this.W + x; this.liq.set(k, { a: 1, t }); this.liqGen.set(k, t); } }
@@ -314,6 +315,37 @@ W_.genFloor = function (f) {
   return fl;
 };
 
+// ----------------------------------------------------------------------- terrain sculpting: every level gets its own shape
+// After the base cave is carved, each level picks a character (rolling hills, a tall chamber, cramped tunnels, a pillared hall,
+// rubble fields, big overhangs...) and a handful of set-pieces, all from the run's seed — so no two runs look alike.
+NE.FLOOR_STYLES = [['hills', 3], ['chamber', 2], ['cramped', 1.5], ['pillars', 2], ['rubble', 2], ['overhangs', 2], ['terraces', 1.5], ['plain', 1.2]];
+NE.sculptFloor = function (W, fl) {
+  const FH = NE.FH, y0 = fl.y0, Wd = W.W, g = fl.g, c = fl.c; const B = fl.biome.id;
+  const busyX = new Set(); const mark = (px, pad) => { const tx = Math.floor(px / T); for (let d = -pad; d <= pad; d++) busyX.add(tx + d); };
+  for (const o of fl.objs) if (o.x != null) mark(o.x, o.type === 'lamp' || o.type === 'crystal' || o.type === 'icicle' || o.type === 'gasleak' ? 0 : 2); for (const sp of fl.spawns) mark(sp.x, 1);
+  const solid = (x, r) => W.solid(W.get(x, y0 + r)); const air = (x, r) => W.get(x, y0 + r) === 0;
+  // a span is safe to reshape when nothing sits on it and it's ordinary floor (not a pit, chute, pool or ladder)
+  const okCol = x => x > 5 && x < Wd - 6 && !busyX.has(x) && solid(x, g[x]) && air(x, g[x] - 1) && air(x, g[x] - 2) && solid(x, g[x] + 1);
+  const span = (w, tries) => { for (let k = 0; k < (tries || 30); k++) { const x = ri(6, Wd - 7 - w); let ok = true; for (let i = -1; i <= w; i++) if (!okCol(x + i) || Math.abs(g[x + i] - g[x]) > 1) { ok = false; break; } if (ok) { for (let i = -1; i <= w; i++) busyX.add(x + i); return x; } } return -1; };
+  const setT = (x, r, v) => { if (r < 0 || r >= FH) return; W.set(x, y0 + r, v); };
+  const rock = B === 'ice' && chance(0.3) ? 10 : 1;
+  const P = {
+    mound: () => { const w = ri(5, 11), x = span(w); if (x < 0) return; const h = ri(1, 3); for (let i = 0; i < w; i++) { const k = Math.sin(Math.PI * (i + 0.5) / w); const hh = Math.max(i === 0 || i === w - 1 ? 0 : 1, Math.round(h * k)); for (let r = g[x + i] - hh; r < g[x + i]; r++) setT(x + i, r, 1); g[x + i] -= hh; } },
+    basin: () => { const w = ri(4, 9), x = span(w); if (x < 0) return; const d = ri(1, 2); const wet = ['grotto', 'ice', 'drowned', 'ossuary'].includes(B) && chance(0.6); for (let i = 0; i < w; i++) { const dd = i === 0 || i === w - 1 ? 1 : d; for (let r = g[x + i]; r < g[x + i] + dd; r++) { if (!solid(x + i, r + 1) && r + 1 < FH) break; setT(x + i, r, wet && r >= g[x + i] + dd - 1 ? (B === 'ice' && chance(0.5) ? 10 : 5) : 0); } } },
+    overhang: () => { const w = ri(4, 9), x = span(w, 20); if (x < 0) return; for (let i = 0; i < w; i++) { const k = Math.sin(Math.PI * (i + 0.5) / w); const bottom = Math.min(g[x + i] - 5, c[x + i] + Math.round(k * ri(2, 5))); for (let r = c[x + i]; r < bottom; r++) setT(x + i, r, rock); if (bottom > c[x + i]) c[x + i] = bottom; } },
+    pillar: () => { const x = span(2, 20); if (x < 0) return; const tun = 4; for (let i = 0; i < 2; i++) for (let r = Math.max(0, c[x + i]); r < g[x + i] - tun; r++) setT(x + i, r, rock); if (chance(0.5)) setT(x - 1, g[x - 1] - tun - 1, rock); },
+    boulder: () => { const w = ri(2, 3), x = span(w, 20); if (x < 0) return; const h = w === 3 ? 2 : 1; for (let i = 0; i < w; i++) { const hh = (i === 0 || i === w - 1) && w === 3 ? 1 : h; for (let r = g[x + i] - hh; r < g[x + i]; r++) setT(x + i, r, rock); g[x + i] -= hh; } },
+    chamber: () => { const w = ri(10, 18), x0 = ri(6, Wd - 7 - w); for (let i = 0; i < w; i++) { const x = x0 + i; if (busyX.has(x)) continue; const top = Math.max(0, c[x] - ri(1, 3)); for (let r = top; r < c[x]; r++) if (W.get(x, y0 + r) === 1) setT(x, r, 0); c[x] = top; } for (let k = 0; k < ri(2, 5); k++) { const x = x0 + ri(1, w - 2); const L = ri(2, 4); for (let r = c[x]; r < Math.min(g[x] - 5, c[x] + L); r++) setT(x, r, rock); } },
+    cramped: () => { const w = ri(8, 16), x = span(w, 20); if (x < 0) return; for (let i = 0; i < w; i++) { const low = g[x + i] - (i % 7 === 3 ? 6 : 5); for (let r = c[x + i]; r < low; r++) setT(x + i, r, 1); c[x + i] = Math.max(c[x + i], low); } },
+    terrace: () => { const w = ri(6, 10), x = span(w); if (x < 0) return; const up = chance(0.5); for (let i = 0; i < w; i++) { const hh = Math.min(2, Math.floor((up ? i : w - 1 - i) / 3) + 1); for (let r = g[x + i] - hh; r < g[x + i]; r++) setT(x + i, r, 1); g[x + i] -= hh; } },
+    shards: () => { if (B !== 'crystal' && B !== 'heart') return; const w = ri(3, 5), x = span(w); if (x < 0) return; for (let i = 0; i < w; i++) setT(x + i, g[x + i] - 1, 4); },
+    spikes: () => { const w = ri(3, 6), x = span(w, 12); if (x < 0) return; for (let i = 0; i < w; i += 2) if (c[x + i] + 2 < g[x + i] - 5) { setT(x + i, c[x + i], rock); setT(x + i, c[x + i] + 1, rock); } },
+  };
+  const style = NE.wpick(NE.FLOOR_STYLES); fl.style = style;
+  const plan = { hills: ['mound', 'mound', 'basin', 'mound', 'terrace'], chamber: ['chamber', 'boulder', 'spikes', 'mound'], cramped: ['cramped', 'cramped', 'boulder', 'basin'], pillars: ['pillar', 'pillar', 'pillar', 'boulder'], rubble: ['boulder', 'boulder', 'boulder', 'mound', 'basin'], overhangs: ['overhang', 'overhang', 'basin', 'spikes'], terraces: ['terrace', 'terrace', 'mound'], plain: ['basin'] }[style];
+  for (const k of plan) P[k](); for (let n = ri(1, 3); n > 0; n--) P[pick(['mound', 'basin', 'overhang', 'boulder', 'pillar', 'spikes', 'shards', 'terrace'])]();
+  for (const d of fl.decor) d.y = W.groundY(fl, d.x);
+};
 // ----------------------------------------------------------------------- flowing, stacking liquids
 // Each liquid cell holds an amount 0..1. Every tick it falls into the cell below, then spreads sideways to level out,
 // so pools fill bottom-up, spill over ledges, pour down shafts and flood the holes you dig. Lava is thick; honey is thicker.
@@ -579,7 +611,7 @@ G.update = function (dt, rdt) {
   const W = G.world, N = G.net && G.net.on ? G.net : null; const live = W && !W.lobby && (G.state === 'run' || G.state === 'dying' || G.state === 'burst');
   if (live && !(N && N.role === 'guest')) { G._liqAcc = (G._liqAcc || 0) + dt; if (G._liqAcc > 1 / 20) { G._liqAcc = 0; W.liqTick(G.focus().y); if (N && N.peer && !N.peer.hidden && Math.abs(N.peer.y - G.focus().y) > 80 * T) W.liqTick(N.peer.y); } }
   if (live && N && N.role === 'host' && N.peer) { G._liqSend = (G._liqSend || 0) + dt; if (G._liqSend > 0.15) { G._liqSend = 0; NE.liqStream(W, N); } }
-  if (G.cproj.length) G.updateCproj(dt);
+  G.updateCproj(dt);
   // anyone in honey is slowed (enemies too)
   if (W && W.isHoney) for (const a of G.actors) if (a.alive && !a.isPlayer && W.isHoney(a.x, a.y - 2)) a.vx *= Math.pow(0.1, dt);
 };
@@ -739,4 +771,691 @@ NE.gearIcon = function (key, scale) {
 };
 const icon0 = NE.icon;
 NE.icon = function (key, col, scale, itemId) { if (typeof key === 'string' && (key.startsWith('bp_') || key.startsWith('of_')) && !NE.atlasKey(key)) { const c = NE.gearIcon(key, scale); if (c) return c; } return icon0.call(this, key, col, scale, itemId); };
+})(window.NE);
+
+// =====================================================================================================================
+// NPC SPEECH BUBBLES: whatever someone says floats above their own head (crisp DOM text that follows them)
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const G = NE.G, UI = NE.UI; const { pick, chance } = NE;
+if (!document.getElementById('nsay-css')) { const st = document.createElement('style'); st.id = 'nsay-css'; st.textContent = `
+.nsay{position:absolute;transform:translate(-50%,-100%);pointer-events:none;max-width:16em;text-align:center;color:#f4ead0;font-size:.82em;line-height:1.15;padding:.25em .55em;border-radius:.5em;background:rgba(14,10,8,.82);border:1px solid rgba(255,210,120,.28);box-shadow:0 .15em .5em rgba(0,0,0,.6);transition:opacity .25s;z-index:5}
+.nsay:after{content:'';position:absolute;left:50%;bottom:-.42em;transform:translateX(-50%);border:.4em solid transparent;border-top-color:rgba(14,10,8,.82);border-bottom:0}
+.nsay.hostile{border-color:rgba(255,90,60,.45);color:#ffd8c8}.nsay.hostile b{color:#ff8a6a}
+.nsay b{display:block;font-weight:normal;font-family:'VT323',monospace;font-size:.85em;color:#e8c070;margin-bottom:1px}`; document.head.appendChild(st); }
+const live = new Map(); // speaker -> {el, t, max}
+G.npcSay = function (a, text, dur) {
+  if (!a || !text) return; dur = dur || 3; let s = live.get(a); const hud = document.getElementById('hud'); if (!hud) return;
+  if (!s) { const el = document.createElement('div'); el.className = 'nsay'; hud.appendChild(el); s = { el }; live.set(a, s); }
+  const name = a.name || (a.D && a.D.name) || (a.label && a.label.split(' — ')[0]) || '';
+  s.el.innerHTML = (name ? '<b>' + String(name).replace(/[<>&]/g, '') + '</b>' : '') + String(text).replace(/[<>&]/g, '');
+  s.el.classList.toggle('hostile', !!(a.D && a.hostile !== false && a.faction !== 'neutral')); s.t = dur; s.max = dur; s.el.style.opacity = 1;
+  if (G.run) G.run.log.push({ t: G.run.t, m: (name ? name + ': ' : '') + '"' + text + '"', cls: 'sys' });
+};
+G.npcSayTick = function (dt) {
+  for (const [a, s] of live) {
+    s.t -= dt; const gone = s.t <= 0 || a.gone || (a.alive === false && s.t < s.max - 0.5) || G.state === 'lobby' && !a.town;
+    if (gone) { s.el.style.opacity = 0; if (s.t < -0.3 || a.gone) { s.el.remove(); live.delete(a); } continue; }
+    const h = a.h || 23; const sp = UI.toScreen(a.x, (a.y != null ? a.y : 0) - h - 6); s.el.style.left = sp.x + 'px'; s.el.style.top = sp.y + 'px'; s.el.style.opacity = Math.min(1, s.t * 2);
+  }
+};
+const tick0 = UI.tick; UI.tick = function (dt) { tick0.call(this, dt); try { G.npcSayTick(dt); } catch (e) { } };
+const clear0 = G.clearWorld; G.clearWorld = function () { for (const [, s] of live) s.el.remove(); live.clear(); return clear0.apply(this, arguments); };
+
+// barks: people who spot you say so; executioners announce themselves
+const BARK = { scav: ['There!', 'Fresh meat.', 'Your pack. Now.', 'Get it!'], gunner: ['Contact!', 'Drop it!', 'Got eyes on one.'], specops: ['Hostile, twelve o\'clock.', 'Engaging.', 'Infected host — put it down.'], expedition: ['Stay back! STAY BACK!', 'You\'re not taking us!', 'It\'s one of THEM!'],
+  rival: ['Your Vespa is mine.', 'Two of us can\'t live down here.', 'I can smell your nectar.'], nectarknight: ['Kneel to the Hive.', 'You are not worthy of it.', 'Give me your nectar.'], drowned: ['...bbblh...', 'Down... with us...'], bonewalker: ['...', 'Rest... no...'], skulker: ['hehh...'], brute: ['RAAAGH!', 'SMASH.'] };
+const aggro0 = NE.Enemy.prototype.onAggro;
+NE.Enemy.prototype.onAggro = function (src) { const was = this.state === 'chase'; aggro0.call(this, src); if (!was && this.state === 'chase' && src && (src.isPlayer || src.isRemote) && BARK[this.type] && chance(0.55) && !this._barked) { this._barked = true; G.npcSay(this, pick(BARK[this.type]), 2.2); } };
+const upd0 = NE.Enemy.prototype.update;
+NE.Enemy.prototype.update = function (dt) {
+  // standoff crew that got paid (or talked down): turn and walk off into the dark, then they're gone
+  if (this.leaving && this.alive) { const L = this.leaving; L.t -= dt; this.facing = L.dir; this.fallHurt(this.physicsMove(dt, { mx: L.dir * 0.7 })); NE.Combat.tick(this, dt, this.x + L.dir * 14, this.y + 2, false); const p = G.player; if (L.t <= 0 || (p && Math.abs(p.x - this.x) > 260) || this.bumped) { if (L.t <= 0 || (p && Math.abs(p.x - this.x) > 200)) this.gone = true; else L.dir *= -1; this.bumped = 0; } return; }
+  upd0.call(this, dt);
+  if (this.exec && !this._execSaid && this.target && this.target.isPlayer) { this._execSaid = true; G.npcSay(this, pick(['Stay down.', 'Nothing personal.', 'Sleep.', 'This ends here.']), 3); } else if (!this.exec) this._execSaid = false;
+};
+// survivors and traders speak for themselves
+const surv0 = UI.survivor; UI.survivor = function (npc) { if (npc && !npc.treated) G.npcSay(npc, 'Please... I\'m bleeding out.', 3); return surv0.call(this, npc); };
+const doc0 = UI.doctor; UI.doctor = function (npc) { G.npcSay(npc, pick(['Sit. Let me look at you.', 'You look like hell. Where does it hurt?', 'I\'ve stitched worse. Probably.']), 3.5); return doc0.call(this, npc); };
+const open0 = UI.open; UI.open = function (name, arg) { if (name === 'trade' && arg && arg.alive !== false) G.npcSay(arg, pick(['Silver talks. Show me what you\'ve got.', 'Everything has a price down here.', 'Buying, selling. No questions.', 'Mind the merchandise.']), 3.5); return open0.apply(this, arguments); };
+})(window.NE);
+
+// =====================================================================================================================
+// SOUND REWORK: natural, filtered foley instead of raw square/saw beeps. Pink & brown noise, pitch-dropping body thumps,
+// inharmonic metal rings, a cave reverb send and a soft compressor glue everything together. Every play varies a little.
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const A = NE.Audio; if (!A) return;
+const R = (a, b) => a + Math.random() * (b - a);
+let PINK = null, BROWN = null, WHITE = null, VERB = null;
+function buffers(c) {
+  const n = c.sampleRate * 2; WHITE = c.createBuffer(1, n, c.sampleRate); PINK = c.createBuffer(1, n, c.sampleRate); BROWN = c.createBuffer(1, n, c.sampleRate);
+  const w = WHITE.getChannelData(0), p = PINK.getChannelData(0), br = BROWN.getChannelData(0); let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, last = 0;
+  for (let i = 0; i < n; i++) { const x = Math.random() * 2 - 1; w[i] = x; b0 = 0.99886 * b0 + x * 0.0555179; b1 = 0.99332 * b1 + x * 0.0750759; b2 = 0.969 * b2 + x * 0.153852; b3 = 0.8665 * b3 + x * 0.3104856; b4 = 0.55 * b4 + x * 0.5329522; b5 = -0.7616 * b5 - x * 0.016898; p[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + x * 0.5362) * 0.11; b6 = x * 0.115926; last = (last + 0.02 * x) / 1.02; br[i] = last * 3.5; }
+}
+// route: sfx input -> gentle EQ -> compressor -> old sfx gain (volume setting) ; plus a short cave-reverb send
+function chain() {
+  const c = A.ctx; if (!c || A._chain) return; A._chain = true; buffers(c);
+  const out = A.sfx; const inp = c.createGain(); inp.gain.value = out.gain.value; out.gain.value = 1;
+  const lo = c.createBiquadFilter(); lo.type = 'highpass'; lo.frequency.value = 35; const hi = c.createBiquadFilter(); hi.type = 'highshelf'; hi.frequency.value = 6000; hi.gain.value = -5;
+  const comp = c.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 3.5; comp.attack.value = 0.004; comp.release.value = 0.16;
+  inp.connect(lo); lo.connect(hi); hi.connect(comp); comp.connect(out);
+  const len = Math.floor(c.sampleRate * 1.3); const ir = c.createBuffer(2, len, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) { const t = i / len; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 3.2) * (i < c.sampleRate * 0.012 ? 0 : 1); } }
+  VERB = c.createConvolver(); VERB.buffer = ir; const vf = c.createBiquadFilter(); vf.type = 'lowpass'; vf.frequency.value = 3200; const vg = c.createGain(); vg.gain.value = 0.55; VERB.connect(vf); vf.connect(vg); vg.connect(comp);
+  A.sfx = inp; A.sfxOut = out;
+}
+const init0 = A.init; A.init = function () { init0.call(this); try { chain(); } catch (e) { } };
+// soften whatever still uses the old oscillator voices (square/saw get a low-pass, so nothing buzzes like a chip)
+const tone0 = A.tone; A.tone = function (freq, dur, vol, type, slide, dest) {
+  if (!A.ctx || !(type === 'square' || type === 'sawtooth')) return tone0.call(this, freq, dur, vol, type, slide, dest);
+  const c = A.ctx, t = c.currentTime; const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, slide), t + dur);
+  const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = Math.min(4000, freq * 2.2); f.Q.value = 0.5; const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * 0.7), t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.012);
+  o.connect(f); f.connect(g); g.connect(dest || A.sfx); o.start(t); o.stop(t + dur + 0.1);
+};
+// ---- primitives
+function out(node, wet) { node.connect(A.sfx); if (wet && VERB) { const s = A.ctx.createGain(); s.gain.value = wet; node.connect(s); s.connect(VERB); } }
+function nz(o) { // filtered noise: {buf, dur, f, f2, q, type, vol, att, wet, at}
+  const c = A.ctx, t = c.currentTime + (o.at || 0); const s = c.createBufferSource(); s.buffer = o.buf || PINK || A.noiseBuf; s.playbackRate.value = o.rate || R(0.92, 1.08);
+  const f = c.createBiquadFilter(); f.type = o.type || 'bandpass'; f.frequency.setValueAtTime(o.f, t); if (o.f2) f.frequency.exponentialRampToValueAtTime(o.f2, t + o.dur); f.Q.value = o.q == null ? 0.8 : o.q;
+  const g = c.createGain(); const att = o.att || 0.004; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, o.vol), t + att); g.gain.exponentialRampToValueAtTime(0.0001, t + att + o.dur);
+  s.connect(f); f.connect(g); out(g, o.wet); s.start(t, Math.random() * 1.5); s.stop(t + att + o.dur + 0.05);
+}
+function thump(f1, f2, dur, vol, wet, at) { const c = A.ctx, t = c.currentTime + (at || 0); const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f1 * R(0.93, 1.07), t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + dur);
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); out(g, wet); o.start(t); o.stop(t + dur + 0.05); }
+function ring(freqs, dur, vol, wet, at) { const c = A.ctx, t = c.currentTime + (at || 0); const k = R(0.95, 1.05); freqs.forEach((fr, i) => { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = fr * k; const g = c.createGain(); const v = vol / (1 + i * 0.7); const d = dur / (1 + i * 0.35);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); out(g, wet); o.start(t); o.stop(t + d + 0.05); }); }
+function bloop(f, dur, vol, at) { const c = A.ctx, t = c.currentTime + (at || 0); const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.8, t + dur);
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); out(g, 0.3); o.start(t); o.stop(t + dur + 0.05); }
+const voice = (f1, f2, vol, dur, at) => { // breathy vocal grunt: brown noise through two formants
+  vol *= 4; nz({ buf: BROWN, dur, f: f1, f2: f1 * 0.85, q: 5, vol: vol, att: 0.02, wet: 0.2, at }); nz({ buf: BROWN, dur: dur * 0.8, f: f2, f2: f2 * 0.8, q: 6, vol: vol * 0.6, att: 0.02, wet: 0.2, at }); };
+const gunshot = (v, crack, body, tail, low) => { nz({ buf: WHITE, dur: 0.03, f: 2500, type: 'highpass', q: 0.5, vol: crack * v, wet: 0.2 }); nz({ buf: BROWN, dur: body, f: 1600, f2: 220, type: 'lowpass', q: 0.6, vol: v, wet: tail }); thump(low, 35, body * 0.9, 0.6 * v, tail); nz({ buf: PINK, dur: body * 2.2, f: 700, f2: 180, type: 'lowpass', q: 0.4, vol: 0.18 * v, att: 0.03, wet: tail * 1.4, at: 0.02 }); };
+const NEW = {
+  step: v => { nz({ buf: BROWN, dur: R(0.06, 0.1), f: R(450, 800), type: 'lowpass', q: 0.7, vol: 0.32 * v }); nz({ buf: PINK, dur: 0.035, f: R(2600, 4200), q: 1.2, vol: 0.045 * v }); },
+  land: v => { thump(120, 50, 0.2, 0.5 * v, 0.15); nz({ buf: BROWN, dur: 0.24, f: 500, f2: 200, type: 'lowpass', vol: 0.5 * v, wet: 0.2 }); nz({ buf: PINK, dur: 0.18, f: 1800, q: 0.8, vol: 0.06 * v, at: 0.03 }); },
+  swing: v => nz({ buf: PINK, dur: R(0.16, 0.22), f: 500, f2: R(1800, 2600), q: 1.4, vol: 0.5 * v, att: 0.05 }),
+  whoosh: v => nz({ buf: PINK, dur: 0.2, f: 600, f2: 2200, q: 1.2, vol: 0.45 * v, att: 0.06 }),
+  hit: v => { thump(160, 65, 0.13, 0.5 * v, 0.1); nz({ buf: BROWN, dur: 0.11, f: 900, type: 'lowpass', vol: 0.45 * v, wet: 0.12 }); nz({ buf: PINK, dur: 0.045, f: 2400, q: 1, vol: 0.08 * v }); },
+  slash: v => { nz({ buf: WHITE, dur: 0.11, f: 5200, f2: 2000, q: 1.6, vol: 0.16 * v, att: 0.01 }); nz({ buf: BROWN, dur: 0.12, f: 650, type: 'lowpass', vol: 0.3 * v, at: 0.015 }); },
+  crack: v => { nz({ buf: WHITE, dur: 0.022, f: 3200, q: 1.4, vol: 0.38 * v }); thump(240, 120, 0.06, 0.25 * v); nz({ buf: PINK, dur: 0.07, f: 1300, q: 1.5, vol: 0.14 * v, at: 0.008 }); },
+  thud: v => { thump(95, 42, 0.22, 0.45 * v, 0.2); nz({ buf: BROWN, dur: 0.2, f: 320, type: 'lowpass', vol: 0.45 * v, wet: 0.2 }); },
+  gun: v => gunshot(v, 0.5, 0.22, 0.45, 110), pistol: v => gunshot(v, 0.5, 0.22, 0.45, 110), smg: v => gunshot(v * 0.75, 0.4, 0.13, 0.3, 130),
+  magnum: v => gunshot(v * 1.1, 0.7, 0.32, 0.6, 85), rifle: v => gunshot(v * 1.1, 0.7, 0.3, 0.6, 90), shotgun: v => { gunshot(v * 1.2, 0.6, 0.42, 0.7, 70); nz({ buf: WHITE, dur: 0.06, f: 1800, q: 0.5, vol: 0.2 * v, at: 0.01 }); },
+  big: v => { gunshot(v * 1.3, 0.8, 0.55, 0.9, 55); thump(60, 25, 0.8, 0.5 * v, 0.6); },
+  click: v => { nz({ buf: WHITE, dur: 0.012, f: 4800, q: 4, vol: 0.18 * v }); ring([3100], 0.03, 0.025 * v); },
+  jam: v => { nz({ buf: WHITE, dur: 0.02, f: 2600, q: 3, vol: 0.2 * v }); nz({ buf: PINK, dur: 0.08, f: 900, q: 2, vol: 0.12 * v, at: 0.05 }); },
+  reload: v => { nz({ buf: WHITE, dur: 0.02, f: 2600, q: 3, vol: 0.22 * v }); ring([1850, 3900], 0.06, 0.03 * v); nz({ buf: PINK, dur: 0.07, f: 1400, q: 1, vol: 0.1 * v, at: 0.09 }); nz({ buf: WHITE, dur: 0.025, f: 2200, q: 3, vol: 0.26 * v, at: 0.2 }); ring([1650, 3500], 0.08, 0.035 * v, 0, 0.2); },
+  ui: v => ring([1320, 2640], 0.07, 0.035 * v), uiback: v => ring([880, 1760], 0.08, 0.032 * v),
+  deny: v => { thump(260, 200, 0.07, 0.07 * v); thump(200, 160, 0.09, 0.07 * v, 0, 0.09); },
+  buy: v => { ring([1568, 3136, 4700], 0.25, 0.045 * v, 0.2); ring([2093, 4186], 0.3, 0.04 * v, 0.25, 0.07); },
+  open_wood: v => { nz({ buf: BROWN, dur: 0.35, f: 380, f2: 820, q: 7, vol: 0.2 * v, att: 0.05, wet: 0.2 }); thump(140, 80, 0.08, 0.2 * v); },
+  open_metal: v => { ring([437, 1189, 2213, 3530], 0.45, 0.05 * v, 0.3); nz({ buf: WHITE, dur: 0.18, f: 3200, q: 2, vol: 0.06 * v, att: 0.03 }); },
+  open_cloth: v => nz({ buf: PINK, dur: 0.3, f: 1600, f2: 1100, q: 0.7, vol: 0.3 * v, att: 0.06 }),
+  rummage: v => nz({ buf: PINK, dur: R(0.05, 0.1), f: R(1200, 2600), q: 1, vol: R(0.1, 0.18) * v, att: 0.01 }),
+  cloth: v => nz({ buf: PINK, dur: 0.14, f: 1500, q: 0.8, vol: 0.28 * v, att: 0.03 }),
+  bandage: v => { nz({ buf: PINK, dur: 0.4, f: 2400, f2: 1600, q: 0.8, vol: 0.12 * v, att: 0.08 }); nz({ buf: PINK, dur: 0.25, f: 1800, q: 0.8, vol: 0.09 * v, att: 0.05, at: 0.35 }); },
+  cinch: v => { nz({ buf: PINK, dur: 0.22, f: 900, f2: 1400, q: 2, vol: 0.2 * v, att: 0.04 }); thump(140, 100, 0.08, 0.1 * v, 0, 0.18); },
+  pain: v => voice(R(560, 680), R(1050, 1250), 0.22 * v, 0.28),
+  gasp: v => { nz({ buf: PINK, dur: 0.35, f: 900, f2: 1500, q: 1.5, vol: 0.5 * v, att: 0.12 }); nz({ buf: PINK, dur: 0.3, f: 1800, q: 2, vol: 0.08 * v, att: 0.1 }); },
+  pant: v => nz({ buf: PINK, dur: 0.22, f: R(800, 1000), f2: 1300, q: 1.6, vol: 0.3 * v, att: 0.06 }),
+  breath: v => nz({ buf: PINK, dur: 0.45, f: 900, q: 1.2, vol: 0.05 * v, att: 0.15 }),
+  shout: v => voice(R(500, 640), R(1100, 1350), 0.2 * v, 0.22),
+  growl: v => { nz({ buf: BROWN, dur: 0.45, f: R(250, 380), type: 'lowpass', q: 3, vol: 0.32 * v, att: 0.05, wet: 0.2 }); thump(R(70, 95), 55, 0.4, 0.12 * v, 0.2); },
+  splash: v => { nz({ buf: PINK, dur: 0.28, f: 2400, f2: 700, q: 0.8, vol: 0.45 * v, att: 0.01, wet: 0.2 }); for (let i = 0; i < 3; i++) bloop(R(450, 950), R(0.04, 0.08), 0.04 * v, R(0.02, 0.18)); },
+  swim: v => { nz({ buf: PINK, dur: 0.3, f: 1100, f2: 500, q: 0.8, vol: 0.14 * v, att: 0.05, wet: 0.2 }); bloop(R(500, 800), 0.06, 0.03 * v, 0.1); },
+  drip: v => bloop(R(900, 1500), 0.07, 0.05 * v),
+  squelch: v => { nz({ buf: BROWN, dur: 0.18, f: 900, f2: 280, type: 'lowpass', q: 2, vol: 0.4 * v }); bloop(R(200, 320), 0.06, 0.05 * v, 0.03); },
+  latch: v => { nz({ buf: BROWN, dur: 0.12, f: 700, type: 'lowpass', q: 2, vol: 0.35 * v }); nz({ buf: WHITE, dur: 0.04, f: 3000, q: 2, vol: 0.08 * v }); },
+  pop: v => { thump(190, 90, 0.06, 0.4 * v); nz({ buf: WHITE, dur: 0.015, f: 2400, q: 2, vol: 0.25 * v }); },
+  saw: v => { for (let i = 0; i < 3; i++) nz({ buf: WHITE, dur: 0.06, f: R(1800, 2700), q: 3, vol: 0.14 * v, at: i * 0.09 }); },
+  dash: v => { nz({ buf: PINK, dur: 0.24, f: 500, f2: 2000, q: 1.2, vol: 0.45 * v, att: 0.04 }); nz({ buf: BROWN, dur: 0.12, f: 600, type: 'lowpass', vol: 0.2 * v, at: 0.03 }); },
+  lunge: v => { nz({ buf: PINK, dur: 0.28, f: 400, f2: 1800, q: 1.3, vol: 0.55 * v, att: 0.05 }); voice(520, 1100, 0.12 * v, 0.18); },
+  block: v => { ring([520, 1347, 2614, 3890], 0.32, 0.1 * v, 0.3); nz({ buf: WHITE, dur: 0.02, f: 3000, q: 1, vol: 0.3 * v }); thump(150, 90, 0.07, 0.25 * v); },
+  parry: v => { ring([1120, 2810, 4230, 5600], 0.7, 0.1 * v, 0.5); nz({ buf: WHITE, dur: 0.02, f: 4500, q: 1, vol: 0.32 * v }); ring([2240], 0.5, 0.03 * v, 0.6, 0.06); },
+  metal: v => ring([620, 1520, 2890], 0.25, 0.06 * v, 0.25),
+  rope: v => nz({ buf: PINK, dur: 0.08, f: R(1500, 2100), q: 1.4, vol: 0.06 * v }),
+  hiss: v => nz({ buf: WHITE, dur: 0.7, f: 4500, type: 'highpass', q: 0.5, vol: 0.09 * v, att: 0.1 }),
+  boom: v => { thump(70, 24, 1.2, 0.9 * v, 0.8); nz({ buf: BROWN, dur: 1.4, f: 900, f2: 120, type: 'lowpass', q: 0.5, vol: 1.1 * v, wet: 0.7 }); nz({ buf: WHITE, dur: 0.05, f: 1800, type: 'highpass', vol: 0.5 * v }); for (let i = 0; i < 6; i++) nz({ buf: WHITE, dur: 0.02, f: R(1500, 4000), q: 2, vol: R(0.04, 0.1) * v, at: R(0.1, 0.8) }); },
+  dig: v => { nz({ buf: WHITE, dur: 0.03, f: 3400, q: 1.5, vol: 0.2 * v }); thump(320, 150, 0.07, 0.18 * v); nz({ buf: PINK, dur: 0.18, f: 1800, q: 0.8, vol: 0.07 * v, at: 0.03 }); },
+  gulp: v => { bloop(R(120, 160), 0.18, 0.2 * v); nz({ buf: BROWN, dur: 0.25, f: 400, type: 'lowpass', vol: 0.3 * v, at: 0.05 }); },
+  gobble: v => { nz({ buf: BROWN, dur: 0.5, f: 600, f2: 200, type: 'lowpass', q: 2, vol: 0.55 * v, wet: 0.3 }); bloop(110, 0.25, 0.2 * v, 0.15); bloop(80, 0.3, 0.18 * v, 0.35); },
+  heart: v => { thump(60, 38, 0.13, 0.35 * v); thump(55, 36, 0.11, 0.25 * v, 0, 0.16); },
+};
+// guns call play(it.gun.snd): map the names we know
+NEW.pistol = NEW.gun;
+const play0 = A.play;
+A.play = function (name, vol) {
+  if (!A.ctx) return; vol = vol == null ? 1 : vol; if (!A._chain) { try { chain(); } catch (e) { } }
+  const fn = NEW[name]; if (fn && PINK) { try { fn(vol * R(0.9, 1.08)); } catch (e) { } return; }
+  return play0.call(this, name, vol);
+};
+})(window.NE);
+
+// =====================================================================================================================
+// THROWABLES: 15 new things to throw — blades, flasks, grenades, gadgets
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const { ri, rf, pick, chance, clamp } = NE; const T = NE.T; const G = NE.G; const IT = NE.ITEMS;
+Object.assign(NE.ICONS, {
+  tstar: ['...X....', '...X....', '..XXX...', 'XXXwXXX.', '..XXX...', '...X....', '...X....', '........'],
+  bola: ['X......X', '.b....b.', '..b..b..', '...bb...', '...bb...', '..b..b..', '.b....b.', 'X......X'],
+  grenade: ['....kk..', '...k.k..', '..XXX...', '.XXwXX..', '.XXXXX..', '.XXXXX..', '..XXX...', '........'],
+  flask: ['...kk...', '...ww...', '...ww...', '..wXXw..', '.wXXXXw.', '.wXXXXw.', '..wwww..', '........'],
+  dart: ['.......X', '......X.', '.....X..', '....w...', '...w....', '..w.....', '.rr.....', 'rr......'],
+  jar: ['..bbbb..', '.wwwwww.', '.wXXXXw.', '.wXXXXw.', '.wXXXXw.', '.wXXXXw.', '..wwww..', '........'],
+  pod: ['...GG...', '..GXXG..', '.GXXXXG.', '.GXwXXG.', '.GXXXXG.', '..GXXG..', '...GG...', '........'],
+  javelin: ['.......w', '......wg', '.....B..', '....B...', '...B....', '..B.....', '.B......', 'B.......'],
+  rattle: ['..yyyy..', '.y.kk.y.', 'y.kwwk.y', 'y.kwwk.y', '.y.kk.y.', '..yyyy..', '...b....', '...b....'],
+});
+// kind: 'proj' flies and hits; 'fuse' is a physics body that goes off after a delay
+const TH = {
+  tknife: { name: 'Throwing Knife', icon: 'knife', col: '#c0c4ca', w: 0.2, stack: 6, kind: 'proj', spd: 400, g: 0.3, desc: 'Balanced blade. 22 sharp damage, can lodge in the wound.' },
+  tstar: { name: 'Scrap Star', icon: 'tstar', col: '#9aa0a8', w: 0.1, stack: 10, kind: 'proj', spd: 420, g: 0.25, desc: 'Sharpened scrap. 12 damage and a fresh bleeding cut.' },
+  javelin: { name: 'Javelin', icon: 'javelin', col: '#8a6038', w: 1.4, stack: 2, kind: 'proj', spd: 330, g: 0.55, desc: 'Heavy and brutal. 40 sharp damage, can knock them flat.' },
+  bola: { name: 'Bola', icon: 'bola', col: '#7a5a36', w: 0.5, stack: 3, kind: 'proj', spd: 280, g: 0.5, desc: 'Weighted cords. Tangles a target: stunned 3s, slowed 5s.' },
+  poisondart: { name: 'Poison Dart', icon: 'dart', col: '#6a9a40', w: 0.05, stack: 10, kind: 'proj', spd: 460, g: 0.12, desc: 'A pinprick full of cave venom. Poisons and slows.' },
+  acidflask: { name: 'Acid Flask', icon: 'flask', col: '#90d040', w: 0.4, stack: 3, kind: 'proj', spd: 190, g: 1, desc: 'Shatters in a burning splash. Hurts everyone nearby.' },
+  honeyjar: { name: 'Honey Jar', icon: 'jar', col: '#e0a020', w: 0.6, stack: 3, kind: 'proj', spd: 190, g: 1, desc: 'Sticky everywhere. Anyone caught is slowed to a crawl for 6s.' },
+  sporepod: { name: 'Spore Pod', icon: 'pod', col: '#a0b050', w: 0.3, stack: 4, kind: 'proj', spd: 190, g: 1, desc: 'Bursts into a choking spore cloud. Don\'t walk into it yourself.' },
+  frostflask: { name: 'Frost Flask', icon: 'flask', col: '#a0e0ff', w: 0.4, stack: 3, kind: 'proj', spd: 190, g: 1, desc: 'Freezes water to ice and slows everything in the splash.' },
+  stickybomb: { name: 'Sticky Charge', icon: 'grenade', col: '#8a6a3a', w: 0.5, stack: 3, kind: 'proj', spd: 300, g: 0.8, desc: 'Sticks to whatever it hits, then blows 2s later.' },
+  frag: { name: 'Frag Grenade', icon: 'grenade', col: '#4a5a3a', w: 0.5, stack: 3, kind: 'fuse', fuse: 2.2, desc: 'Pull, throw, duck. 2.2s fuse, shrapnel everywhere.' },
+  flashbang: { name: 'Flashbang', icon: 'grenade', col: '#c0c0c0', w: 0.4, stack: 3, kind: 'fuse', fuse: 1.5, desc: 'Blinding bang: stuns and disorients everyone nearby.' },
+  smoke: { name: 'Smoke Bomb', icon: 'grenade', col: '#7a7a7a', w: 0.4, stack: 3, kind: 'fuse', fuse: 0.8, desc: 'Thick smoke for 14s. Enemies lose track of anyone inside it.' },
+  firebomb: { name: 'Incendiary Jar', icon: 'jar', col: '#e05020', w: 0.6, stack: 2, kind: 'fuse', fuse: 0, desc: 'Bigger, hotter, longer-burning than a molotov.' },
+  noisemaker: { name: 'Clockwork Rattler', icon: 'rattle', col: '#c09040', w: 0.4, stack: 2, kind: 'fuse', fuse: 8, desc: 'Rattles loudly for 8s. Everything nearby comes to look.' },
+};
+for (const id in TH) { const d = TH[id]; IT[id] = { name: d.name, icon: d.icon, col: d.col, w: d.w, stack: d.stack, cat: 'throw', throwable: id, desc: 'Throw [G]. ' + d.desc, value: 6 }; NE.ISIZE[id] = id === 'javelin' ? [4, 1] : [1, 1]; }
+NE.THROW_DEF = TH;
+NE.THROW_IDS = ['flare', 'glowstick', 'molotov', 'bottle', 'brick', 'dynamite', ...Object.keys(TH)];
+NE.PRICE = NE.PRICE || {}; Object.assign(NE.PRICE, { tknife: 10, tstar: 4, javelin: 18, bola: 12, poisondart: 6, acidflask: 16, honeyjar: 14, sporepod: 12, frostflask: 16, stickybomb: 26, frag: 30, flashbang: 22, smoke: 14, firebomb: 20, noisemaker: 15 });
+NE.LOOT.weapon.push(['tknife', 2], ['tstar', 2], ['javelin', 0.8], ['frag', 0.6, 300], ['flashbang', 0.6, 200], ['smoke', 0.8], ['stickybomb', 0.4, 500]);
+NE.LOOT.common.push(['tstar', 1], ['bola', 0.6], ['noisemaker', 0.4]); NE.LOOT.rare.push(['frag', 1], ['firebomb', 0.8]);
+if (NE.LOOT.lab) NE.LOOT.lab.push(['acidflask', 1.2], ['frostflask', 0.8], ['sporepod', 0.6]); if (NE.LOOT.hive) NE.LOOT.hive.push(['honeyjar', 1.5], ['sporepod', 1]); if (NE.LOOT.raider) NE.LOOT.raider.push(['tknife', 1.2], ['frag', 0.4], ['smoke', 0.6], ['poisondart', 0.8]);
+if (NE.LOOT.frost) NE.LOOT.frost.push(['frostflask', 1.2]); if (NE.LOOT.forge) NE.LOOT.forge.push(['firebomb', 0.8], ['stickybomb', 0.4]);
+NE.RECIPES.push(
+  { id: 'tstar', name: 'Scrap Stars', out: ['tstar', 3], need: [['scrap', 2]], desc: 'Hammer scrap into throwing stars.' },
+  { id: 'bola', name: 'Bola', out: ['bola', 1], need: [['rag', 2], ['brick', 2]] },
+  { id: 'smoke', name: 'Smoke Bomb', out: ['smoke', 1], need: [['rag', 1], ['alcohol', 1], ['mushroom', 1]] },
+  { id: 'firebomb', name: 'Incendiary Jar', out: ['firebomb', 1], need: [['bottle', 1], ['alcohol', 2], ['rag', 1]], station: 'workbench' },
+  { id: 'poisondart', name: 'Poison Darts', out: ['poisondart', 4], need: [['scrap', 1], ['herb', 1]] },
+);
+
+// ---- launching
+const throw0 = NE.throwItem;
+NE.throwItem = function (g, pl, id, remote) {
+  const d0 = TH[id]; if (!d0) return throw0.call(this, g, pl, id);
+  const e = remote ? null : pl.inv.find(id); if (!remote && !e) return;
+  const ox = remote ? remote.x : pl.x + pl.facing * 3, oy = remote ? remote.y : pl.y - pl.h + 4; const d = remote ? { x: remote.dx, y: remote.dy } : pl.aimDir; const pow = remote ? 1 : Math.max(0.5, pl.anat.armFactor());
+  if (d0.kind === 'proj') { const sp = d0.spd * pow; G.cproj.push({ x: ox, y: oy + 3, vx: d.x * sp + (remote ? 0 : pl.vx * 0.5), vy: d.y * sp - (d0.g > 0.6 ? 45 : 6), by: pl, t: 0, kind: id, grav: d0.g, spin: rf(0, 6), ghost: !!remote }); }
+  else { const P = g.phys; const b = P.stick(id === 'firebomb' ? 'molotov' : 'dynamite', ox, oy, 3, Math.atan2(d.y, d.x), 1.0, 0.7); b.color = d0.col; b.item = id; b.thrownBy = pl; b.cfuse = d0.fuse; b.cfx = id; b.bounce = 0.12; b.fric = 0.85; b.ghost = !!remote; b.setVel(d.x * 230 * pow + (remote ? 0 : pl.vx), d.y * 230 * pow - 50);
+    if (id === 'firebomb') b.onImpact = (bb, p, v) => { if (v > 90 && !bb.remove) { bb.remove = true; NE.Audio.play('glass'); g.noise(p.x, p.y, 140); if (!bb.ghost) NE.throwFx('firebomb', p.x, p.y, pl); else NE.throwFxVis('firebomb', p.x, p.y); } };
+    else b.onImpact = (bb, p, v) => { if (v > 80) NE.Audio.play('metal', 0.3); }; }
+  if (!remote) { e.n--; if (e.n <= 0) pl.inv.remove(e); NE.Audio.play('swing'); pl.swingT = 0.25; pl.swingDur = 0.25; if (g.net && g.net.on) g.net.send({ t: 'cthrow', id, x: ox, y: oy, dx: d.x, dy: d.y }); }
+};
+// visual-only effects (both sides) and real effects (whoever simulates the enemies)
+NE.throwFxVis = function (k, x, y) {
+  const col = { acidflask: ['#b0e040', '#80b020'], honeyjar: ['#e0a020', '#ffd060'], sporepod: ['#a0b050', '#d0e080'], frostflask: ['#c0f0ff', '#ffffff'], firebomb: ['#ff8020', '#ffd060'], frag: ['#ffd060', '#ff8020'], flashbang: ['#ffffff', '#fff6c0'], smoke: ['#9a9a9a', '#c0c0c0'], stickybomb: ['#ffd060', '#ff8020'] }[k] || ['#ccc', '#fff'];
+  for (let i = 0; i < 16; i++) G.addP(x, y, rf(-80, 80), rf(-90, 10), rf(0.3, 0.8), pick(col), k === 'acidflask' || k === 'honeyjar' ? 'blood' : 'spark', 0.5);
+  if (k === 'flashbang') { G.flashWhite = 1; NE.Audio.play('boom', 0.5); NE.Audio.play('parry', 0.6); }
+  if (k === 'acidflask' || k === 'frostflask' || k === 'honeyjar' || k === 'sporepod') NE.Audio.play(k === 'sporepod' ? 'hiss' : 'glass', 0.8);
+  if (k === 'smoke') { NE.Audio.play('hiss', 0.9); (G.smokes = G.smokes || []).push({ x, y: y - 6, r: 8, t: 14 }); }
+};
+const near = (x, y, r, skip) => G.actors.filter(a => a.alive && !a.town && a !== skip && Math.hypot(a.x - x, a.cy - y) < r);
+NE.throwFx = function (k, x, y, by) {
+  NE.throwFxVis(k, x, y); const N = G.net && G.net.on ? G.net : null; if (N && N.role === 'guest') { N.send({ t: 'cfx', k, x, y }); }
+  const hit = (a, f) => { if (a.isPuppet || a.isRemote) return; f(a); if (a.onAggro && by && by.isPlayer) a.onAggro(by); };
+  switch (k) {
+    case 'acidflask': for (const a of near(x, y, 24)) hit(a, a => { a.hurt(pick(['torso', 'larm', 'rarm', 'lleg', 'rleg']), rf(10, 15), 'burn', 'Acid'); a.anat.tox = (a.anat.tox || 0) + 15; }); break;
+    case 'honeyjar': for (const a of near(x, y, 28)) hit(a, a => { a.slowT = 6; }); { const W = G.world; const tx = Math.floor(x / T), ty = Math.floor((y - 2) / T); for (let i = -1; i <= 1; i++) if (W.get(tx + i, ty) === 0) W.liqSet(ty * W.W + tx + i, 11, 0.5); } break;
+    case 'sporepod': G.gas.push({ spore: true, own: true, x, y: y - 6, r: 12, max: 32, d: 0.85, vx: rf(-3, 3), life: 10 }); break;
+    case 'frostflask': for (const a of near(x, y, 32)) hit(a, a => { a.slowT = 6; a.hurt('torso', 4, 'blunt', 'Frost'); }); { const W = G.world; const tx0 = Math.floor(x / T), ty0 = Math.floor(y / T); for (let ty = ty0 - 2; ty <= ty0 + 3; ty++) for (let tx = tx0 - 3; tx <= tx0 + 3; tx++) if (W.get(tx, ty) === 5) { W.liq && W.liq.delete(ty * W.W + tx); W.setMod(tx, ty, 10); } } break;
+    case 'firebomb': G.addFire(x, y, 28, 14); G.addFire(x + 12, y, 16, 10); G.addFire(x - 12, y, 16, 10); break;
+    case 'frag': G.explode(x, y, 1.0); break;
+    case 'stickybomb': G.explode(x, y, 1.15); break;
+    case 'flashbang': for (const a of near(x, y, 95)) { if (!G.world.los(x, y - 4, a.x, a.cy)) continue; if (a.isPlayer) { a.hurtT = 1; a.anat.stress = Math.min(100, a.anat.stress + 20); continue; } hit(a, a => { a.stagger = Math.max(a.stagger || 0, 3); a.target = null; a.state = 'search'; a.lastSeen = { x: a.x + rf(-60, 60), y: a.y }; a.searchT = 4; }); } break;
+  }
+};
+const hitFx = { // projectile hits an actor
+  tknife: (q, a) => { a.hurt(a.partNear(q.x, q.y), 22, 'sharp', q.byName, { x: Math.sign(q.vx), y: 0 }); if (chance(0.35) && a.anat) { const P = a.anat.parts[a.partNear(q.x, q.y)]; const w = P && P.wounds[P.wounds.length - 1]; if (w) w.bullet = true; } },
+  tstar: (q, a) => { const pt = a.partNear(q.x, q.y); a.hurt(pt, 12, 'sharp', q.byName, { x: Math.sign(q.vx), y: 0 }); if (a.anat && a.anat.parts[pt]) a.anat.parts[pt].wounds.push({ t: 'cut', bleed: rf(0.5, 1), dirty: 0.2, inf: 0, closed: false, age: 0, bullet: false }); },
+  javelin: (q, a) => { a.hurt(a.partNear(q.x, q.y), 40, 'sharp', q.byName, { x: Math.sign(q.vx), y: 0 }); if (a.alive && a.knockdown && chance(0.5)) a.knockdown(Math.sign(q.vx) * 160, -80, 0.9); else a.vx += Math.sign(q.vx) * 120; },
+  bola: (q, a) => { a.hurt('lleg', 3, 'blunt', q.byName); a.stagger = Math.max(a.stagger || 0, 3); a.slowT = 5; NE.Audio.play('cinch', 0.8); },
+  poisondart: (q, a) => { a.hurt(a.partNear(q.x, q.y), 6, 'sharp', q.byName); if (a.anat) a.anat.tox = (a.anat.tox || 0) + 45; a.slowT = 4; },
+};
+// projectile update: extend the spitter projectile loop with our kinds
+const upd0 = G.updateCproj;
+G.updateCproj = function (dt) {
+  const W = G.world; const mine = G.cproj.filter(q => TH[q.kind]); G.cproj = G.cproj.filter(q => !TH[q.kind]); upd0.call(this, dt); 
+  for (const q of mine) {
+    q.t += dt; q.spin += dt * 18; q.byName = q.by && q.by.surv ? q.by.surv.first : 'Thrown';
+    if (q.stuck) { q.fuse -= dt; if (q.stuck.a) { if (!q.stuck.a.alive) q.stuck.a = null; else { q.x = q.stuck.a.x + q.stuck.dx; q.y = q.stuck.a.cy + q.stuck.dy; } } if (Math.random() < dt * 20) G.addP(q.x, q.y - 1, rf(-8, 8), rf(-20, -5), 0.3, '#ffd060', 'spark', -0.2); if (q.fuse <= 0) { q.dead = true; if (!q.ghost) NE.throwFx('stickybomb', q.x, q.y, q.by); } continue; }
+    q.vy += 300 * q.grav * dt; const steps = 3; let done = false;
+    for (let i = 0; i < steps && !done; i++) { q.x += q.vx * dt / steps; q.y += q.vy * dt / steps;
+      if (!q.ghost) for (const a of G.actors) { if (!a.alive || a === q.by || a.town || a.isRemote || (q.by && q.by.isPlayer && a.isPlayer)) continue; if (a.contains && a.contains(q.x, q.y, 1.5)) {
+          if (a.dashIF > 0) continue; done = true;
+          if (q.kind === 'stickybomb') { q.stuck = { a, dx: q.x - a.x, dy: q.y - a.cy }; q.fuse = 2; NE.Audio.play('latch', 0.6); break; }
+          if (hitFx[q.kind]) { if (!a.isPuppet || true) hitFx[q.kind](q, a); if (a.onAggro && q.by && q.by.isPlayer) a.onAggro(q.by); NE.Audio.play(q.kind === 'bola' ? 'cinch' : 'slash', 0.7); q.dead = true; } else { q.dead = true; NE.throwFx(q.kind, q.x, q.y, q.by); } break; } }
+      if (!done && W.solidAt(q.x, q.y)) { done = true; q.x -= q.vx * dt / steps; q.y -= q.vy * dt / steps;
+        if (q.kind === 'stickybomb') { q.stuck = { a: null }; q.fuse = 2; NE.Audio.play('latch', 0.5); }
+        else if (hitFx[q.kind]) { q.dead = true; NE.Audio.play('metal', 0.3); if (!q.ghost && q.kind !== 'poisondart' && chance(0.75)) G.dyn.push({ type: 'container', ct: 'bag', x: q.x, y: q.y + 2, label: IT[q.kind].name, act: 'search', items: [{ id: q.kind, n: 1 }], searched: false, depth: 0 }); }
+        else { q.dead = true; if (q.ghost) NE.throwFxVis(q.kind, q.x, q.y); else NE.throwFx(q.kind, q.x, q.y, q.by); } }
+    }
+    if (q.t > 4) q.dead = true;
+  }
+  G.cproj = G.cproj.concat(mine.filter(q => !q.dead));
+  // fuse bodies
+  for (const b of G.phys.bodies) { if (!b.cfx || b.remove || !(b.cfuse > 0)) continue; b.cfuse -= dt; const c = b.center();
+    if (b.cfx === 'noisemaker') { b.rt = (b.rt || 0) - dt; if (b.rt <= 0) { b.rt = 0.28; NE.Audio.play('click', 0.9); NE.Audio.play('rope', 0.6); if (!b.ghost) G.noise(c.x, c.y, 230); } }
+    else if (Math.random() < dt * 25) G.addP(c.x, c.y - 1, rf(-6, 6), rf(-25, -5), 0.25, '#ffe080', 'spark', -0.2);
+    if (b.cfuse <= 0) { b.remove = b.cfx !== 'noisemaker'; if (b.cfx === 'noisemaker') b.cfx = null; else if (b.ghost) NE.throwFxVis(b.cfx, c.x, c.y); else NE.throwFx(b.cfx, c.x, c.y, b.thrownBy); } }
+  // smoke & slows
+  if (G.smokes) { for (const s of G.smokes) { s.t -= dt; s.r = Math.min(56, s.r + dt * 30); if (Math.random() < dt * 30) G.addP(s.x + rf(-s.r, s.r) * 0.8, s.y + rf(-s.r * 0.5, s.r * 0.4), rf(-6, 6), rf(-8, 2), rf(1.2, 2.2), pick(['#8a8a8a', '#a0a0a0', '#6a6a6a']), 'smoke', -0.05); }
+    G.smokes = G.smokes.filter(s => s.t > 0); const p = G.player; const hid = a => G.smokes.some(s => Math.hypot(a.x - s.x, a.cy - s.y) < s.r * 0.85);
+    for (const a of G.actors) if (a.alive && a.D && a.target && (a.target.isPlayer || a.target.isRemote) && (hid(a.target) || hid(a)) && Math.hypot(a.x - a.target.x, a.y - a.target.y) > 14) { a.lastSeen = { x: a.target.x + rf(-40, 40), y: a.target.y }; a.target = null; a.state = 'search'; a.searchT = 3; } }
+  for (const c of G.gas) if (c.own) for (const a of G.actors) if (a.alive && a.D && !a.isPuppet && Math.hypot(a.x - c.x, a.cy - c.y) < c.r) { a.anat.tox = (a.anat.tox || 0) + dt * 12; a._gasT = (a._gasT || 0) - dt; if (a._gasT <= 0) { a._gasT = 1; a.hurt('torso', 3, 'burn', 'Spores'); a.stagger = Math.max(a.stagger || 0, 0.3); } }
+  for (const a of G.actors) if (a.slowT > 0) { a.slowT -= dt; a.vx *= Math.pow(0.08, dt); if (Math.random() < dt * 6) G.addP(a.x + rf(-3, 3), a.y - rf(2, 18), 0, 6, 0.4, '#c0b080', 'spark', 0.2); }
+};
+// draw flying throwables + smoke clouds
+const fx0 = G.drawContentFX;
+G.drawContentFX = function (ctx) {
+  fx0.call(this, ctx);
+  for (const q of G.cproj) { if (!TH[q.kind]) continue; const x = Math.round(q.x), y = Math.round(q.y); const c = IT[q.kind].col; const a = q.stuck ? 0 : q.spin;
+    if (q.kind === 'javelin' || q.kind === 'poisondart') { const L = q.kind === 'javelin' ? 9 : 3, ang = Math.atan2(q.vy, q.vx); NE.pline(ctx, x - Math.cos(ang) * L, y - Math.sin(ang) * L, x, y, 1, c); ctx.fillStyle = '#d8dce0'; ctx.fillRect(x, y, 1, 1); }
+    else if (q.kind === 'tknife' || q.kind === 'tstar') { NE.pline(ctx, x - Math.cos(a) * 2, y - Math.sin(a) * 2, x + Math.cos(a) * 2, y + Math.sin(a) * 2, 1, '#d0d4d8'); if (q.kind === 'tstar') NE.pline(ctx, x - Math.cos(a + 1.57) * 2, y - Math.sin(a + 1.57) * 2, x + Math.cos(a + 1.57) * 2, y + Math.sin(a + 1.57) * 2, 1, '#a0a4a8'); }
+    else if (q.kind === 'bola') { ctx.fillStyle = '#6a4a2a'; NE.pline(ctx, x - Math.cos(a) * 3, y - Math.sin(a) * 3, x + Math.cos(a) * 3, y + Math.sin(a) * 3, 1, '#9a7a50'); ctx.fillRect(Math.round(x + Math.cos(a) * 3), Math.round(y + Math.sin(a) * 3), 2, 2); ctx.fillRect(Math.round(x - Math.cos(a) * 3), Math.round(y - Math.sin(a) * 3), 2, 2); }
+    else { ctx.fillStyle = NE.shade(c, 0.6); ctx.fillRect(x - 1, y - 1, 3, 3); ctx.fillStyle = c; ctx.fillRect(x - 1, y - 1, 2, 2); if (q.stuck && Math.sin(G.t * 20) > 0) { ctx.fillStyle = '#ff3020'; ctx.fillRect(x, y - 2, 1, 1); } } }
+  if (G.flashWhite > 0) { G.flashWhite -= 0.04; }
+};
+// white flash overlay for flashbangs (screen space): piggy-back on the camera shake frame
+const drawFX0 = G.drawFX; G.drawFX = function () { drawFX0.apply(this, arguments); if (G.flashWhite > 0) { const ctx = G.ctx; ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = 'rgba(255,255,255,' + Math.min(0.9, G.flashWhite) + ')'; ctx.fillRect(0, 0, G.cv.width, G.cv.height); ctx.restore(); } };
+// co-op: mirror the throw on the other screen; guests ask the host to apply area effects
+// new items are goods, not money: keep their value as a trade price, out of the currency count
+for (const id in IT) if (!NE._origItems.has(id) && IT[id].value) { IT[id].worth = IT[id].value; delete IT[id].value; }
+{ const bp0 = NE.basePrice; NE.basePrice = function (id) { const it = IT[id]; if (it && it.worth && !NE.PRICE[id]) return it.worth * 2.5; return bp0.call(this, id); }; }
+NE.hookThrowNet = function () { if (!NE.Net || NE.Net.prototype._thrHooked) return; NE.Net.prototype._thrHooked = true; const h0 = NE.Net.prototype.handle;
+  NE.Net.prototype.handle = function (m) { if (m && m.t === 'cthrow') { if (G.world && !G.world.lobby && this.peer) NE.throwItem(G, this.peer, m.id, { x: m.x, y: m.y, dx: m.dx, dy: m.dy }); return; }
+    if (m && m.t === 'cfx') { if (this.role === 'host') { const k = m.k; if (k === 'frag' || k === 'stickybomb') return; NE.throwFx(k, m.x, m.y, this.peer); } return; } return h0.call(this, m); }; };
+window.addEventListener('load', NE.hookThrowNet); setTimeout(NE.hookThrowNet, 0);
+})(window.NE);
+
+// =====================================================================================================================
+// TOWNS: every town has its own layout, merchants, folk and a special feature
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const { ri, rf, pick, chance, clamp } = NE; const T = NE.T; const G = NE.G; const W_ = NE.World.prototype; const IT = NE.ITEMS;
+// merchant specialities: what they stock and how they greet you
+NE.MERCH = {
+  trader: { title: 'Trader', greet: 'Scrap, trinkets, tape, rounds — or sell me something.', pool: ['pickaxe', 'dynamite', 'bandage', 'water', 'ration', 'splint', 'tourniquet', 'battery', 'filter', 'lockpick', 'grapple', 'canteen', 'larder', 'flare', 'rope'] },
+  gunsmith: { title: 'Gunsmith', greet: 'Oiled, zeroed, mostly legal. Ammo by the box.', pool: ['pistol', 'revolver', 'smg', 'shotgun', 'rifle', 'hunting', 'ammo9', 'ammo357', 'shells', 'ammo762', 'ammo50'], shirt: '#3a3a3a' },
+  herbalist: { title: 'Herbalist', greet: 'Roots, caps and honey. Nature heals — slowly.', pool: ['herb', 'mushroom', 'honey', 'antiseptic', 'cleanrag', 'painkillers', 'water', 'chocolate', 'sporepod', 'poisondart'], shirt: '#4a6a30' },
+  prosthetist: { title: 'Limb-Maker', greet: 'Lost something? I can\'t grow it back, but I can build it.', pool: ['peg_leg_w', 'peg_leg_a', 'peg_leg_p', 'peg_arm_w', 'peg_arm_a', 'peg_arm_p', 'metal_arm_w', 'metal_arm_a', 'metal_arm_p', 'metal_leg_a', 'saw_arm_w', 'saw_arm_a', 'saw', 'tourniquet'], shirt: '#6a6a70', n: 7 },
+  armorer: { title: 'Armourer', greet: 'Plate, mail, padding. Or I patch up what you\'re wearing.', pool: null, shirt: '#5a4a3a', armor: true },
+  throwsmith: { title: 'Bombmaker', greet: 'Everything here goes boom, splash or stab. Don\'t drop anything.', pool: ['tknife', 'tstar', 'javelin', 'bola', 'acidflask', 'frostflask', 'honeyjar', 'smoke', 'flashbang', 'frag', 'stickybomb', 'firebomb', 'noisemaker', 'molotov', 'dynamite'], shirt: '#7a3a20', n: 7 },
+  outfitter: { title: 'Outfitter', greet: 'Boots, gloves, belts. Kit that keeps you alive.', pool: ['hikeboots', 'runshoes', 'climbgloves', 'knucklegloves', 'canteen', 'larder', 'harness', 'armband', 'nightgoggles', 'rabbitfoot', 'respirator', 'filter'], shirt: '#6a5a30' },
+  fence: { title: 'Fence', greet: 'I pay better than anyone down here. Don\'t ask, won\'t tell.', pool: ['lockpick', 'keycard', 'tknife', 'smoke', 'trinket'], shirt: '#2a2a30', sellMul: 1.4 },
+};
+const priceOf = id => Math.ceil(NE.PRICE[id] || NE.basePrice(id) * 1.0);
+NE.merchStock = function (kind, depth) {
+  const M = NE.MERCH[kind]; let pool = M.pool ? M.pool.filter(id => IT[id]) : NE.ARMOR2.concat(['vest', 'kevlar', 'helmet', 'milhelmet', 'leathercap', 'scrapplate', 'platevest']).filter(id => IT[id]);
+  if (M.armor) pool = pool.filter(id => (IT[id].armor || 0) <= 0.35 + depth / 2500);
+  const out = []; const used = new Set(); const n = M.n || 6;
+  for (let i = 0; i < n * 3 && out.length < n; i++) { const id = pick(pool); if (used.has(id)) continue; used.add(id); const it = IT[id]; const cnt = it.stack ? (it.cat === 'ammo' ? 10 : Math.min(it.stack, 3)) : (it.uses || 1); out.push({ id, n: cnt, price: priceOf(id) * (it.cat === 'ammo' ? 10 : it.stack ? cnt : 1) }); }
+  return out;
+};
+// every town by name: layout, theme colours, merchants, special features
+NE.TOWN_DEF = {
+  Lanternmoss: { layout: 'market', merch: ['trader', 'herbalist'], feat: ['shrine'], palette: ['#4a6a30', '#6a5a3a', '#3a5a4a'], decor: ['lanterns', 'stall', 'plant'], folk: 4, doctor: true, line: 'Paper lanterns everywhere. Someone is singing.' },
+  Rootwell: { layout: 'cavern', merch: ['trader', 'prosthetist'], feat: ['mapdesk'], palette: ['#5a4a30', '#4a3a28'], decor: ['bigroot'], folk: 3, doctor: true, line: 'A whole village tucked between the roots of something enormous.' },
+  Saltreach: { layout: 'bridge', merch: ['gunsmith', 'trader'], feat: ['dice'], palette: ['#c8b890', '#a89870'], decor: ['stall', 'banner'], folk: 3, doctor: true, line: 'Built on both sides of a salt-water chasm. Mind the bridge.' },
+  'Ochre Rest': { layout: 'terraced', merch: ['armorer', 'herbalist'], feat: ['stove'], palette: ['#b07a40', '#8a5a30'], decor: ['banner', 'pots'], folk: 4, doctor: true, line: 'Cliff houses stacked up the ochre wall.' },
+  Dunewell: { layout: 'market', merch: ['trader', 'throwsmith', 'fence'], feat: ['dice'], palette: ['#d8b070', '#c08850', '#a05a30'], decor: ['stall', 'stall', 'banner'], folk: 5, doctor: false, line: 'The loudest bazaar under the sand.' },
+  Rimehold: { layout: 'fort', merch: ['armorer', 'gunsmith'], feat: ['bath'], palette: ['#7a8a98', '#5a6a78'], decor: ['banner', 'palisade'], folk: 3, doctor: true, line: 'A walled hold with a hot spring at its heart.' },
+  Frostkettle: { layout: 'pools', merch: ['herbalist', 'outfitter'], feat: ['bath', 'stove'], palette: ['#6a7a88', '#8a6a50'], decor: ['steam', 'lanterns'], folk: 4, doctor: true, line: 'Steaming pools, frozen eaves, soup on every fire.' },
+  'Prism Hollow': { layout: 'cavern', merch: ['prosthetist', 'trader'], feat: ['mapdesk', 'shrine'], palette: ['#6a5aa0', '#4a4070'], decor: ['crystaltree'], folk: 3, doctor: false, line: 'Built around a crystal that hums at night.' },
+  Glimmerstead: { layout: 'terraced', merch: ['gunsmith', 'throwsmith'], feat: ['shrine'], palette: ['#8a7ad0', '#5a5090'], decor: ['lanterns', 'banner'], folk: 4, doctor: true, line: 'Terraces of glowing glass and nervous people.' },
+  Cinderhearth: { layout: 'stilts', liquid: 9, merch: ['armorer', 'gunsmith'], feat: ['anvil'], palette: ['#5a2a1e', '#3a2622'], decor: ['forge', 'banner'], folk: 3, doctor: true, line: 'Forges on stilts above the lava. Hot enough to sweat iron.' },
+  'Last Ember': { layout: 'fort', merch: ['throwsmith', 'outfitter'], feat: ['dice', 'stove'], palette: ['#7a3a20', '#4a2a1a'], decor: ['palisade', 'banner'], folk: 3, doctor: true, line: 'The last walled town before the deep. Everyone is armed.' },
+  'Ashfall Post': { layout: 'bridge', merch: ['fence', 'prosthetist'], feat: ['anvil', 'mapdesk'], palette: ['#4a4040', '#2a2424'], decor: ['forge'], folk: 2, doctor: true, line: 'Ash drifts down through the bridge slats.' },
+  Waxhome: { layout: 'stilts', liquid: 11, merch: ['herbalist', 'outfitter'], feat: ['shrine', 'stove'], palette: ['#c08a20', '#8a5a10'], decor: ['comb', 'lanterns'], folk: 4, doctor: true, line: 'Wax houses on stilts over pools of honey.' },
+  Combwell: { layout: 'cavern', merch: ['throwsmith', 'trader'], feat: ['dice'], palette: ['#d09030', '#8a5a10'], decor: ['comb', 'crystaltree'], folk: 3, doctor: true, line: 'They carved a town out of an abandoned hive.' },
+  'Lastlight Dock': { layout: 'dock', liquid: 5, merch: ['gunsmith', 'fence', 'trader'], feat: ['mapdesk'], palette: ['#2a4a4a', '#5a4030'], decor: ['boat', 'lanterns'], folk: 4, doctor: true, line: 'Piers over black water. Boats that go nowhere.' },
+  Tidelock: { layout: 'pools', merch: ['outfitter', 'herbalist'], feat: ['bath', 'dice'], palette: ['#3a5a5a', '#2a3a3a'], decor: ['boat', 'kelp'], folk: 3, doctor: true, line: 'Half the town is under water at high tide.' },
+  Calvary: { layout: 'temple', merch: ['prosthetist', 'armorer'], feat: ['shrine', 'anvil'], palette: ['#d8d0b8', '#8a8070'], decor: ['column', 'skullwall'], folk: 3, doctor: true, line: 'A bone cathedral. The monks trade in spare parts.' },
+  Marrowhold: { layout: 'fort', merch: ['fence', 'throwsmith'], feat: ['dice', 'shrine'], palette: ['#a89c80', '#5a5040'], decor: ['palisade', 'skullwall'], folk: 3, doctor: true, line: 'Walls of stacked bone. They don\'t ask who they were.' },
+  'The Last Lantern': { layout: 'temple', merch: ['prosthetist', 'gunsmith', 'outfitter'], feat: ['shrine', 'bath', 'mapdesk'], palette: ['#6a2a4a', '#3a1a2a'], decor: ['column', 'lanterns', 'veins'], folk: 2, doctor: true, line: 'The last light before the Heart. Nobody here sleeps.' },
+  Waystation: { layout: 'market', merch: ['trader'], feat: ['stove'], palette: ['#6a4a30'], decor: ['stall'], folk: 3, doctor: true, line: 'A tired little stop.' },
+};
+W_.genTown = function (f, fl, rows, g, c) {
+  const W = this.W, FH = NE.FH; const B = fl.biome.id; const gv = FH - 4;
+  const names = NE.TOWNS[B] || ['Waystation']; const used = this._townsUsed = this._townsUsed || [];
+  let name = names.find(n => !used.includes(n)) || pick(names); if (!names.includes(name)) name = pick(names); used.push(name); const D = NE.TOWN_DEF[name] || NE.TOWN_DEF.Waystation;
+  for (let x = 0; x < W; x++) { g[x] = gv; c[x] = x < 3 || x > W - 4 ? gv : (x < 6 || x > W - 7 ? 2 : 0); }
+  for (let r = 0; r < FH; r++) for (let x = 0; x < W; x++) rows[r][x] = (r < c[x] || r >= g[x]) ? 1 : 0;
+  for (const lx of fl.ladIn) { for (let r = 0; r < g[lx]; r++) rows[r][lx] = 3; }
+  fl.town = { name, x0: 6 * T, x1: (W - 7) * T, def: D };
+  // way onward
+  const exitDir = ri(0, 1) ? 1 : -1; { const dir = exitDir, x0 = dir > 0 ? 7 : W - 8; let xe = x0; for (let i = 0; i < 7; i++) { const xx = x0 + dir * i; const fl2 = Math.min(FH, gv + Math.round((FH - gv) * (i + 1) / 7)); for (let r = Math.max(gv - 1, fl2 - 4); r < Math.min(FH, fl2); r++) rows[r][xx] = 0; if (i >= 5) for (let r = fl2; r < FH; r++) rows[r][xx] = 0; xe = xx; }
+    this.ladNext = []; this.pitNext = [[Math.min(xe, xe - dir), Math.max(xe, xe - dir), dir]]; }
+  const mid = Math.floor(W / 2); const safe = x => x > 15 && x < W - 15; // keep clear of the exit chute
+  // ---- layout-specific terrain
+  const L = D.layout; const lo = 15, hi = W - 16;
+  if (L === 'bridge') { const a = mid - 7, b = mid + 7; for (let x = a; x <= b; x++) { for (let r = gv; r < FH - 1; r++) rows[r][x] = 0; rows[FH - 2][x] = 5; rows[gv][x] = 2; } fl.townGap = [a, b]; }
+  if (L === 'terraced') { for (let x = lo; x < mid - 6; x++) { const h = x < lo + 2 ? 1 : 2; g[x] = gv - h; for (let r = g[x]; r < gv; r++) rows[r][x] = 1; } for (let x = mid + 8; x < hi; x++) { const h = x > hi - 3 ? 1 : 2; g[x] = gv - h; for (let r = g[x]; r < gv; r++) rows[r][x] = 1; } }
+  if (L === 'dock' || L === 'pools' || L === 'stilts') { const liq = D.liquid || 5; const spans = L === 'dock' ? [[mid - 12, mid + 12]] : [[lo + 4, lo + 10], [mid - 3, mid + 3], [hi - 10, hi - 4]];
+    for (const [a, b] of spans) for (let x = a; x <= b; x++) { if (L === 'pools') { rows[gv][x] = liq; rows[gv + 1][x] = liq; } else { rows[gv][x] = (L === 'dock' && (x - a) % 8 === 7) ? liq : 2; rows[gv + 1][x] = liq; rows[gv + 2][x] = liq; } }
+    fl.townPools = spans; }
+  if (L === 'fort') { for (const x of [lo + 1, hi - 1]) for (let dx = -1; dx <= 1; dx++) rows[gv - 5][x + dx] = 8; fl.decor.push({ k: 'palisade', x: (lo - 1) * T, y: 0, col: '#5a4028' }, { k: 'palisade', x: (hi - 1) * T, y: 0, col: '#5a4028' }); }
+  // walkable top surface for objects on stilts/docks: the plank row
+  const surfY = x => { for (let r = 0; r < FH; r++) { const t = rows[r][x]; if (t === 1 || t === 2 || t === 8 || t === 10) return r; } return gv; };
+  // ---- decor: houses in the town's own colours
+  const pal = D.palette; for (let x = 16, i = 0; x < W - 16; x += ri(9, 13), i++) { if (fl.townGap && x > fl.townGap[0] - 3 && x < fl.townGap[1] + 3) continue; fl.decor.push({ k: L === 'stilts' ? 'stilthut' : L === 'temple' ? 'column' : 'shack', x: x * T, y: 0, s: rf(0, 1), col: pal[i % pal.length] }); }
+  for (const k of D.decor) for (let n = 0; n < 2; n++) { let x = ri(lo + 2, hi - 2); if (fl.townGap && x > fl.townGap[0] - 2 && x < fl.townGap[1] + 2) x = lo + 3; fl.decor.push({ k, x: x * T, y: 0, s: rf(0, 1), col: pick(pal) }); }
+  if (L === 'cavern') fl.decor.unshift({ k: D.decor.includes('crystaltree') ? 'crystaltree' : 'bigroot', x: mid * T, y: 0, s: 0.5 });
+  if (L === 'dock') for (const x of [mid - 8, mid + 6]) fl.decor.push({ k: 'boat', x: x * T, y: 0, s: rf(0, 1) });
+  // ---- core services (placed differently per layout)
+  const spots = []; for (let x = lo + 2; x < hi - 2; x += 4) { if (fl.townGap && x >= fl.townGap[0] - 1 && x <= fl.townGap[1] + 1) continue; if (fl.townPools && L === 'pools' && fl.townPools.some(([a, b]) => x >= a - 1 && x <= b + 1)) continue; spots.push(x); }
+  const take = pref => { let best = -1, bd = 1e9; for (let i = 0; i < spots.length; i++) { const d = Math.abs(spots[i] - pref); if (d < bd) { bd = d; best = i; } } if (best < 0) return pref; const x = spots[best]; spots.splice(best, 1); return x; };
+  const at = x => x * T + 4;
+  fl.objs.push({ type: 'post', x: at(take(mid)), label: 'Deep Post — send loot topside', act: 'post' });
+  fl.objs.push({ type: 'fire', x: at(take(mid - 5)), label: name + ' Hearth', act: 'fire' });
+  fl.objs.push({ type: 'bed', x: at(take(L === 'fort' ? lo + 4 : ri(lo + 3, mid - 8))), label: 'Inn Bed — rest & save', act: 'rest' });
+  fl.objs.push({ type: 'bench', x: at(take(mid + 9)), label: 'Town Workbench', act: 'craft' });
+  if (L !== 'pools') fl.objs.push({ type: 'dispenser', x: at(take(hi - 4)), label: 'Town Well', act: 'drink', uses: 99 });
+  fl.objs.push({ type: 'sign', x: at(take(lo + 1)), label: name });
+  for (const k of D.feat) { const lab = { shrine: 'Hive Shrine — pray (calms you, once)', bath: 'Hot Spring — bathe (warm & clean, once)', stove: 'Soup Kitchen — hot meal (8 silver)', dice: 'Bone Dice — gamble silver', mapdesk: 'Cartographer — buy a map of the next levels (15)', anvil: 'Anvil — repair armour (10)' }[k]; fl.objs.push({ type: 'tfeat', feat: k, x: at(take(ri(lo + 4, hi - 4))), label: lab, act: 'tfeat' }); }
+  for (let x = 8; x < W - 8; x += 7) fl.objs.push({ type: 'lamp', x: x * T + 4, y: 0, on: true, col: pick(['#ffc070', '#ffd890', '#ffb060']), flick: 0 });
+  if (L !== 'temple') for (let x = 10; x < W - 10; x += 16) fl.decor.push({ k: 'bunting', x: x * T, y: 0 });
+  // ---- people
+  const npc = (role, x, extra) => { const sv = NE.makeSurvivor(); fl.spawns.push(Object.assign({ kind: 'town', role, x: at(x), name: sv.name, look: sv.look }, extra || {})); };
+  for (const m of D.merch) npc(m === 'trader' ? 'trader' : 'merchant', take(ri(lo + 3, hi - 3)), { merch: m });
+  if (D.doctor) npc('doctor', take(ri(lo + 3, hi - 3)));
+  for (let i = 0; i < (D.folk || 3); i++) npc('folk', ri(lo + 2, hi - 2), { tint: pick(pal) });
+  fl.feetY = (fl.y0 + gv) * T; for (const r of rows) this.rows.push(r);
+  for (let x = 0; x < W; x++) g[x] = surfY(x) < gv + 2 ? Math.min(gv, surfY(x)) : gv;
+  for (const o of fl.objs) o.y = o.type === 'lamp' ? this.ceilY(fl, o.x) + 1 : this.groundY(fl, o.x);
+  for (const sp of fl.spawns) sp.y = this.groundY(fl, sp.x); for (const d of fl.decor) d.y = this.groundY(fl, d.x);
+  this.floors.push(fl); return fl;
+};
+// town NPCs: merchants get their speciality, folk wear the town's colours
+const spawn0 = G.spawnFloor;
+G.spawnFloor = function (fl, restoring) {
+  const n0 = G.actors.length; spawn0.call(this, fl, restoring);
+  if (!fl.town) return; const def = fl.town.def || {}; const sp = (fl.spawns || []).filter(s => s.kind === 'town'); const npcs = G.actors.slice(n0).filter(a => a.town);
+  npcs.forEach((n, i) => { const s = sp[i]; if (!s) return;
+    if (s.merch && s.merch !== 'trader') { const M = NE.MERCH[s.merch]; n.role = 'trader'; n.merch = s.merch; n.act = 'trade'; n.label = M.title + ' ' + n.name.split(' ')[0]; n.greet = M.greet; n.sellMul = M.sellMul || 1; if (M.shirt) n.shirt = M.shirt; n.stock = NE.withSeed(G.world.seed + fl.f * 11 + i, () => NE.merchStock(s.merch, fl.depth)); }
+    else if (s.role === 'trader') { n.greet = NE.MERCH.trader.greet; n.stock = NE.withSeed(G.world.seed + fl.f * 13, () => NE.merchStock('trader', fl.depth).concat((n.stock || []).slice(0, 2))); }
+    if (s.role === 'folk' && s.tint && chance(0.6)) n.shirt = s.tint; });
+};
+// the trade window uses the merchant's own greeting and pays the fence's premium
+const trade0 = NE.UI.render.trade;
+NE.UI.render.trade = function (b, npc) { const mul0 = G.player.stats.barter; const sm = npc && npc.sellMul || 1; G.player.stats.barter = mul0 / Math.sqrt(sm); try { trade0.call(this, b, npc); } finally { G.player.stats.barter = mul0; } if (npc && npc.greet) { const p = b.querySelector('.trade > p.dim'); if (p) p.textContent = '"' + npc.greet + '"'; } };
+// special features
+G.townFeat = function (o) {
+  const p = G.player, A = p.anat; const R = G.run; R.tfeat = R.tfeat || {}; const key = o.feat + '@' + Math.round(o.x) + ',' + Math.round(o.y);
+  const pay = n => { if (G.tradeValue(p.inv) < n) { G.toast('Not enough to pay (' + n + ').'); NE.Audio.play('deny'); return false; } G.payValue(p.inv, n); NE.Audio.play('buy'); return true; };
+  switch (o.feat) {
+    case 'shrine': if (R.tfeat[key]) return G.toast('You already prayed here.'); R.tfeat[key] = 1; A.stress = Math.max(0, A.stress - 45); A.painSpike *= 0.5; for (const k of NE.PARTS) { const P = A.parts[k]; if (!P.severed) P.hp = Math.min(P.max, P.hp + 12); } NE.Audio.play('chime'); G.flashT = 0.4; G.toast('A warm hum fills your chest. Calm. (stress −45, wounds ease)'); break;
+    case 'bath': if (R.tfeat[key]) return G.toast('You\'re already clean as you\'ll get.'); R.tfeat[key] = 1; A.temp = Math.max(A.temp, 37.2); A.wet = 0; A.infection *= 0.6; for (const k of NE.PARTS) for (const w of A.parts[k].wounds) w.dirty = 0; A.stress = Math.max(0, A.stress - 20); NE.Audio.play('splash'); G.toast('You soak in the hot spring. Warm, clean wounds, infection eased.'); break;
+    case 'stove': if (!pay(8)) return; A.hunger = 100; A.thirst = Math.min(100, A.thirst + 40); A.stress = Math.max(0, A.stress - 10); NE.Audio.play('gulp'); G.toast('A bowl of something hot and peppery. Full.'); break;
+    case 'dice': { const bet = 10; NE.UI.dialog('Bone Dice', '<i>A one-eyed woman rattles three knucklebones in a cup. "Ten silver. Beat my roll, I pay double."</i>', [{ label: 'Roll (bet ' + bet + ')', hint: 'About 45% to win 20', disabled: G.tradeValue(p.inv) < bet, fn: () => { G.payValue(p.inv, bet); const me = ri(3, 18), her = ri(3, 18); NE.Audio.play('rummage'); NE.Audio.play('click'); if (me > her) { const left = p.inv.add('silver', 20); if (left) G.dropEntry({ id: 'silver', n: left }); G.toast('You roll ' + me + ' against ' + her + '. +20 silver!'); NE.Audio.play('buy'); } else G.toast('You roll ' + me + ' against ' + her + '. She takes your silver.'); } }, { label: 'Walk away' }]); break; }
+    case 'mapdesk': { if (!pay(15)) return; const W = G.world; const f0 = G.floorIdx(p.y); W.ensure(f0 + 4, fl => G.spawnFloor(fl)); for (let f = f0 + 1; f <= f0 + 3; f++) { const fl = W.floors[f]; if (fl && fl.seen) fl.seen.fill(1); } G.toast('The cartographer sketches the next three levels for you (see Map).'); break; }
+    case 'anvil': { const worn = ['head', 'body', 'hands', 'feet'].map(s => p.gear[s]).filter(e => e && IT[e.id].dur && e.dur < IT[e.id].dur); if (!worn.length) return G.toast('Nothing of yours needs repairing.'); if (!pay(10)) return; for (const e of worn) e.dur = IT[e.id].dur; NE.Audio.play('metal'); NE.Audio.play('block', 0.5); G.toast('Hammered out the dents: armour fully repaired.'); break; }
+  }
+};
+const interact0 = G.interact;
+G.interact = function () { const o = G.interactTarget(); if (o && o.act === 'tfeat') return G.townFeat(o); return interact0.apply(this, arguments); };
+// arriving in a town: the welcome line names what makes it special
+const depth0 = G.depthTrack; G.depthTrack = function (p) { depth0.call(this, p); const fl = G.curFloor && G.curFloor(); if (fl && fl.town && fl.town.def && G.run && !(G.run.townSeen || {})[fl.f]) { G.run.townSeen = G.run.townSeen || {}; G.run.townSeen[fl.f] = 1; const D = fl.town.def; setTimeout(() => { G.log(fl.town.name + ': ' + D.line, 'good'); G.log('Here: ' + D.merch.map(m => NE.MERCH[m].title).join(', ') + (D.doctor ? ', Doctor' : '') + ' • ' + D.feat.map(k => ({ shrine: 'Shrine', bath: 'Hot spring', stove: 'Soup kitchen', dice: 'Dice table', mapdesk: 'Cartographer', anvil: 'Anvil' })[k]).join(', '), 'sys'); }, 1200); } };
+// drawing: town features + new town decor
+const drawObj0 = G.drawObj;
+G.drawObj = function (ctx, o) {
+  if (o.type !== 'tfeat') return drawObj0(ctx, o); const x = Math.round(o.x), y = Math.round(o.y); const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; const t = G.t;
+  switch (o.feat) {
+    case 'shrine': R(-6, -3, 12, 3, '#5a4a3a'); R(-4, -14, 8, 11, '#7a6040'); R(-3, -13, 6, 9, '#3a2a1a'); R(-1, -11, 2, 5, '#ffd040'); R(-5, -16, 10, 2, '#8a7050'); if (Math.sin(t * 3) > 0) R(0, -12, 1, 1, '#fff6c0'); break;
+    case 'bath': R(-12, -4, 24, 4, '#5a5048'); R(-11, -3, 22, 3, '#3a6a7a'); for (let i = 0; i < 3; i++) { const k = (t * 0.6 + i * 0.33) % 1; ctx.fillStyle = 'rgba(230,240,245,' + (0.5 * (1 - k)) + ')'; ctx.fillRect(x - 8 + i * 7, y - 6 - Math.round(k * 14), 2, 2); } break;
+    case 'stove': R(-6, -8, 12, 8, '#3a3434'); R(-5, -7, 10, 2, '#5a5050'); R(-4, -11, 8, 3, '#6a6a6a'); R(-3, -3, 6, 2, Math.sin(t * 8) > 0 ? '#ff8020' : '#ffb040'); if (Math.random() < 0.1) G.addP(x, y - 12, rf(-4, 4), -12, 1, '#c0c0c0', 'steam', -0.05); break;
+    case 'dice': R(-7, -6, 14, 2, '#5a3a24'); R(-6, -4, 1, 4, '#3a2418'); R(5, -4, 1, 4, '#3a2418'); R(-3, -8, 2, 2, '#e8e0c8'); R(1, -8, 2, 2, '#e8e0c8'); R(-1, -9, 1, 1, '#e8e0c8'); break;
+    case 'mapdesk': R(-8, -7, 16, 2, '#6a4a2a'); R(-7, -5, 1, 5, '#4a3018'); R(6, -5, 1, 5, '#4a3018'); R(-6, -9, 11, 2, '#d8c8a0'); R(-4, -9, 1, 1, '#a03020'); R(1, -9, 3, 1, '#4a6a8a'); break;
+    case 'anvil': R(-6, -6, 12, 2, '#4a4a50'); R(-3, -4, 6, 4, '#3a3a40'); R(4, -6, 4, 1, '#4a4a50'); R(-5, -6, 10, 1, '#7a7a80'); break;
+  }
+};
+const drawDecor0 = NE.drawDecor;
+NE.drawDecor = function (ctx, d, pal, time, fl) {
+  const x = Math.round(d.x), y = Math.round(d.y); const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); }; const col = d.col || '#6a4a30';
+  switch (d.k) {
+    case 'stall': { R(-10, -16, 20, 3, NE.shade(col, 1.2)); for (let i = 0; i < 5; i++) R(-10 + i * 4, -13, 2, 2, i % 2 ? '#e8e0c8' : col); R(-9, -13, 1, 13, '#3a2a1a'); R(8, -13, 1, 13, '#3a2a1a'); R(-9, -6, 18, 2, '#5a3a24'); R(-6, -8, 3, 2, '#c05030'); R(-1, -8, 2, 2, '#e0c050'); R(3, -8, 3, 2, '#60a040'); break; }
+    case 'banner': { const ceil = fl && fl.c ? (fl.y0 + fl.c[clamp(Math.floor(d.x / T), 0, fl.c.length - 1)]) * T : y - 50; const L = Math.min(26, y - ceil - 8); R(0, ceil - y, 1, 4, '#3a2a1a'); for (let i = 0; i < L; i++) { ctx.fillStyle = i % 9 === 4 ? NE.shade(col, 1.4) : col; ctx.fillRect(x - 2 + Math.round(Math.sin(time * 1.5 + i * 0.2) * (i / L)), ceil + 4 + i, 5, 1); } break; }
+    case 'lanterns': { const ceil = fl && fl.c ? (fl.y0 + fl.c[clamp(Math.floor(d.x / T), 0, fl.c.length - 1)]) * T : y - 50; for (let i = 0; i < 4; i++) { const lx = x + i * 9, ly = ceil + 10 + (i % 2) * 5; ctx.fillStyle = '#2a2018'; ctx.fillRect(lx, ceil, 1, ly - ceil); ctx.fillStyle = ['#ff8040', '#ffd060', '#ff6070', '#80d0ff'][i]; ctx.fillRect(lx - 1, ly, 3, 4); } break; }
+    case 'pots': { for (let i = 0; i < 3; i++) { R(i * 6, -5 - (i % 2), 4, 5 + (i % 2), NE.shade(col, 1 - i * 0.1)); R(i * 6 + 1, -6 - (i % 2), 2, 1, '#2a1a10'); } break; }
+    case 'palisade': { for (let i = 0; i < 6; i++) { R(i * 3, -18 - (i % 2) * 2, 2, 18 + (i % 2) * 2, i % 2 ? '#5a4028' : '#6a4a30'); R(i * 3, -19 - (i % 2) * 2, 2, 1, '#8a6a40'); } break; }
+    case 'steam': { for (let i = 0; i < 4; i++) { const k = (time * 0.4 + i * 0.25 + d.s) % 1; ctx.fillStyle = 'rgba(220,230,240,' + (0.35 * (1 - k)) + ')'; ctx.fillRect(x + i * 3, y - 4 - Math.round(k * 24), 3, 3); } break; }
+    case 'forge': { R(-8, -14, 16, 14, '#3a3030'); R(-6, -8, 12, 6, Math.sin(time * 6) > 0 ? '#ff6020' : '#ff9030'); R(-2, -22, 4, 8, '#2a2424'); if (Math.random() < 0.05) G.addP(d.x, d.y - 22, rf(-3, 3), -20, 1.2, '#888', 'steam', -0.05); break; }
+    case 'column': { R(-3, -30, 6, 30, NE.shade(col, 1)); R(-4, -32, 8, 2, NE.shade(col, 1.2)); R(-4, -2, 8, 2, NE.shade(col, 0.8)); R(-1, -28, 1, 26, NE.shade(col, 0.8)); break; }
+    case 'boat': { R(-12, -4, 24, 3, '#5a3a24'); R(-14, -6, 3, 3, '#5a3a24'); R(11, -6, 3, 3, '#5a3a24'); R(-11, -5, 22, 1, '#7a5a38'); R(0, -22, 1, 18, '#3a2a1a'); R(1, -20, 7, 10, '#c8c0a8'); break; }
+    case 'bigroot': { const ceil = fl && fl.c ? (fl.y0 + fl.c[clamp(Math.floor(d.x / T), 0, fl.c.length - 1)]) * T : y - 80; ctx.fillStyle = '#3a2a1a'; for (let yy = ceil; yy < y; yy++) { const k = (yy - ceil) / (y - ceil); const w = Math.round(8 + 10 * Math.abs(Math.sin(k * 3)) + (k > 0.85 ? (k - 0.85) * 120 : 0)); ctx.fillRect(x - (w >> 1) + Math.round(Math.sin(k * 6) * 3), yy, w, 1); } ctx.fillStyle = '#4a3a24'; for (let i = 0; i < 20; i++) ctx.fillRect(x - 6 + (i * 7) % 12, ceil + i * 5, 1, 4); break; }
+    case 'crystaltree': { const ceil = fl && fl.c ? (fl.y0 + fl.c[clamp(Math.floor(d.x / T), 0, fl.c.length - 1)]) * T : y - 80; const g = 0.5 + 0.5 * Math.sin(time * 1.5); for (let yy = y - 70; yy < y; yy++) { const k = (y - yy) / 70; const w = Math.max(1, Math.round(10 * (1 - k))); ctx.fillStyle = k > 0.6 ? 'rgba(180,160,255,' + (0.6 + g * 0.3) + ')' : '#6a5aa0'; ctx.fillRect(x - (w >> 1), yy, w, 1); } ctx.fillStyle = 'rgba(200,190,255,0.25)'; ctx.fillRect(x - 16, y - 80, 32, 12); break; }
+    case 'stilthut': { const c = col; R(-11, -22, 22, 12, NE.shade(c, 0.7)); R(-10, -21, 20, 10, c); R(-12, -25, 24, 3, NE.shade(c, 0.6)); R(-3, -18, 5, 7, '#1a1410'); R(-10, -10, 1, 10, '#3a2a1a'); R(9, -10, 1, 10, '#3a2a1a'); R(-1, -10, 1, 10, '#3a2a1a'); break; }
+    default: return drawDecor0(ctx, d, pal, time, fl);
+  }
+};
+})(window.NE);
+
+// =====================================================================================================================
+// PARTY ON THE MAP + an edge arrow on screen that always points to your partner
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const G = NE.G, UI = NE.UI; const $ = s => document.querySelector(s);
+const partner = () => { const N = G.net; return N && N.on && N.peer && !N.peer.hidden ? N.peer : null; };
+const pname = () => { const N = G.net; return (N && N.peerSurv && (N.peerSurv.first || N.peerSurv.name)) || 'Partner'; };
+const drawMap0 = UI.drawMap;
+UI.drawMap = function () {
+  drawMap0.call(this); const cv = $('#mapcv'); const g = G, W = g.world, p = g.player, q = partner(); if (!cv || !W || W.lobby || !q || !p) return; const c = cv.getContext('2d');
+  const S = 3, FH = NE.FH; const fi = g.floorIdx(p.y - 2); const f0 = Math.max(0, fi - 3); const f1 = Math.min(W.floors.length - 1, fi + 4);
+  const px = 60 + p.x / NE.T * S, py = (p.y / NE.T - f0 * FH) * S - 3; let qx = 60 + q.x / NE.T * S, qy = (q.y / NE.T - f0 * FH) * S - 3; const H = cv.height;
+  const off = qy < 4 ? -1 : qy > H - 4 ? 1 : 0; const cy = Math.max(6, Math.min(H - 6, qy));
+  // line + arrowhead from you toward them
+  const ang = Math.atan2(cy - py, qx - px); c.strokeStyle = 'rgba(90,220,255,0.55)'; c.setLineDash([3, 3]); c.lineWidth = 1; c.beginPath(); c.moveTo(px, py); c.lineTo(qx, cy); c.stroke(); c.setLineDash([]);
+  const ax = off ? qx : px + Math.cos(ang) * Math.min(18, Math.hypot(qx - px, cy - py) - 4), ay = off ? cy : py + Math.sin(ang) * Math.min(18, Math.hypot(qx - px, cy - py) - 4);
+  c.fillStyle = '#5ae0ff'; c.beginPath(); c.moveTo(ax + Math.cos(ang) * 5, ay + Math.sin(ang) * 5); c.lineTo(ax + Math.cos(ang + 2.5) * 5, ay + Math.sin(ang + 2.5) * 5); c.lineTo(ax + Math.cos(ang - 2.5) * 5, ay + Math.sin(ang - 2.5) * 5); c.closePath(); c.fill();
+  if (!off) { c.fillStyle = '#5ae0ff'; c.fillRect(qx - 2, qy - 3, 4, 6); }
+  const dm = Math.round((q.y - p.y) / NE.T * NE.MPT); c.font = '9px monospace'; c.fillStyle = '#5ae0ff'; c.fillText(pname() + (off ? (dm > 0 ? ' ↓' : ' ↑') + Math.abs(dm) + 'm' : ''), Math.min(cv.width - 70, qx + 5), Math.max(10, Math.min(H - 3, cy + 3)));
+};
+const render0 = UI.render.map; UI.render.map = function (b) { render0.call(this, b); if (partner()) { const leg = b.querySelector('.map-leg'); if (leg) leg.insertAdjacentHTML('afterbegin', '<span><i style="background:#5ae0ff"></i>' + pname() + '</span>'); } };
+// on-screen arrow at the edge of the view when your partner is out of sight
+UI.partyArrow = function () {
+  const g = G, q = partner(), p = g.player; let el = $('#parrow'); const run = g.state === 'run' || g.state === 'burst' || g.state === 'dying';
+  if (!q || !p || !run) { if (el) el.style.display = 'none'; return; }
+  const gm = $('#game'), r = gm.getBoundingClientRect(); const sp = UI.toScreen(q.x, q.y - 12); const m = 46; const inView = sp.x > 0 && sp.x < r.width && sp.y > 0 && sp.y < r.height;
+  if (!el) { el = document.createElement('div'); el.id = 'parrow'; el.style.cssText = 'position:absolute;pointer-events:none;z-index:6;display:flex;flex-direction:column;align-items:center;gap:2px;font-family:VT323,monospace;color:#7ae8ff;text-shadow:1px 1px 0 #000,0 0 6px #000;font-size:.85em;transform:translate(-50%,-50%)'; el.innerHTML = '<div class="pa-h" style="width:0;height:0;border-left:.55em solid transparent;border-right:.55em solid transparent;border-bottom:1.1em solid #5ae0ff;filter:drop-shadow(0 0 3px #000)"></div><span></span>'; $('#hud').appendChild(el); }
+  if (inView) { el.style.display = 'none'; return; }
+  const cx = r.width / 2, cy = r.height / 2; const dx = sp.x - cx, dy = sp.y - cy; const k = Math.min((cx - m) / Math.abs(dx || 1e-3), (cy - m) / Math.abs(dy || 1e-3)); const ex = cx + dx * k, ey = cy + dy * k;
+  el.style.display = 'flex'; el.style.left = ex + 'px'; el.style.top = ey + 'px'; el.firstChild.style.transform = 'rotate(' + (Math.atan2(dy, dx) * 180 / Math.PI + 90) + 'deg)';
+  const dm = Math.round(Math.hypot(q.x - p.x, q.y - p.y) / NE.T * NE.MPT); const dd = Math.round((q.y - p.y) / NE.T * NE.MPT); el.lastChild.textContent = pname() + ' ' + dm + 'm' + (Math.abs(dd) > 5 ? (dd > 0 ? ' ↓' : ' ↑') : '');
+  const N = G.net; el.style.color = N && N.peerMed && N.peerMed.u === 1 ? '#ff7a6a' : '#7ae8ff';
+};
+const tick0 = UI.tick; UI.tick = function (dt) { tick0.call(this, dt); try { UI.partyArrow(); } catch (e) { } };
+})(window.NE);
+
+// =====================================================================================================================
+// RANDOM EVENTS: 10 new ones + a banner at the top showing whatever is going on right now
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const { ri, rf, pick, chance, clamp } = NE; const T = NE.T; const G = NE.G; const $ = s => document.querySelector(s);
+NE.EVENTS = {
+  cavein: { name: 'CAVE-IN', col: '#d8a060', dur: 6 }, blackout: { name: 'TOTAL DARKNESS', col: '#8a8aff' }, gas: { name: 'GAS LEAK', col: '#a0c060', dur: 40 }, ambush: { name: 'AMBUSH', col: '#ff6a5a', dur: 20 }, beacon: { name: 'DISTRESS BEACON BELOW', col: '#ffd060', dur: 12 },
+  quake: { name: 'TREMORS', col: '#d8a060', dur: 25, w: 2.2, msg: 'The whole cave starts to shake. Watch the ceiling.' },
+  flood: { name: 'FLASH FLOOD', col: '#5ac0e0', dur: 35, w: 1.6, msg: 'Water bursts from the rock above. It\'s rising.' },
+  spores: { name: 'SPORE STORM', col: '#a0b050', dur: 25, w: 1.4, msg: 'Fungus everywhere ruptures at once. The air turns yellow.' },
+  coldsnap: { name: 'COLD SNAP', col: '#a0d8ff', dur: 45, w: 1.4, msg: 'A freezing wind pours down the shafts. Get warm.' },
+  heatwave: { name: 'HEAT BLOOM', col: '#ff9040', dur: 45, w: 1.2, msg: 'The rock is sweating. Drink while you can.' },
+  hunt: { name: 'THE HUNT', col: '#ff4a4a', dur: 30, w: 1.4, msg: 'Something has your scent. Every hostile on this level is coming.' },
+  whispers: { name: 'WHISPERS', col: '#c090ff', dur: 30, w: 1.2, msg: 'Voices in the dark. They know your name.' },
+  nectarbloom: { name: 'NECTAR BLOOM', col: '#ffd23a', dur: 40, w: 0.9, good: 1, msg: 'A sweet smell drifts by. A relic flower is blooming on this level.' },
+  supplydrop: { name: 'SUPPLY DROP', col: '#7ad07a', dur: 20, w: 1.1, good: 1, msg: 'A winch rattles: someone up top lowered a supply pod nearby.' },
+  frenzy: { name: 'BLOOD FRENZY', col: '#ff2a3a', dur: 30, w: 1.1, msg: 'The creatures down here go wild. They\'re faster and angrier.' },
+};
+G.events = function (dt) {
+  if (G.state !== 'run') return; const net = G.net && G.net.on ? G.net : null; if (net && net.role === 'guest') return;
+  G.eventT -= dt; if (G.eventT > 0) return; G.eventT = rf(60, 115);
+  const p = G.player; const q = net && net.peer && net.peer.alive && !net.peer.hidden ? net.peer : null;
+  const tgt = q && (!p.alive || chance(0.5)) ? q : p; if (!tgt.alive) { G.eventT = 20; return; }
+  const fl = G.world.floors[G.floorIdx(tgt.y - 2)] || G.curFloor(); const b = fl.biome; if (fl.f === 0 || fl.town) { G.eventT = 20; return; }
+  const tbl = [['cavein', b.id === 'desert' ? 4.5 : 3], ['blackout', 2], ['gas', b.id === 'grotto' ? 0.8 : 0.6], ['beacon', 2.2], ['ambush', 1.4 + Math.min(1, fl.depth / 1200)]];
+  for (const k in NE.EVENTS) { const E = NE.EVENTS[k]; if (!E.w) continue; let w = E.w; if (k === 'coldsnap' && (b.id === 'magma' || b.id === 'heart')) w = 0; if (k === 'heatwave' && b.id === 'ice') w = 0; if (k === 'spores' && b.id === 'ice') w *= 0.3; if (k === 'flood' && (b.id === 'drowned' || b.id === 'grotto')) w *= 1.6; tbl.push([k, w]); }
+  const ev = NE.wpick(tbl);
+  const d = { ev, f: fl.f, dur: rf(28, 45), side: chance(0.5) ? 4 : G.world.W - 4, bf: fl.f + ri(1, 2), bx: ri(6, G.world.W - 6) * T, trap: chance(0.35), ax: tgt.x > G.world.W * T / 2 ? 5 * T : (G.world.W - 5) * T, k: fl.depth > 700 && chance(0.4) ? 2 : 1, tg: tgt === p ? 'host' : 'guest',
+    xs: [ri(8, G.world.W - 9), ri(8, G.world.W - 9), ri(8, G.world.W - 9)], px: clamp(tgt.x + rf(-50, 50), 6 * T, (G.world.W - 6) * T) };
+  G.applyEvent(d, tgt === q ? q : p);
+  if (net) net.send({ t: 'ev', d });
+};
+const apply0 = G.applyEvent;
+G.applyEvent = function (d, focus) {
+  const E = NE.EVENTS[d.ev]; const fl = G.world.floors[d.f]; if (!fl) return; const p = G.player; const here = p && p.alive && G.floorIdx(p.y - 2) === d.f;
+  const dur = d.ev === 'blackout' ? d.dur : (E && E.dur) || 20; G.activeEvent = { ev: d.ev, t: dur, max: dur, f: d.f, d, here };
+  if (!E || !E.w) return apply0.call(this, d, focus);
+  G.log(E.msg + (here ? '' : ' (another level)'), E.good ? 'good' : 'bad'); NE.Audio.play(E.good ? 'chime' : 'rumble', here ? 0.8 : 0.3);
+  const W = G.world, host = !G.net || !G.net.on || G.net.role === 'host';
+  if (d.ev === 'flood') { fl.springs = fl.springs || []; for (const x of d.xs.slice(0, 2)) { const cy = fl.y0 + fl.c[x]; fl.springs.push({ tx: x, ty: cy, type: 5, left: 30, t: 0 }); } }
+  if (d.ev === 'nectarbloom') { const x = d.xs[0] * T + 4; fl.objs.push({ type: 'relic', x, y: W.groundY(fl, x), label: 'Relic Flower', act: 'harvest', hue: 1 }); }
+  if (d.ev === 'supplydrop') { const x = d.px; const o = W.container('pod', x, W.groundY(fl, x), fl.depth); o.label = 'Lowered Supply Pod'; fl.objs.push(o); G.dust(x, W.groundY(fl, x), 10); NE.Audio.play('thud', here ? 1 : 0.3); }
+};
+// ongoing effects
+G.eventTick = function (dt) {
+  const A = G.activeEvent; if (!A) return; A.t -= dt; if (A.t <= 0) { G.activeEvent = null; return; }
+  const fl = G.world.floors[A.f]; const p = G.player; const here = p && p.alive && fl && G.floorIdx(p.y - 2) === A.f; const host = !G.net || !G.net.on || G.net.role === 'host'; A.acc = (A.acc || 0) - dt;
+  if (A.ev === 'quake' && A.acc <= 0) { A.acc = rf(1.8, 3.5); if (here) { G.shake(3.5); NE.Audio.play('rumble', 0.6); for (let i = 0; i < ri(1, 3); i++) { const x = clamp(p.x + rf(-70, 70), 4 * T, (G.world.W - 4) * T); const dd = G.phys.box('debris', x, G.world.ceilY(fl, x) + 5, rf(3, 6), rf(3, 5), 2.2, fl.biome.pal.tile); dd.setVel(rf(-20, 20), rf(30, 70)); G.dust(x, G.world.ceilY(fl, x) + 6, 4); } } }
+  if (A.ev === 'spores' && A.acc <= 0 && here) { A.acc = rf(2.5, 4); G.gas.push({ spore: true, x: p.x + rf(-60, 60), y: p.y - 10, r: 10, d: 0.6, vx: rf(-6, 6), life: rf(12, 18), max: 30 }); }
+  if (A.ev === 'hunt' && A.acc <= 0 && host) { A.acc = 2; const who = A.d.tg === 'guest' && G.net && G.net.peer ? G.net.peer : p; for (const e of G.actors) if (e.alive && e.D && e.hostile !== false && !e.leaving && Math.abs(e.y - who.y) < 60) { e.target = who; e.state = 'chase'; e.lastSeen = { x: who.x, y: who.y }; } }
+  if (A.ev === 'whispers' && here) { p.anat.stress = Math.min(100, p.anat.stress + dt * 2.5); if (A.acc <= 0) { A.acc = rf(2, 5); NE.Audio.play(pick(['step', 'step', 'breath', 'growl', 'shout']), rf(0.15, 0.4)); if (chance(0.35)) G.say(pick(['Who\'s there?', 'Stop. Stop it.', 'That was my name...', 'It\'s not real.']), 1); } }
+  if (A.ev === 'frenzy' && host) for (const e of G.actors) if (e.alive && e.D && Math.abs(e.y - (p ? p.y : 0)) < 300) { if (!e._fz) { e._fz = true; e.speedMul *= 1.25; } if (e.cd > 0) e.cd -= dt * 0.25; }
+  if (A.ev === 'frenzy' && A.t <= dt * 1.5) for (const e of G.actors) if (e._fz) { e._fz = false; e.speedMul /= 1.25; }
+};
+const env0 = G.computeEnv; G.computeEnv = function (p) { const env = env0.call(this, p); const A = G.activeEvent; if (A && p && G.floorIdx(p.y - 2) === A.f) { if (A.ev === 'coldsnap') env.cold = (env.cold || 0) + 1.3; if (A.ev === 'heatwave') { env.heat = (env.heat || 0) + 1.1; env.thirstMul = (env.thirstMul || 1) * 1.6; } } return env; };
+const upd0 = G.update; G.update = function (dt, rdt) { upd0.call(this, dt, rdt); if (G.state === 'run' || G.state === 'burst') G.eventTick(dt); else if (G.state === 'lobby') G.activeEvent = null; };
+// banner at the top of the screen
+NE.UI.eventBanner = function () {
+  let el = $('#evbanner'); const A = G.activeEvent; const show = A && (G.state === 'run' || G.state === 'burst');
+  if (!el) { el = document.createElement('div'); el.id = 'evbanner'; el.style.cssText = 'position:absolute;top:.6em;left:50%;transform:translateX(-50%);pointer-events:none;z-index:6;font-family:VT323,monospace;font-size:1.05em;letter-spacing:.12em;padding:.15em .9em;border-radius:.4em;background:rgba(10,6,4,.78);border:1px solid;display:none;text-shadow:0 0 6px currentColor;white-space:nowrap'; document.getElementById('hud').appendChild(el); }
+  if (!show) { el.style.display = 'none'; return; } const E = NE.EVENTS[A.ev] || { name: A.ev.toUpperCase(), col: '#ddd' }; const p = G.player; const here = p && G.floorIdx(p.y - 2) === A.f;
+  el.style.display = 'block'; el.style.color = E.col; el.style.borderColor = E.col + '88'; el.style.opacity = here ? 1 : 0.65;
+  const txt = (E.good ? '✦ ' : '⚠ ') + E.name + (here ? '' : ' (other level)') + '  ' + Math.ceil(A.t) + 's'; if (el.textContent !== txt) el.textContent = txt;
+};
+const tick0 = NE.UI.tick; NE.UI.tick = function (dt) { tick0.call(this, dt); try { NE.UI.eventBanner(); } catch (e) { } };
+})(window.NE);
+
+// =====================================================================================================================
+// IMPALING, MORE GORE, and fighting without arms (kick / headbutt)
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const { rf, pick, chance, clamp } = NE; const T = NE.T; const G = NE.G;
+// gore VFX +35%
+const blood0 = G.blood; G.blood = function (x, y, n, dx, dy) { return blood0.call(this, x, y, Math.round(n * 1.35), dx, dy); };
+const spray0 = NE.Combat.spray; NE.Combat.spray = function (x, y, dx, dy, n) { return spray0.call(this, x, y, dx, dy, Math.round(n * 1.35)); };
+// ---- impaling: a heavy thrust or lunge with a stabbing weapon can run someone clean through and hold them there
+NE.IMPALERS = { spear: 1, knife: 0.7, shiv: 0.6, machete: 0.6, cleaver: 0.4, fireaxe: 0.35, pickaxe: 0.5, sawarm: 0.4, claws: 0.5 };
+NE.tryImpale = function (a, t, w, part, dmg, kind) {
+  if (!t.alive || t.impaled || a.impaling || t.town || t.isRemote || t.isPuppet || !a.strk) return; const id = w.id || (a.D && a.D.reach > 12 ? 'claws' : null); const k = NE.IMPALERS[id]; if (!k || kind !== 'sharp' || part === 'head' && !chance(0.3)) return;
+  const deep = a.strk.kind === 'thrust' || a.strk.lunge || (a.strk.heavy || 0) > 1; if (!deep || dmg < (a.isPlayer ? 16 : 14)) return;
+  if (!chance(k * (a.isPlayer ? 0.55 : 0.32) * (a.strk.lunge ? 1.4 : 1))) return;
+  NE.impale(a, t, part);
+};
+NE.impale = function (a, t, part) {
+  part = part === 'head' ? 'head' : part === 'torso' || chance(0.6) ? 'torso' : part; const A = t.anat; const P = A.parts[part];
+  t.impaled = { by: a, t: 0, dur: a.isPlayer ? 1.1 : 1.4, part, dir: a.facing }; a.impaling = t; a.cd = Math.max(a.cd || 0, 1.2); a.strk = null; a.charge = null;
+  P.wounds.push({ t: 'punct', bleed: rf(2.5, 4), dirty: 0.25, inf: 0, closed: false, age: 0, bullet: chance(0.5) }); A.painSpike += 45; A.stress = Math.min(100, (A.stress || 0) + 30);
+  if (part === 'torso' && chance(0.5)) { const o = pick(['lungs', 'liver', 'stomach']); A.org[o] = Math.max(0, A.org[o] - rf(15, 30)); }
+  NE.Audio.play('squelch', 1); NE.Audio.play('crack', 0.8); NE.Audio.play('slash', 0.7); G.shake(t.isPlayer ? 6 : 4); G.slowmo = Math.max(G.slowmo || 0, 0.3);
+  NE.Combat.spray(t.x, t.cy, a.facing, -0.2, 22); if (t.isPlayer) { G.say(pick(['AGH— it\'s IN me—', 'Get it OUT!', 'No no no—']), 1); G.toast('IMPALED! Mash [SPACE] to tear free.'); } else if (a.isPlayer) G.toast('Impaled ' + (t.D ? t.D.name : 'them') + '!');
+  if (t.onAggro) t.onAggro(a);
+};
+G.impaleTick = function (dt) {
+  for (const t of G.actors) { const I = t.impaled; if (!I) continue; const a = I.by; I.t += dt;
+    const free = !t.alive || !a.alive || a.rd || I.t >= I.dur || (t.isPlayer && I.mash >= 1);
+    if (!free) { // hang on the blade, feet off the ground
+      const tx = a.x + I.dir * (a.isPlayer ? 13 : 12), ty = a.y - 1; t.x += (tx - t.x) * Math.min(1, dt * 18); t.y += (ty - t.y) * Math.min(1, dt * 18); t.vx = 0; t.vy = 0; t.stagger = Math.max(t.stagger || 0, 0.2); t.charge = null; t.guard = null;
+      if (Math.random() < dt * 25) NE.Combat.spray(t.x, t.cy, I.dir, 0.4, 2); if (t.isPlayer && G.keys.Space && !I._sp) { I.mash = (I.mash || 0) + 0.22; NE.Audio.play('pain', 0.5); } if (t.isPlayer) I._sp = !!G.keys.Space; continue; }
+    // yank the blade out: big spray, they drop
+    t.impaled = null; a.impaling = null; NE.Combat.spray(t.x, t.cy, I.dir, -0.3, 18); NE.Audio.play('squelch', 0.9);
+    if (t.alive && t.knockdown) t.knockdown(I.dir * 140, -60, t.isPlayer ? 0.7 : 1.1); if (a.alive) a.cd = Math.max(a.cd || 0, 0.35);
+  }
+};
+const upd0 = G.update; G.update = function (dt, rdt) { upd0.call(this, dt, rdt); try { G.impaleTick(dt); } catch (e) { } };
+// impaled player can't act
+const pu0 = NE.Player.prototype.update; NE.Player.prototype.update = function (dt, input) { if (this.impaled) input = { mx: 0 }; return pu0.call(this, dt, input); };
+const at0 = NE.Player.prototype.attack;
+// ---- no arms? kick, or headbutt
+NE.Player.prototype.armless = function () { const P = this.anat.parts; const gone = k => P[k].severed && !P[k].prost; return gone('larm') && gone('rarm'); };
+NE.Player.prototype.bodyStrike = function (kind) {
+  const g = this.g, A = this.anat; if ((this.cd || 0) > 0 || this.rd || A.uncon || this.impaled || this.climbing) return; if (kind === 'kick' && (A.legFactor().f < 0.4 || this.crawl)) kind = 'head';
+  if (A.stam < 6) { g.say('Too tired...', 1); return; } A.stam -= kind === 'kick' ? 9 : 7; this.cd = kind === 'kick' ? 0.75 : 0.6;
+  if (kind === 'kick') this.kickT = 0.3; else this.buttT = 0.28; NE.Audio.play('whoosh', 0.7);
+  setTimeout(() => { if (!this.alive) return; let best = null, bd = kind === 'kick' ? 17 : 13; for (const t of g.actors) { if (!t.alive || t === this || t.town || t.isRemote || (t.faction === 'neutral' && !t.hostile)) continue; const dx = (t.x - this.x) * this.facing; if (dx < -2 || dx > bd || Math.abs(t.y - this.y) > 14) continue; if (dx < bd) { bd = dx; best = t; } }
+    if (!best) return; if (best.dashIF > 0) return; const m = this.stats.melee * 1.2; const src = this.surv.first;
+    if (kind === 'kick') { best.hurt(pick(['torso', 'torso', 'lleg', 'rleg']), 9 * m, 'blunt', src, { x: this.facing, y: -0.2 }); best.vx += this.facing * 210; best.vy -= 50; best.stagger = Math.max(best.stagger || 0, 0.7); if (best.guard) { best.guard = null; best.stagger = 1.1; } if (chance(0.2) && best.knockdown) best.knockdown(this.facing * 160, -60, 0.8); NE.Audio.play('hit', 0.9); }
+    else { best.hurt('head', 11 * m, 'blunt', src, { x: this.facing, y: 0 }); best.stagger = Math.max(best.stagger || 0, 0.9); best.vx += this.facing * 120; this.anat.damage('head', 2.5, 'blunt', 'Headbutt'); NE.Audio.play('crack', 0.6); NE.Audio.play('hit', 0.8); g.shake(2); }
+    g.slowmo = Math.max(g.slowmo || 0, 0.06); if (best.onAggro) best.onAggro(this); }, kind === 'kick' ? 140 : 120);
+};
+NE.Player.prototype.attack = function () { if (this.armless() && !this.weaponDef().gun) return this.bodyStrike('kick'); return at0.apply(this, arguments); };
+const grab0 = G.startGrab; G.startGrab = function () { const p = G.player; if (p && p.alive && p.armless && p.armless() && G.playing()) return p.bodyStrike('head'); return grab0.apply(this, arguments); };
+const tk = NE.Player.prototype.update; NE.Player.prototype.update = function (dt, input) { if (this.kickT > 0) this.kickT -= dt; if (this.buttT > 0) this.buttT -= dt; return tk.call(this, dt, input); };
+// poses: kick and headbutt
+const pose0 = NE.ragPose;
+NE.ragPose = function (a) {
+  const out = pose0(a); const f = a.facing;
+  if (a.kickT > 0 && !a.crawl) { const k = Math.sin(Math.PI * (1 - a.kickT / 0.3)); const hip = out[2]; out[9] = [hip[0] + f * (2 + 4 * k), hip[1] + 3 - 3 * k]; out[10] = [hip[0] + f * (3 + 8 * k), hip[1] + 7 - 6 * k]; out[0][0] -= f * 1.2 * k; out[1][0] -= f * 0.8 * k; }
+  if (a.buttT > 0) { const k = Math.sin(Math.PI * (1 - a.buttT / 0.28)); out[0][0] += f * 3.2 * k; out[0][1] += 1.5 * k; out[1][0] += f * 1.6 * k; }
+  if (a.impaled) { const k = Math.sin(performance.now() / 70) * 0.6; out[0][1] -= 1; out[3][1] += 2 + k; out[5][1] += 2 - k; out[8][1] -= 1; out[10][1] -= 2; }
+  return out;
+};
+})(window.NE);
+
+// =====================================================================================================================
+// [B] QUICK-TREAT: picks the best fix for your worst problem (tourniquet, dressing, splint, joint, forceps, drugs...)
+// + Vespa-coloured progress bars
+// =====================================================================================================================
+(function (NE) {
+'use strict';
+const G = NE.G; const IT = NE.ITEMS; const LIMBS = ['larm', 'rarm', 'lleg', 'rleg'];
+const have = (p, ids) => { for (const id of ids) { const e = p.inv.find(id); if (e) return e; } return null; };
+const pn = k => NE.PART_NAMES[k].toLowerCase();
+NE.quickPlan = function (p) {
+  if (!p || !p.anat || !p.inv) return null; const A = p.anat; const P = A.parts;
+  // 1. arterial bleeds: tourniquet
+  for (const k of LIMBS) if (!P[k].tq && P[k].wounds.some(w => w.t === 'art' && !w.closed)) { const e = have(p, ['tourniquet']); if (e) return { e, part: k, label: 'Tourniquet ' + pn(k) }; }
+  // 2. worst bleed: dressing (or forceps first if a fragment keeps it open)
+  let bp = null, bb = 0.05; for (const k of NE.PARTS) { const b = A.partBleed(k); if (b > bb) { bb = b; bp = k; } }
+  if (bp) { const e = have(p, ['bandage', 'cleanrag', 'rag']); if (e && NE.canTreat(p, e.id, bp) === true) return { e, part: bp, label: 'Dress ' + pn(bp) + ' (' + bb.toFixed(1) + '/s)' }; const s = have(p, ['suture']); if (s && NE.canTreat(p, 'suture', bp) === true) return { e: s, part: bp, label: 'Stitch ' + pn(bp) }; }
+  // 3. lodged fragments
+  for (const k of NE.PARTS) if (P[k].wounds.some(w => w.bullet)) { const e = have(p, ['forceps']); if (e) return { e, part: k, label: 'Pull fragment: ' + pn(k) }; }
+  // 4. broken bones: splint
+  for (const k of NE.PARTS) if (P[k].frac && !P[k].splint) { const e = have(p, ['splint']); if (e) return { e, part: k, label: 'Splint ' + pn(k) }; }
+  // 5. dislocated joint: pop it back
+  for (const k of LIMBS) if (P[k].disl) return { e: null, part: k, op: 'reset', label: 'Pop ' + pn(k) + ' back in' };
+  // 6. blood loss: transfusion
+  if (A.blood < 3500) { const e = have(p, ['bloodbag']); if (e) return { e, part: 'torso', label: 'Transfuse blood' }; }
+  // 7. infection
+  if (A.infection > 30) { const e = have(p, ['antibiotics']); if (e) return { e, part: 'torso', label: 'Antibiotics (infection)' }; }
+  for (const k of NE.PARTS) if (P[k].wounds.some(w => w.dirty > 0.35 && !w.closed)) { const e = have(p, ['antiseptic', 'alcohol']); if (e && NE.canTreat(p, e.id, k) === true) return { e, part: k, label: 'Disinfect ' + pn(k) }; }
+  // 8. pain
+  if (A.pain > A.threshold * 0.75) { const e = have(p, A.pain > A.threshold * 1.2 ? ['morphine', 'painkillers', 'herb'] : ['painkillers', 'herb', 'morphine']); if (e) return { e, part: 'torso', label: 'Take ' + IT[e.id].name.toLowerCase() + ' (pain)' }; }
+  // 9. radiation
+  if (A.rad > 30) { const e = have(p, ['antirad']); if (e) return { e, part: 'torso', label: 'Anti-rad' }; }
+  // 10. a stump with no tourniquet that's still bleeding is covered by step 1/2; tourniquet left on too long: take it off once bleeding is handled
+  for (const k of LIMBS) if (P[k].tq && P[k].tqT > 100 && !P[k].wounds.some(w => w.t === 'art' && !w.closed)) return { e: null, part: k, op: 'removeTq', label: 'Loosen tourniquet: ' + pn(k) };
+  return null;
+};
+NE.quickBandage = function (p) {
+  const q = NE.quickPlan(p); if (!q) { p.g.toast(p.anat.bleeding > 0.05 ? 'Bleeding, but nothing in your pack can help. Tear clothes for rags (Crafting).' : 'Nothing that needs treating right now.'); NE.Audio.play('deny'); return; }
+  if (p.treating) return; NE.startTreat(p, q.e, q.part, q.op); if (p.treating) p.g.toast(q.label + '...');
+};
+// progress bars (searching, treating, struggling) and charge take your Vespa's colour
+const tick0 = NE.UI.tick; NE.UI.tick = function (dt) { tick0.call(this, dt); const p = G.player; const vg = (p && p.vglow) || null; if (vg && vg !== NE.UI._vg) { NE.UI._vg = vg; const d = document.querySelector('#prog div'); if (d) { d.style.background = vg; d.style.boxShadow = '0 0 6px ' + vg; } } };
 })(window.NE);

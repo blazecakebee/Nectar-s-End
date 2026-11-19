@@ -127,7 +127,7 @@ UI.hudUpdate = function () {
   $('#hotbar').innerHTML = '<div class="hb">' + (w ? ic(w.id) : icn('fist')) + '<div><b>' + esc(wd.name) + '</b><small>' + (ammo || 'LMB • hold for heavy • scroll swaps') + '</small></div></div>' +
     '<div class="hb' + (p.light.on ? '' : ' off') + '">' + icn('ui_town') + '<div><b>[' + NE.keyLabel('light') + '] Lantern</b><small>' + Math.round(p.light.bat) + '% oil</small></div></div>' +
     (g.state === 'run' ? '<div class="hb">' + (th ? ic(th) : icn('bottle')) + '<div><b>[' + NE.keyLabel('throw') + '] Throw</b><small>' + (th ? esc(NE.ITEMS[th].name) + ' ×' + p.inv.count(th) : 'none • [' + NE.keyLabel('cycleThrow') + '] cycle') + '</small></div></div>' +
-    '<div class="hb">' + icn('bandage') + '<div><b>[' + NE.keyLabel('bandage') + '] Bandage</b><small>' + band + ' dressings</small></div></div>' : '') +
+    (() => { const qp = NE.quickPlan ? NE.quickPlan(p) : null; return '<div class="hb' + (qp ? '' : ' off') + '">' + (qp ? ic(qp.e ? qp.e.id : 'splint') : icn('bandage')) + '<div><b>[' + NE.keyLabel('bandage') + '] Treat</b><small>' + (qp ? esc(qp.label) : 'nothing to fix') + '</small></div></div>'; })() : '') +
     (p.gear.face ? '<div class="hb">' + icn('respirator') + '<div><b>Filter</b><small>' + Math.round(p.filterT) + 's</small></div></div>' : '') +
     '<div class="hb key" onclick="NE.UI.openHex()">' + icn('gear') + '<div><b>[' + NE.keyLabel('menu') + '] Menu</b><small>' + NE.keyLabel('inventory') + ' inv • ' + NE.keyLabel('health') + ' health</small></div></div>';
 };
@@ -646,7 +646,7 @@ setInterval(() => UI.cloudRefresh && UI.cloudRefresh(), 15000);
 UI.confirm = (t, x, ok, fn) => UI.dialog(t, esc(x), [{ label: ok, fn }, { label: 'Not yet' }]);
 UI.survivor = function (npc) {
   const g = G(), p = g.player; const band = ['bandage', 'cleanrag', 'rag'].find(i => p.inv.has(i));
-  if (npc.treated) return g.toast('"Thank you... I won\'t forget it."');
+  if (npc.treated) return g.npcSay(npc, 'Thank you... I won\'t forget it.', 3);
   UI.dialog('A wounded survivor', '<i>' + esc(npc.name) + ' is slumped against the wall, pressing a soaked hand to the wound. "Please... I\'m bleeding out. Do you have anything?"</i>', [
     { label: 'Treat them', hint: band ? 'Uses one ' + NE.ITEMS[band].name : 'You have nothing to bandage with', disabled: !band, fn: () => { p.inv.consume(band); npc.treated = true; for (const pt of NE.PARTS) npc.anat.parts[pt].wounds.forEach(w => { w.closed = true; w.bleed = 0; }); g.run.treated++; p.anat.stress = Math.max(0, p.anat.stress - 15); const rw = NE.wpick([['intel', 2], ['item', 3], ['keycard', 1]]); if (rw === 'intel') { const fi = g.floorIdx(p.y); g.world.ensure(fi + 3, f => g.spawnFloor(f)); for (let f = fi + 1; f <= fi + 2; f++) g.world.floors[f].seen.fill(1); g.log('"' + 'The next two levels — I mapped them. Take it."' + ' (Map revealed)', 'good'); } else if (rw === 'keycard') { p.inv.add('keycard') ? g.dropEntry({ id: 'keycard', n: 1 }) : 0; g.log('"Here — a keycard. Opens the armories."', 'good'); } else { const id = pick2(['morphine', 'bloodbag', 'antibiotics', 'ammo9', 'suture', 'datashard']); const left = p.inv.add(id, id === 'ammo9' ? 8 : 1); if (left) g.dropEntry({ id, n: left }); g.log('They press something into your hand: ' + NE.ITEMS[id].name + '.', 'good'); } npc.leaving = npc.x > p.x ? 1 : -1; npc.leaveT = 8; } },
     { label: 'Rob them', hint: 'Quick loot. Heavy on the conscience.', fn: () => { for (const id of ['water', 'trinket', 'painkillers']) if (Math.random() < 0.7) { const l = p.inv.add(id, 1); if (l) g.dropEntry({ id, n: 1 }); } p.anat.stress = Math.min(100, p.anat.stress + 35); g.log('You took everything. They didn\'t fight back.', 'bad'); g.say('...I had to.'); npc.treated = true; } },
@@ -656,11 +656,17 @@ UI.survivor = function (npc) {
 function pick2(a) { return a[Math.floor(Math.random() * a.length)]; }
 UI.standoff = function (o) {
   const g = G(), p = g.player; const psy = g.meta.perks.psychology || 0; const chanceTalk = Math.min(0.9, 0.3 + psy * 0.15 + (p.stats.stress < 1 ? 0.1 : 0));
-  UI.dialog('Standoff', '<i>Two figures step out of the dark, weapons up. "That\'s far enough. Drop your meds and walk away, and nobody bleeds."</i>', [
-    { label: 'Hand over your meds', hint: 'They take every medical item.', fn: () => { const meds = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'med'); meds.forEach(e => p.inv.remove(e)); g.log('You hand over ' + meds.length + ' medical items. They let you pass.', 'bad'); o.grp.forEach(e => { e.faction = 'neutral'; e.hostile = false; e.leaving = true; }); } },
-    { label: 'Talk them down', hint: Math.round(chanceTalk * 100) + '% (Psychology)', fn: () => { if (Math.random() < chanceTalk) { g.log('"...Fine. Go. Don\'t come back this way."', 'good'); o.grp.forEach(e => { e.faction = 'neutral'; e.hostile = false; }); } else { g.log('"Wrong answer."', 'bad'); o.grp.forEach(e => { e.hostile = true; e.guard = false; e.onAggro(p); }); } } },
-    { label: 'Fight', hint: 'You get the first move.', fn: () => { o.grp.forEach(e => { e.hostile = true; e.post = false; e.cd = 1.2; e.onAggro(p); }); } },
-  ]);
+  const grp = o.grp.filter(e => e.alive); if (!grp.length) return; const [a, b] = [grp[0], grp[1] || grp[0]];
+  for (const e of grp) { e.facing = p.x > e.x ? 1 : -1; e.target = p; }
+  g.npcSay(a, 'That\'s far enough.', 3); setTimeout(() => g.npcSay(b, 'Meds. On the ground. Now.', 3), 700);
+  const meds = () => p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'med');
+  const leave = (delay) => setTimeout(() => grp.forEach(e => { if (e.alive) { e.faction = 'neutral'; e.hostile = false; e.post = false; e.target = null; e.state = 'idle'; e.leaving = { dir: e.x >= p.x ? 1 : -1, t: 7 }; } }), delay || 0);
+  const fight = (line, who) => { g.npcSay(who, line, 2.5); grp.forEach(e => { e.hostile = true; e.post = false; e.faction = e.D.faction; e.cd = Math.max(e.cd || 0, 1.0); e.onAggro(p); }); };
+  setTimeout(() => UI.dialog('Standoff', '<i>Two figures step out of the dark, weapons up. "That\'s far enough. Drop your meds and walk away, and nobody bleeds."</i>', [
+    { label: 'Hand over your meds', hint: meds().length ? 'They take all ' + meds().length + ' medical items.' : 'You have nothing they want.', disabled: !meds().length, fn: () => { const m = meds(); m.forEach(e => p.inv.remove(e)); g.log('You hand over ' + m.length + ' medical items. They let you pass.', 'bad'); NE.Audio.play('open_cloth'); g.npcSay(a, 'Smart. Now walk.', 3); leave(900); } },
+    { label: 'Talk them down', hint: Math.round(chanceTalk * 100) + '% (Psychology)', fn: () => { if (Math.random() < chanceTalk) { g.log('You talk them down.', 'good'); g.npcSay(a, '...Fine. Go. Don\'t come back this way.', 3.5); grp.forEach(e => { e.faction = 'neutral'; e.hostile = false; }); leave(1600); } else { g.log('It doesn\'t work.', 'bad'); fight('Wrong answer.', a); } } },
+    { label: 'Fight', hint: 'You get the first move.', fn: () => { fight('Your funeral.', b); grp.forEach(e => { e.cd = 1.4; e.stagger = Math.max(e.stagger || 0, 0.4); }); } },
+  ]), 900);
 };
 UI.runEnd = function (d) {
   UI.closeAll(); $('#hud').classList.add('hide');

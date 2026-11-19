@@ -63,7 +63,7 @@ NE.BIND_DEFS = [
   ['left', 'Move left', ['KeyA', 'ArrowLeft']], ['right', 'Move right', ['KeyD', 'ArrowRight']], ['up', 'Climb up / grab rope', ['KeyW', 'ArrowUp']], ['down', 'Climb down / crouch', ['KeyS', 'ArrowDown']],
   ['jump', 'Jump (also off ropes & walls)', ['Space', null]], ['sprint', 'Run (or double-tap a direction)', ['ShiftLeft', 'ShiftRight']], ['crouch', 'Crouch / crawl (double-tap: go prone)', ['ControlLeft', 'KeyC']],
   ['interact', 'Interact / search', ['KeyE', null]], ['light', 'Lantern on / off', ['KeyF', null]], ['reload', 'Reload / clear jam', ['KeyR', null]], ['throw', 'Throw', ['KeyG', null]], ['cycleThrow', 'Cycle throwable', ['KeyT', null]], ['dash', 'Dash (dodge through attacks)', ['KeyQ', null]], ['grapple', 'Grappling hook (if carried)', ['KeyZ', null]],
-  ['weapon', 'Cycle weapon', ['Digit1', null]], ['bandage', 'Quick-bandage worst bleed', ['KeyB', null]], ['pulse', 'Hive Pulse (once awakened)', ['KeyX', null]],
+  ['weapon', 'Cycle weapon', ['Digit1', null]], ['bandage', 'Quick-treat (best fix for your worst problem)', ['KeyB', null]], ['pulse', 'Hive Pulse (once awakened)', ['KeyX', null]],
   ['menu', 'Hex menu', ['KeyM', null]], ['inventory', 'Inventory', ['Tab', 'KeyI']], ['health', 'Health & triage', ['KeyH', null]], ['status', 'Status', ['KeyV', null]], ['craft', 'Crafting', ['KeyK', null]], ['map', 'Map', ['KeyN', null]], ['journal', 'Journal', ['KeyJ', null]],
 ];
 NE.binds = () => { const S = G.store.settings; S.binds = S.binds || {}; if (S.binds.cycleThrow && S.binds.cycleThrow[0] === 'KeyQ' && !S.binds.dash) S.binds.cycleThrow = ['KeyT', S.binds.cycleThrow[1]]; return S.binds; };
@@ -100,8 +100,8 @@ G.onKey = function (code) {
   if (act === 'weapon') G.cycleWeapon();
   if (act === 'pulse' && run) G.hivePulse(p);
 };
-G.throwSel = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick']; if (G.throwPref && p.inv.has(G.throwPref)) return G.throwPref; return ids.find(i => p.inv.has(i)); };
-G.cycleThrow = function () { const p = G.player; const ids = ['flare', 'glowstick', 'molotov', 'bottle', 'brick'].filter(i => p.inv.has(i)); if (!ids.length) return G.toast('No throwables.'); const i = (ids.indexOf(G.throwSel()) + 1) % ids.length; G.throwPref = ids[i]; G.toast('Throw: ' + NE.ITEMS[ids[i]].name + ' [' + NE.keyLabel('throw') + ']'); };
+G.throwSel = function () { const p = G.player; const ids = NE.THROW_IDS || ['flare', 'glowstick', 'molotov', 'bottle', 'brick']; if (G.throwPref && p.inv.has(G.throwPref)) return G.throwPref; return ids.find(i => p.inv.has(i)); };
+G.cycleThrow = function () { const p = G.player; const ids = (NE.THROW_IDS || ['flare', 'glowstick', 'molotov', 'bottle', 'brick']).filter(i => p.inv.has(i)); if (!ids.length) return G.toast('No throwables.'); const i = (ids.indexOf(G.throwSel()) + 1) % ids.length; G.throwPref = ids[i]; G.toast('Throw: ' + NE.ITEMS[ids[i]].name + ' [' + NE.keyLabel('throw') + ']'); };
 G.cycleWeapon = function (dir) { dir = dir || 1; const p = G.player; const ws = p.inv.items.filter(e => NE.ITEMS[e.id].cat === 'weapon'); const cur = p.equip.weapon; const all = [null, ...ws]; const i = ((all.indexOf(cur) + dir) % all.length + all.length) % all.length; p.equip.weapon = all[i]; p.charge = null; NE.UI.weaponFlash(all, i); NE.Audio.play('click', 0.7); };
 G.onClick = function () { if (G.infest) return G.skipInfest(); if (G.player && G.player.alive && G.player.anat.uncon && G.state === 'run') return G.struggle(); if (!G.playing() || NE.UI.panel || NE.UI.hexOpen || NE.UI.modalOpen()) return; if (G.goop) return G.goopLash(); if (G.player.alive) G.player.attack(); };
 G.startGrab = function () {
@@ -461,7 +461,7 @@ G.interact = function () {
     case 'post': return UI.deepPost();
     case 'rest': return G.rest();
     case 'doctor': return UI.doctor(o);
-    case 'chat': { const line = NE.withSeed(NE.hash(o.x | 0, (G.t * 3) | 0) * 1e9, () => pick(NE.TOWN_LINES)); o.sayT = 3; o.line = line; G.toast(o.name + ': "' + line + '"'); NE.Audio.play('ui'); return; }
+    case 'chat': { const line = NE.withSeed(NE.hash(o.x | 0, (G.t * 3) | 0) * 1e9, () => pick(NE.TOWN_LINES)); o.sayT = 3; o.line = line; G.npcSay(o, line, 4); NE.Audio.play('ui'); return; }
     case 'harvest': return G.harvestRelic(o);
     case 'table': G.toast('Surgical table: treatments are faster and hurt less here.'); return UI.open('health');
     case 'treatPeer': return UI.peerTriage();
@@ -663,12 +663,12 @@ G.render = function (dt) {
   for (const a of G.actors) if (!a.alive) a.draw(ctx);
   for (const a of G.actors) if (a.alive && a !== p && Math.abs(a.y - F.y) < 260) a.draw(ctx);
   if (p.alive || !G.goop) p.draw(ctx);
-  if (p.charge && p.alive) { const k = Math.min(1, p.charge.t / 0.82), bx = Math.round(p.x) - 6, by = Math.round(p.y - p.h) - 8; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, 14, 4); ctx.fillStyle = p.charge.t < 0.32 ? '#8a7a5a' : k >= 1 ? ((G.t * 12 | 0) % 2 ? '#fff4c0' : '#ffb020') : '#ffb020'; ctx.fillRect(bx, by, Math.round(12 * k), 2); }
+  if (p.charge && p.alive) { const k = Math.min(1, p.charge.t / 0.82), bx = Math.round(p.x) - 6, by = Math.round(p.y - p.h) - 8; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx - 1, by - 1, 14, 4); { const vg = p.vglow || '#ffb020'; ctx.fillStyle = p.charge.t < 0.32 ? NE.shade(vg, 0.55) : k >= 1 ? ((G.t * 12 | 0) % 2 ? NE.shade(vg, 1.5) : vg) : vg; } ctx.fillRect(bx, by, Math.round(12 * k), 2); }
   if (G.ghosts && G.ghosts.length) { for (const gh of G.ghosts) { ctx.globalAlpha = Math.max(0, gh.life) * 0.45; ctx.fillStyle = gh.col; for (const q of gh.pts) ctx.fillRect(Math.round(q.x) - 1, Math.round(q.y) - 1, 2, 2); } ctx.globalAlpha = 1; }
   if (G.goop) G.drawGoop(ctx);
   if (G.minion) G.drawMinion(ctx);
   if (G.infest) G.drawInfest(ctx);
-  for (const q of G.parts) { if (q.kind === 'glow') continue; ctx.fillStyle = q.col; ctx.globalAlpha = q.kind === 'steam' || q.kind === 'dust' ? Math.min(1, q.life / q.max * 1.5) : 1; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
+  for (const q of G.parts) { if (q.kind === 'glow') continue; ctx.fillStyle = q.col; if (q.kind === 'smoke') { const k = q.life / q.max, sz = Math.round(3 + (1 - k) * 5); ctx.globalAlpha = Math.min(0.55, k * 0.8); ctx.fillRect(Math.round(q.x - sz / 2), Math.round(q.y - sz / 2), sz, sz); continue; } ctx.globalAlpha = q.kind === 'steam' || q.kind === 'dust' ? Math.min(1, q.life / q.max * 1.5) : 1; ctx.fillRect(Math.round(q.x), Math.round(q.y), 1, 1); }
   ctx.globalAlpha = 1; G.drawAmbient(ctx);
   W.drawWater(ctx, cx, cy, G.t);
   for (const c of G.gas) { ctx.fillStyle = c.spore ? 'rgba(200,200,110,' + (c.d * 0.24) + ')' : 'rgba(150,190,70,' + (c.d * 0.22) + ')'; for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 + G.t * 0.2; const rr = c.r * (0.4 + 0.6 * NE.hash(i, c.x | 0)); ctx.fillRect(Math.round(c.x + Math.cos(a) * rr * 0.6) - 3, Math.round(c.y + Math.sin(a) * rr * 0.3) - 2, 6, 4); } }
@@ -687,7 +687,7 @@ G.render = function (dt) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   G.drawFX(dt);
   // crosshair
-  if ((p.alive || G.goop) && !NE.UI.panel && !NE.UI.hexOpen && !NE.UI.modalOpen()) { const m = G.mouse, mx = Math.round(m.x), my = Math.round(m.y); const O = 'rgba(20,10,4,0.85)', Y = '#ffc030', L = '#fff0b0';
+  if ((p.alive || G.goop) && !NE.UI.panel && !NE.UI.hexOpen && !NE.UI.modalOpen()) { const m = G.mouse, mx = Math.round(m.x), my = Math.round(m.y); const O = 'rgba(20,10,4,0.85)', Y = (p && p.vglow) || '#ffc030', L = NE.shade(Y, 1.45);
     const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }; const tick = (x, y, w, h) => { px(x - 1, y - 1, w + 2, h + 2, O); px(x, y, w, h, Y); };
     if (p.gunOut) { const g = 2 + Math.round(p.anat.tremor() * 4 + (p.cd > 0 ? 1 : 0)); tick(mx - g - 3, my, 3, 1); tick(mx + g + 1, my, 3, 1); tick(mx, my - g - 3, 1, 3); tick(mx, my + g + 1, 1, 3); px(mx, my, 1, 1, L); }
     else { px(mx - 2, my - 2, 5, 5, O); px(mx - 1, my, 3, 1, Y); px(mx, my - 1, 1, 3, Y); px(mx, my, 1, 1, L);

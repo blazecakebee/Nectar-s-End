@@ -58,7 +58,7 @@ class Actor {
       const ed = this.wallAt(); if (ed && !W.solid(W.get(Math.floor((this.x + ed * (this.w / 2 + 2)) / T), Math.floor((this.y - this.h - 4) / T)))) { this.vy = -205; this.vx = ed * 70; }
     }
     // ---- wall climb: hold W/up against rock to latch on and claw upward for up to 2s, then mantle a ledge
-    if (this.onGround) this.climbBudget = 2.0 * (st.parkour || 1);
+    if (this.onGround) this.climbBudget = 3.0 * (st.parkour || 1);
     this.wallClimb = false;
     if (this.isPlayer && c.up && !inWater && !this.crawl && !A.uncon && (this.climbBudget || 0) > 0 && A.armFactor() > 0.4 && A.stam > 2) {
       const wdc = this.wallAt(); if (wdc && (c.mx === wdc || !c.mx || this.onGround)) {
@@ -264,7 +264,7 @@ class Player extends Actor {
   }
   // lunge: hold LMB to a full wind-up, then press RMB — throw your whole weight into a lunging strike (long cooldown)
   lunge() {
-    const g = this.g, A = this.anat; const w = this.weaponDef(); if (w.gun || !this.charge || this.charge.t < 0.6 || this.rd || A.uncon || this.climbing || this.crawl) return false;
+    const g = this.g, A = this.anat; const w = this.weaponDef(); if (w.gun || !this.charge || this.charge.t < 0.82 || this.rd || A.uncon || this.climbing || this.crawl) return false;
     if ((this.lungeCD || 0) > 0) { g.toast('Lunge recovering (' + this.lungeCD.toFixed(1) + 's)'); NE.Audio.play('deny'); return true; }
     if (A.stam < w.melee.stam + 6) { g.say('Too winded to lunge...', 1); return true; }
     const thr = w.melee.kind === 'sharp' && ((w.w || 1) < 1.2 || w.id === 'spear'); this.charge = null;

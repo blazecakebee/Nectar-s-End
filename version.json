@@ -1,6 +1,41 @@
 {
  "log": [
   {
+   "version": "0.7.4",
+   "date": "2026-11-18",
+   "title": "Towns, throwables, impaling, events",
+   "changes": [
+    "Every town is different now. Each named town has its own layout: a bazaar, a bridge over a chasm, cliff terraces, a walled fort, steaming pools, stilt houses over lava or honey, docks over black water, a bone cathedral, or a village around a giant root or crystal.",
+    "Towns also have their own merchants: Gunsmith, Herbalist, Limb-Maker (prosthetics), Armourer, Bombmaker, Outfitter, and a Fence who pays 40% more for what you sell.",
+    "Each town has special features: a Hive Shrine, a Hot Spring, a Soup Kitchen, a Bone Dice table, a Cartographer who maps the next three levels, and an Anvil that repairs your armour.",
+    "15 new throwables: Throwing Knife, Scrap Star, Javelin, Bola, Poison Dart, Acid Flask, Honey Jar, Spore Pod, Frost Flask, Sticky Charge, Frag Grenade, Flashbang, Smoke Bomb, Incendiary Jar and Clockwork Rattler. Cycle them with T and throw with G. Several are craftable.",
+    "Impaling: a heavy thrust or lunge with a spear, knife, machete or similar can run someone through and hold them on the blade. Enemies can do it to you too. Mash SPACE to tear free.",
+    "No arms? Left-click kicks and right-click headbutts.",
+    "Gore effects are 35% stronger.",
+    "10 new random events: Tremors, Flash Flood, Spore Storm, Cold Snap, Heat Bloom, The Hunt, Whispers, Nectar Bloom, Supply Drop and Blood Frenzy. Whatever event is happening shows in a banner at the top of the screen with a countdown.",
+    "Level variety: every level picks its own shape from your run's seed — rolling hills, tall chambers, cramped tunnels, pillared halls, rubble fields, big overhangs or terraces — plus random set-pieces. No two runs look the same.",
+    "The thin floating ledges and plank stairs are gone.",
+    "Wall climbing lasts 3 seconds, up from 2.",
+    "Co-op map: your partner shows in cyan with a line and arrow pointing to them, including how far up or down they are. In-game, an arrow at the screen edge always points to your partner when they're off screen.",
+    "[B] is now Quick-treat. It picks the best fix for your worst problem: a tourniquet for an arterial bleed, a dressing or stitches for bleeding, forceps for a fragment, a splint for a broken bone, popping a dislocated joint back in, a transfusion, antibiotics, antiseptic, painkillers or anti-rad. The hotbar shows what it will do next.",
+    "Your crosshair, the heavy-attack charge ring and bar, and the progress bars now use your Vespa's colour.",
+    "Lunge now needs a FULL wind-up (when the bar flashes) before you press RMB."
+   ]
+  },
+  {
+   "version": "0.7.3",
+   "date": "2026-11-18",
+   "title": "Real standoffs, speech bubbles, new sound",
+   "changes": [
+    "Standoffs work properly now. The two raiders turn to face you and talk, and each choice plays out:",
+    "• Hand over your meds: they take them and walk off into the dark. The option is greyed out if you have none.",
+    "• Talk them down: if it works they lower their weapons and leave. If not, they attack.",
+    "• Fight: they attack, but you get a moment to strike first.",
+    "When someone talks, it now appears in a speech bubble over their own head, with their name: town folk, survivors, traders, doctors and raiders. Hostile people shout when they spot you, executioners say something before the blow, and standoff crews do their talking too.",
+    "Sound rework: hits, footsteps, landings, swings, gunshots, explosions, bone cracks, blocks and parries, doors and crates, water, breathing, menus and more are rebuilt from softer, filtered noise with real thumps and metal rings. Everything plays through a light cave reverb and a compressor, and each sound varies slightly every time. Nothing beeps like a chiptune any more."
+   ]
+  },
+  {
    "version": "0.7.2",
    "date": "2026-11-18",
    "title": "Rolls, lunges, puffy packs",

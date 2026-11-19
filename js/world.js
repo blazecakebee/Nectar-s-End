@@ -95,8 +95,8 @@ class World {
     if (f === 0) for (let x = 3; x <= 16; x++) for (let r = c[x]; r < g[x]; r++) rows[r][x] = 0;
     if (poiX > 0) for (let x = poiX; x <= poiX + poiW2; x++) for (let r = c[x]; r < g[x]; r++) rows[r][x] = 0;
     for (const [a, b] of fl.pitIn) for (let x = a; x <= b; x++) for (let r = 0; r < g[x]; r++) rows[r][x] = 0;
-    for (const [a, b, dir, cav] of fl.pitIn) { if (dir) { const x0 = dir > 0 ? b : a; for (let i = 1; i < 16; i++) { const x = x0 + dir * i, r = i; if (x < 3 || x > W - 4 || r >= g[x] - 1) break; if (rows[r][x] === 0) rows[r][x] = 2; if (i % 4 === 0 && rows[r + 1] && rows[r + 1][x] === 0) rows[r + 1][x] = 1; } }
-      if (cav) for (let r = 1, side = 0; r < g[a] - 2; r += 2, side ^= 1) { const sx = side ? b - 1 : a; if (rows[r][sx] === 0) rows[r][sx] = 2; } }
+    for (const [a, b, dir, cav] of fl.pitIn) { if (dir) { const x0 = dir > 0 ? b : a; for (let i = 1; i < 16; i++) { const x = x0 + dir * i, r = i; if (x < 3 || x > W - 4 || r >= g[x] - 1) break; } }
+      if (cav) for (let r = 2, side = 0; r < g[a] - 3; r += 4, side ^= 1) { const sx = side ? b - 1 : a, d = side ? -1 : 1; for (let q = 0; q < 2; q++) { if (rows[r + q] && rows[r + q][sx] === 0) rows[r + q][sx] = 1; } if (rows[r][sx + d] === 0) rows[r][sx + d] = 1; } }
     if (crawl) { const gv = FH - 4; for (let x = crawl[0]; x <= crawl[1]; x++) for (let r = 0; r < gv; r++) rows[r][x] = r === gv - 1 ? 0 : 1; fl.objs.push(this.container('stash', ((crawl[0] + crawl[1]) / 2) * T, 0, depth)); fl.crawl = crawl; }
     // ropes down (narrow shafts)
     // winding chutes: sloped tunnels that snake down through the floor rock into the band below (replace most rope shafts)
@@ -114,15 +114,14 @@ class World {
     // open pits (risky shortcut drops)
     const pits = []; for (let k = 0; k < (f === 0 ? 0 : ri(0, 2)); k++) { const w = ri(2, 3); const x = tryX(w, 2); if (x > 0) { pits.push([x, x + w - 1]); for (let i = 0; i < w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0; } }
     if (f > 0 && chance(0.55)) { const w = ri(5, 8), x = tryX(w, 2); if (x > 0) { for (let i = 0; i <= w; i++) for (let r = g[x + i]; r < FH; r++) rows[r][x + i] = 0;
-        for (let r = g[x] + 1, side = 0; r < FH; r += 2, side ^= 1) { const sx = side ? x + w - 1 : x; rows[r][sx] = 1; rows[r][sx + (side ? -1 : 1)] = 2; }
+        for (let r = g[x] + 2, side = 0; r < FH - 1; r += 3, side ^= 1) { const sx = side ? x + w - 1 : x, d = side ? -1 : 1; rows[r][sx] = 1; rows[r][sx + d] = 1; if (rows[r + 1]) rows[r + 1][sx] = 1; }
         pits.push([x, x + w, 0, 1]); } }
     this.pitNext = pits.concat(chutes);
     // stalactites & stalagmites & pillars
     for (let k = 0; k < ri(4, 9); k++) { const x = ri(5, W - 6); if (!free(x, x)) continue; const len = ri(1, 3); for (let r = c[x]; r < Math.min(g[x] - 4, c[x] + len); r++) rows[r][x] = 1; if (len > 1 && rows[c[x]][x + 1] === 0) rows[c[x]][x + 1] = 1; }
     for (let k = 0; k < ri(2, 5); k++) { const x = ri(5, W - 6); if (!free(x - 1, x + 1)) continue; if (g[x] > c[x] + 6 && rows[g[x] - 1][x] === 0) rows[g[x] - 1][x] = 1; }
     for (let k = 0; k < ri(0, 2); k++) { const x = tryX(1, 2); if (x > 0) for (let r = c[x]; r < g[x] - 4; r++) { rows[r][x] = 1; if (r < g[x] - 6) rows[r][x + 1] = 1; } }
-    // rock ledges (one-way)
-    for (let k = 0; k < ri(1, 3); k++) { const len = ri(4, 8), x = ri(5, W - len - 5); const row = Math.min(...g.slice(x, x + len)) - ri(3, 4); if (row < 2) continue; const rock = chance(0.5); for (let i = 0; i < len; i++) if (rows[row][x + i] === 0 && rows[row + 1][x + i] !== 3) { rows[row][x + i] = rock ? 1 : 2; if (rock && i > 0 && i < len - 1 && row > 1 && rows[row - 1][x + i] === 0 && chance(0.25)) rows[row - 1][x + i] = 1; } }
+    // (floating one-way ledges removed: terrain set-pieces are added after generation instead)
     // ----- biome features
     const span = (minW, maxW, pad) => { const w = ri(minW, maxW); const x = tryX(w, pad || 1); return x > 0 ? [x, x + w] : null; };
     if (B === 'grotto' || B === 'ice') for (let k = 0; k < ri(0, 2); k++) { const s = span(4, 9); if (!s) continue; for (let x = s[0]; x <= s[1]; x++) { const d = (x === s[0] || x === s[1]) ? 1 : 2; for (let r = g[x]; r < g[x] + d; r++) rows[r][x] = 0; for (let r = g[x]; r < g[x] + d; r++) rows[r][x] = 5; } fl.pool = true; }
