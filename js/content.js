@@ -72,7 +72,7 @@ const ARM = [
   ['chitinhelm', 'Chitin Crown', 'Chitin', 'head', '#8a5a20', 1, 0.55, { bite: 0.7, sharp: 0.6, blunt: 0.4, bullet: 0.3 }, 1, 120, {}, 'Carved from a hive warden\'s skull-plate.'],
   ['chitinplate', 'Chitin Carapace', 'Chitin', 'body', '#8a5a20', 5, 0.6, { bite: 0.75, sharp: 0.6, blunt: 0.45, bullet: 0.4 }, 0.95, 160, {}, 'Chitin set. Strong as steel at half the weight.'],
   ['divehelm', 'Brass Diving Helmet', 'Diver', 'head', '#c09040', 3, 0.6, { blunt: 0.6, sharp: 0.55, bullet: 0.45 }, 0.96, 140, { gasF: 0.85 }, 'Sealed brass bowl. Gas can\'t reach you (-85%).'],
-  ['divesuit', 'Drowned Diver\'s Suit', 'Diver', 'body', '#3a5050', 4, 0.35, { bite: 0.45, sharp: 0.3, blunt: 0.25 }, 0.96, 110, { warm: 0.3 }, 'Diver set. Rubberised canvas. Keeps the cold water out.'],
+  ['divesuit', 'Drowned Diver\'s Suit', 'Diver', 'body', '#3a5050', 4, 0.35, { bite: 0.45, sharp: 0.3, blunt: 0.25 }, 0.96, 110, { warm: 0.3, dry: 0.85 }, 'Diver set. Rubberised canvas: cold -30%, and being soaked barely chills you (-85%).'],
   ['skullhelm', 'Ossuary Skull Helm', 'Ossuary', 'head', '#e0d8c0', 1.2, 0.45, { blunt: 0.4, sharp: 0.5, bite: 0.5 }, 1, 90, {}, 'Someone\'s skull, reinforced. Enemies hesitate.'],
   ['bonemail', 'Bone-Lattice Mail', 'Ossuary', 'body', '#e0d8c0', 4, 0.5, { sharp: 0.55, bite: 0.6, blunt: 0.3, bullet: 0.25 }, 0.95, 130, {}, 'Ossuary set. Rattles. Holds.'],
   ['weldmask', 'Welder\'s Mask', 'Workshop', 'head', '#3a3e44', 1.3, 0.3, { burn: 0.6, blunt: 0.3, sharp: 0.3 }, 1, 80, {}, 'Dark glass and a steel shell.'],
@@ -126,7 +126,7 @@ NE.OUTFITS.push(
   { id: 'smith', name: 'Smith\'s Apron', shirt: '#4a3a2a', pants: '#2a2420', price: 200, mods: { heat: 0.7 }, unlock: { type: 'depth', v: 1000, text: 'Reach 1000m (Magma Abyss)' }, desc: 'Leather apron. Heat -30%.' },
   { id: 'monk', name: 'Hollow Monk Robes', shirt: '#6a5a40', pants: '#6a5a40', price: 260, mods: { stress: 0.75 }, unlock: { type: 'depth', v: 750, text: 'Reach 750m' }, desc: 'Stress builds 25% slower.' },
   { id: 'beekeeper', name: 'Beekeeper\'s Suit', shirt: '#e8e2c8', pants: '#e8e2c8', price: 360, mods: { infect: 0.75, tox: 0.8 }, unlock: { type: 'depth', v: 1300, text: 'Reach 1300m (Hive Warrens)' }, desc: 'Infection -25%, toxins -20%.' },
-  { id: 'drowned', name: 'Drowned Wetsuit', shirt: '#203838', pants: '#203838', price: 420, mods: { cold: 0.6, lungs: 120 }, unlock: { type: 'depth', v: 1600, text: 'Reach 1600m (Drowned Abyss)' }, desc: 'Cold -40%, stronger lungs.' },
+  { id: 'drowned', name: 'Drowned Wetsuit', shirt: '#203838', pants: '#203838', price: 420, mods: { cold: 0.6, wetChill: 0.15, breath: 10 }, unlock: { type: 'depth', v: 1600, text: 'Reach 1600m (Drowned Abyss)' }, desc: 'Cold -40%, being soaked barely chills you (-85%), +10s of breath underwater.' },
   { id: 'royal', name: 'Royal Hive Regalia', shirt: '#6a2a5a', pants: '#3a1a30', price: 650, mods: { hpMul: 1.08, stamina: 10 }, unlock: { type: 'gifts', v: 5, text: 'Awaken 5 Vespa gifts in one run' }, desc: '+8% health, +10 stamina.' },
 );
 
@@ -655,7 +655,7 @@ const res0 = NE.Save.restoreRun; NE.Save.restoreRun = function (g, d) { res0.cal
 const env0 = G.computeEnv;
 G.computeEnv = function (p) {
   const env = env0.call(this, p); if (!p || !p.gear) return env; let warm = 0, cool = 0, rad = 0, gas = 0;
-  for (const s in p.gear) { const e = p.gear[s]; const it = e && NE.ITEMS[e.id]; if (!it) continue; warm += it.warm || 0; cool += it.cool || 0; rad += it.radRes || 0; gas += it.gasF || 0; }
+  let dry = 0; for (const s in p.gear) { const e = p.gear[s]; const it = e && NE.ITEMS[e.id]; if (!it) continue; warm += it.warm || 0; cool += it.cool || 0; rad += it.radRes || 0; gas += it.gasF || 0; dry += it.dry || 0; } env.dry = dry;
   if (env.cold) env.cold *= 1 - Math.min(0.85, warm); if (env.heat) env.heat *= 1 - Math.min(0.85, cool); if (env.rad) env.rad *= 1 - Math.min(0.9, rad); if (env.gas) env.gas *= 1 - Math.min(0.95, gas);
   return env;
 };

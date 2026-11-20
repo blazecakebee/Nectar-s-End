@@ -504,7 +504,7 @@ NE.ragPose = function (a) { const out = poseH(a); if (!a.hang) return out; const
 const puA = NE.Player.prototype.update;
 NE.Player.prototype.update = function (dt) {
   const r = puA.apply(this, arguments); if (!this.alive || !G.world || G.world.lobby) return r;
-  const under = G.world.isWater(this.x, this.y - this.h + 3); const cap = 12 + (has(this, 'air') || 0) + (has(this, 'scuba') ? 15 : 0) + (NE.hasGift && NE.hasGift(this, 'deeplungs') ? 10 : 0);
+  const under = G.world.isWater(this.x, this.y - this.h + 3); const cap = 12 + (has(this, 'air') || 0) + (has(this, 'scuba') ? 15 : 0) + ((this.stats && this.stats.breath > 1) ? this.stats.breath : 0) + (NE.hasGift && NE.hasGift(this, 'deeplungs') ? 10 : 0);
   this.breathMax = cap; if (this.breath == null) this.breath = cap;
   if (under) { this.breath -= dt; if (this.breath <= 0) { this.breath = 0; this.anat.stam -= dt * 20; this.drownT = (this.drownT || 0) + dt; if (this.drownT > 1) { this.drownT = 0; this.hurt('torso', 6, 'blunt', 'Drowning'); this.anat.org.lungs -= 3; G.toast('You\'re drowning — get to the surface!'); } } }
   else { this.breath = Math.min(cap, this.breath + dt * 6); this.drownT = 0; }
@@ -1062,4 +1062,7 @@ const declutter = function (W, fl, okAt) {
 };
 // later floors carve into the band above (drops/connectors), so re-check the previous floor too
 NE._valid = valid; W_.genFloor = function (f) { const fl = valF.call(this, f); if (this.lobby || !fl) return fl; if (fl.delve) valid(this, fl); const pv = this.floors && this.floors[f - 1]; if (pv && pv.delve && !pv.town) valid(this, pv); return fl; };
+// Thinking Stone: enemies about to strike flash white
+{ const glowT = G.drawGlow; G.drawGlow = function (ctx) { const r = glowT.apply(this, arguments); const p = G.player; if (!p || !p.alive || !wearing(p, 'thinkingstone')) return r;
+  for (const a of G.actors) { if (!a.alive || !a.D || a.town || !(a.windT > 0 || a.charge || a.state === 'aim' || a._bw)) continue; if (NE.dist(a.x, a.y, p.x, p.y) > 120) continue; ctx.globalAlpha = 0.45 + 0.35 * Math.sin(G.t * 22); ctx.fillStyle = '#ffffff'; for (const q of a.rag.pts) ctx.fillRect(Math.round(q.x) - 1, Math.round(q.y) - 1, 2, 2); } ctx.globalAlpha = 1; return r; }; }
 })(window.NE);

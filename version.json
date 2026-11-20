@@ -42,7 +42,10 @@
     "The lantern now starts off. Press [F] to light it.",
     "Co-op: your partner's limbs now move exactly as theirs do, so you see kicks, drop kicks, wall climbs, down-climbs, ledge hangs, dashes, gun bashes, treating and every swing. Enemy gun bashes and staggers show for the guest too.",
     "Co-op: shoves and knockdowns sync both ways. When either player kicks, drop-kicks, bashes, lashes or blasts an enemy or the other player, the push and knockdown happen for real on the owner's side.",
-    "Fog of war is 25% thicker than the previous build (still only at the screen edges)."
+    "Fog of war is 25% thicker than the previous build (still only at the screen edges).",
+    "Fixed: the Drowned Wetsuit and the Drowned Diver's Suit gave hypothermia. Swimming soaks you and wetness chilled you at full strength, so in the Drowned Abyss you froze. Both now keep the water off your skin: being soaked chills you 85% less. The wetsuit's old 'stronger lungs' bonus is replaced with +10s of breath underwater.",
+    "Fixed: the Thinking Stone's foresight now works. Enemies about to strike, aim or swing flash white.",
+    "Every wardrobe outfit and backpack now has its own atlas icon. The 10 newer outfits and 10 newer packs were all redrawn from one generic shape."
    ]
   },
   {

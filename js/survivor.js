@@ -237,7 +237,7 @@ class Anatomy {
       this.hunger = Math.max(0, this.hunger - dt * 100 / 1650 * s.hunger * mv * (s.heart ? 1.3 : 1));
       this.thirst = Math.max(0, this.thirst - dt * 100 / 1150 * s.thirst * mv * (this.temp > 38 ? 1.4 : 1) * (1 + (env.thirstMul ? env.thirstMul - 1 : 0) * s.heat));
       if (env.water) this.wet = 1; else this.wet = Math.max(0, this.wet - dt * (env.fire ? 0.08 : 0.008));
-      let tt = 37 - (env.cold || 0) * 2.2 * s.cold - this.wet * 2.2 * s.cold * (env.cold ? 1 : 0.4);
+      let tt = 37 - (env.cold || 0) * 2.2 * s.cold - this.wet * 2.2 * s.cold * (env.cold ? 1 : 0.4) * (s.wetChill != null ? s.wetChill : 1) * (1 - Math.min(0.9, env.dry || 0)); // diving gear keeps the water off your skin
       tt += (env.heat || 0) * 1.3 * s.heat; if (env.fire) tt = Math.max(tt, 37.4);
       if (this.infection > 35) tt += (this.infection - 35) / 18;
       if (this.blood < 2800) tt -= 1;
