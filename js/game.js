@@ -426,7 +426,7 @@ G.tryDig = function (pl, w) {
   let tx = -1, ty = -1; for (let d = 2; d <= 15; d += 1) { const px = hx + dx * d, py = hy + dy * d; if (W.solidAt(px, py) || W.get(Math.floor(px / T), Math.floor(py / T)) === 4) { tx = Math.floor(px / T); ty = Math.floor(py / T); break; } }
   if (tx < 0) return false; if (G.actors.some(a => a !== pl && a.alive && !a.town && NE.dist(a.x, a.cy, hx, hy) < 16 && (a.x - hx) * dx > 0)) return false;
   if (!W.diggable(tx, ty)) { G.toast('Too hard to break.'); NE.Audio.play('deny'); return true; }
-  const t = W.get(tx, ty); const res = W.damageTile(tx, ty, w.dig * (pl.stats.melee || 1));
+  const t = W.get(tx, ty); const res = W.damageTile(tx, ty, w.dig * (pl.stats.melee || 1) * (pl.stats.dig || 1));
   const cx = tx * T + 4, cy = ty * T + 4; const col = t === 10 ? '#cfeeff' : W.biomeAtY(cy).pal.tile;
   for (let i = 0; i < 6; i++) G.addP(cx - dx * 4, cy - dy * 4, rf(-50, 50) - dx * 30, rf(-60, 10), rf(0.3, 0.7), i % 2 ? col : NE.shade(col, 1.4), 'spark', 1); G.noise(cx, cy, 70);
   if (res === 'broke') { NE.Audio.play('crack'); G.dust(cx, cy + 3, 8); if (chance(0.25)) { const left = pl.inv.add('brick', 1); if (!left) G.toast('+1 Rock'); } if (t === 4) G.toast('Shattered the crystal shards.'); }
@@ -482,7 +482,7 @@ G.interact = function () {
     case 'talk': return UI.survivor(o);
     case 'trade': return UI.open('trade', o);
     case 'search': return G.beginSearch(o);
-    case 'pick': { const left = p.inv.add(o.item, 1); if (left) return G.toast('Backpack full.'); o.type = 'dead'; o.act = null; NE.Audio.play('rummage'); G.toast('Foraged: ' + NE.ITEMS[o.item].name + '.'); return; }
+    case 'pick': { const two = p.stats.forage2 && NE.WILD && Object.values(NE.WILD).some(L => L.includes(o.item)) && NE.chance(p.stats.forage2); const left = p.inv.add(o.item, two ? 2 : 1); if (left && !two) return G.toast('Backpack full.'); if (two && left < 2) G.toast('Forager: picked two.'); o.type = 'dead'; o.act = null; NE.Audio.play('rummage'); G.toast('Foraged: ' + NE.ITEMS[o.item].name + '.'); return; }
   }
 };
 G.station = function (kind) { const p = G.player; for (const o of G.nearObjs()) { if (NE.dist(o.x, o.y, p.x, p.y) > 34) continue; if (kind === 'fire' && o.type === 'fire') return true; if (kind === 'workbench' && o.type === 'bench') return true; } return false; };

@@ -3,12 +3,15 @@
 'use strict';
 NE.SKILL_CATS = [
   { id: 'endurance', name: 'Tolerance & Endurance', col: '#ef6a4c', icon: 'heart', ang: -90, perks: ['tolerance', 'medicine', 'endurance', 'clotting', 'vitality'] },
-  { id: 'agility', name: 'Agility & Movement', col: '#a6d46a', icon: 'boot', ang: -150, perks: ['movement', 'agility', 'cardio', 'parkour', 'sprinter'] },
-  { id: 'perception', name: 'Eyesight & Perception', col: '#ffd24a', icon: 'eye', ang: -30, perks: ['eyesight', 'scavenger', 'nimble', 'lantern'] },
-  { id: 'psyche', name: 'Psychology', col: '#d49af0', icon: 'mind', ang: 150, perks: ['psychology', 'composure', 'barter'] },
-  { id: 'strength', name: 'Strength & Conditioning', col: '#ff9a3c', icon: 'fist', ang: 30, perks: ['strength', 'brawler', 'packmule', 'hauler', 'organizer'] },
+  { id: 'perception', name: 'Eyesight & Perception', col: '#ffd24a', icon: 'eye', ang: -45, perks: ['eyesight', 'lantern', 'scavenger', 'nimble'] },
+  { id: 'strength', name: 'Strength & Conditioning', col: '#ff9a3c', icon: 'fist', ang: 0, perks: ['strength', 'brawler', 'packmule', 'hauler', 'organizer'] },
+  { id: 'combat', name: 'Fighting & Firearms', col: '#e0504a', icon: 'pistol', ang: 45, perks: ['kickboxer', 'riposte', 'executioner', 'marksman', 'pistolwhip'] },
+  { id: 'vespa', name: 'The Hive Within', col: '#ffc21a', icon: 'ui_vespa', ang: 90, perks: ['vlinger', 'vlash', 'vgullet', 'vsilk', 'vskitter', 'vharvest', 'vapex'] },
+  { id: 'psyche', name: 'Psychology', col: '#d49af0', icon: 'mind', ang: 135, perks: ['psychology', 'composure', 'barter', 'psychonaut'] },
+  { id: 'delving', name: 'Delving & Survival', col: '#6ad0a0', icon: 'pick', ang: 180, perks: ['rockbreaker', 'forager', 'fieldsurgeon', 'abysswalker', 'tinkerer'] },
+  { id: 'agility', name: 'Agility & Movement', col: '#a6d46a', icon: 'boot', ang: -135, perks: ['movement', 'agility', 'cardio', 'parkour', 'sprinter', 'freeclimb', 'tumbler'] },
 ];
-const R = 62, CD = R * 2.25, NR = 13;
+const R = 62, CD = R * 3.2, NR = 13;
 class SkillTree {
   constructor(host, meta, opts) {
     this.host = host; this.meta = meta; this.ro = !!(opts && opts.readOnly); this.onChange = opts && opts.onChange;

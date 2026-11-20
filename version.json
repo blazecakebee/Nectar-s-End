@@ -35,7 +35,14 @@
     "Vespa form: tendril lashes hit harder (46–64) and can coil round a neck and tear the head off (about 1 in 6 hits).",
     "Vespa form: right-click fires a grappling tendril into any wall within reach. Hold to reel in and swing (A/D pumps the swing), let go to fling yourself.",
     "Death now plays out: the Vespa wakes inside your body. Twitches and a speeding heartbeat, light crawling under the skin, glowing cracks spreading over the chest, feelers and eyes pushing out of the wound, then the eruption. About 3 seconds.",
-    "The Vespa form, its tendrils, particles, flash and screen tint now take the colour of your strain instead of always being gold."
+    "The Vespa form, its tendrils, particles, flash and screen tint now take the colour of your strain instead of always being gold.",
+    "Skill web overhaul: 8 branches (was 5).\n• Fighting & Firearms: Kickboxer, Riposte, Executioner, Marksman, Pistol-Whip.\n• Delving & Survival: Rockbreaker, Forager, Field Surgeon, Abyss-Walker, Tinkerer.\n• The Hive Within: Lingering Brood (+2s Vespa form per rank), Razor Tendrils (lash damage and decapitation), Gullet (faster swallows, more time per swallow), Silk Line (grapple reach and reel), Skittering (form speed and jump), Harvest (Vespa XP), and the Apex Brood capstone (every kill or swallow adds 3s, up to 30s).\n• Agility gains Free Climber (longer wall climbs, faster down-climbing) and Tumbler (dash cooldown and dodge window).\n• Psychology gains Psychonaut (longer visions that heal).",
+    "Lanternwright (oil and light radius) is replaced by Sixth Sense: nearby enemies show as faint outlines through fog and rock. Points already spent carry over. Eyesight now says what it really does: you see further through the fog.",
+    "Fixed: buying Strength, Pack Mule, Hauler or Organized Packing now updates your carry limit and backpack right away. Pack Mule adds a whole backpack row (8 cells) per rank, Organized Packing +2 cells per rank, and Strength and Hauler give +2.5kg each.",
+    "The lantern now starts off. Press [F] to light it.",
+    "Co-op: your partner's limbs now move exactly as theirs do, so you see kicks, drop kicks, wall climbs, down-climbs, ledge hangs, dashes, gun bashes, treating and every swing. Enemy gun bashes and staggers show for the guest too.",
+    "Co-op: shoves and knockdowns sync both ways. When either player kicks, drop-kicks, bashes, lashes or blasts an enemy or the other player, the push and knockdown happen for real on the owner's side.",
+    "Fog of war is 25% thicker than the previous build (still only at the screen edges)."
    ]
   },
   {

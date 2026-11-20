@@ -375,7 +375,7 @@ UI.render.craft = function (b) {
   }
   b.innerHTML = h + '</div>';
   b.querySelectorAll('[data-r]').forEach(bn => bn.onclick = () => {
-    const r = NE.RECIPES.find(x => x.id === bn.dataset.r); for (const [id, n] of need(r)) inv.consume(id, n);
+    const r = NE.RECIPES.find(x => x.id === bn.dataset.r); for (const [id, n] of need(r)) inv.consume(id, n); if (p.stats.craftSave && NE.chance(p.stats.craftSave)) { const nd = need(r).filter(([id]) => NE.ITEMS[id] && NE.ITEMS[id].cat !== 'tool'); if (nd.length) { const back = nd[Math.floor(Math.random() * nd.length)][0]; inv.add(back, 1); g.toast('Tinkerer: saved a ' + NE.ITEMS[back].name.toLowerCase() + '.'); } }
     if (r.special === 'tear') { p.surv.tears = (p.surv.tears || 0) + 1; }
     const left = inv.add(r.out[0], r.out[1]); if (left) { g.dropEntry({ id: r.out[0], n: left }); g.toast('Backpack full — dropped it.'); }
     NE.Audio.play('rummage'); g.toast('Crafted ' + NE.ITEMS[r.out[0]].name + '.'); UI.render.craft(b);

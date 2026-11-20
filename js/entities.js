@@ -58,7 +58,7 @@ class Actor {
       const ed = this.wallAt(); if (ed && !W.solid(W.get(Math.floor((this.x + ed * (this.w / 2 + 2)) / T), Math.floor((this.y - this.h - 4) / T)))) { this.vy = -205; this.vx = ed * 70; }
     }
     // ---- wall climb: hold W/up against rock to latch on and claw upward for up to 2s, then mantle a ledge
-    if (this.onGround) this.climbBudget = 3.0 * (st.parkour || 1);
+    if (this.onGround) this.climbBudget = 3.0 * (st.parkour || 1) * (st.climbB || 1);
     this.wallClimb = false;
     if (this.isPlayer && c.up && !inWater && !this.crawl && !A.uncon && (this.climbBudget || 0) > 0 && A.armFactor() > 0.4 && A.stam > 2) {
       const wdc = this.wallAt(); if (wdc && (c.mx === wdc || !c.mx || this.onGround)) {
@@ -77,7 +77,7 @@ class Actor {
     this.wallSliding = false; this.wallDown = false;
     // ---- climb down a wall: hold S (and toward the wall) while beside rock in the air to clamber down hand under hand
     if (wd && !this.wallClimb && !inWater && c.down && (c.mx === wd || !c.mx) && A.armFactor() > 0.4 && A.stam > 1 && this.vy > -20) {
-      this.wallDown = true; this.facing = wd; this.vy = 44 * (st.climb || 1) * A.armFactor(); this.vx = wd * 10; A.stam -= dt * 2; this.climbPh -= dt * 8;
+      this.wallDown = true; this.facing = wd; this.vy = 44 * (st.climb || 1) * (st.downClimb || 1) * A.armFactor(); this.vx = wd * 10; A.stam -= dt * 2; this.climbPh -= dt * 8;
       if (Math.random() < dt * 4) this.g.dust(this.x + wd * 3, this.y - this.h * 0.4, 1); }
     if (wd && !this.wallClimb && !this.wallDown && c.mx === wd && this.vy > 40 && A.armFactor() > 0.4) { this.vy = Math.min(this.vy, 70 / (st.parkour || 1)); this.wallSliding = true; if (Math.random() < dt * 12) this.g.dust(this.x + wd * 3, this.y - 6, 1); }
     if (this.isPlayer && jumpPress && !this.onGround && !this.climbing && this.wallCoy > 0 && A.stam > 4 && legs.broken < 2) {
@@ -208,7 +208,7 @@ class Player extends Actor {
     super(g, x, y, { faction: 'player', look: surv.look, stats, hpMul: stats.hpMul });
     this.surv = surv; this.stats = stats; this.isPlayer = true;
     this.inv = new NE.Inv(stats.slots, stats.carry); this.inv.medHalf = stats.medHalf; this.inv.stackMul = stats.stackMul || 1;
-    this.equip = { weapon: null }; this.light = { on: true, bat: 100 }; this.filterT = 0; this.treating = null; this.search = null;
+    this.equip = { weapon: null }; this.light = { on: false, bat: 100 }; // lantern starts off; [F] lights it this.filterT = 0; this.treating = null; this.search = null;
     const of = NE.OUTFITS.find(o => o.id === meta.equipped.outfit) || NE.OUTFITS[0];
     this.shirt = of.random ? surv.look.shirt : of.shirt; this.pants = of.random ? surv.look.pants : of.pants;
     const bp = NE.BACKPACKS.find(b => b.id === meta.equipped.backpack) || NE.BACKPACKS[0]; this.packCol = bp.col;
@@ -338,7 +338,7 @@ class Player extends Actor {
     const e = this.equip.weapon; if (!e) return; const w = NE.ITEMS[e.id]; if (!w.gun) return; const g = this.g;
     if (e.jammed) { e.jammed = false; NE.Audio.play('reload'); g.toast('Cleared the jam.'); this.cd = 0.6; return; }
     const need = w.gun.mag - e.mag; const have = this.inv.count(w.gun.ammo); if (!need) return; if (!have) { g.toast('No ' + NE.ITEMS[w.gun.ammo].name + '.'); return; }
-    const k = Math.min(need, have); this.inv.consume(w.gun.ammo, k); e.mag += k; NE.Audio.play('reload'); this.cd = 0.75 / Math.max(0.5, this.anat.armFactor());
+    const k = Math.min(need, have); this.inv.consume(w.gun.ammo, k); e.mag += k; NE.Audio.play('reload'); this.cd = 0.75 / Math.max(0.5, this.anat.armFactor()) / (this.stats.reload || 1);
   }
 }
 NE.Player = Player;

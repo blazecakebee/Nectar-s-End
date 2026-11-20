@@ -84,7 +84,7 @@ G.drinkNectar = function (p) {
 G.hivePulse = function (p) {
   if (!p.abil || !p.abil.includes('pulse')) return; if (p.pulseCD > 0) return G.toast('Hive Pulse recharging (' + Math.ceil(p.pulseCD) + 's)');
   p.pulseCD = 20; NE.Audio.play('pulse'); G.shake(4); G.pulseFx = { x: p.x, y: p.cy, t: 0 };
-  for (const a of G.actors) { if (a === p || !a.alive || a.town || a.isRemote) continue; const d = NE.dist(a.x, a.cy, p.x, p.cy); if (d > 70) continue; const k = 1 - d / 70; a.vx += Math.sign(a.x - p.x) * 220 * k; a.vy -= 120 * k; a.anat.painSpike += 40 * k; if (a.D) { a.state = 'flee'; a.target = p; } if (a.isPuppet && G.net) G.net.send({ t: 'push', id: a.nid, vx: Math.sign(a.x - p.x) * 220 * k, vy: -120 * k }); }
+  for (const a of G.actors) { if (a === p || !a.alive || a.town || a.isRemote) continue; const d = NE.dist(a.x, a.cy, p.x, p.cy); if (d > 70) continue; const k = 1 - d / 70; a.vx += Math.sign(a.x - p.x) * 220 * k; a.vy -= 120 * k; a.anat.painSpike += 40 * k; if (a.D) { a.state = 'flee'; a.target = p; } if (a.isPuppet && G.net) { G.net.send({ t: 'push', id: a.nid, vx: Math.sign(a.x - p.x) * 220 * k, vy: -120 * k, fl: 1 }); a._kbx = a._kby = 0; } }
   G.phys.impulse(p.x, p.cy, 70, 700);
 };
 
@@ -95,7 +95,7 @@ NE.setVespaColours = function (c) { c = c || '#ffc21a'; const h = c.replace('#',
   NE.VC = { main: c, mid: mix(1, 0.18), dark: mix(0.68, 0), light: mix(0.6, 0.45), stripe: mix(0.22, 0), rgba: 'rgba(' + r + ',' + g + ',' + b + ',' }; };
 G.startBurst = function (p) { NE.setVespaColours(p.vglow);
   G.state = 'burst'; const g = Object.create(NE.Actor.prototype); Object.assign(g, { g: G, x: p.x, y: p.y - 1, vx: 0, vy: -140, w: 7, h: 6, onGround: false, dropT: 0, climbing: false, t: 10, cd: 0, lashT: 0, tgt: null, kills: 0, facing: p.facing, wob: 0 });
-  G.goop = g; G.sayCD = 0; G.say(pick(NE.MONO.burst)); NE.Audio.play('screech'); NE.Audio.play('burst'); G.shake(9); NE.Audio.music('burst');
+  g.t += (p.stats && p.stats.vTime) || 0; G.goop = g; G.sayCD = 0; G.say(pick(NE.MONO.burst)); NE.Audio.play('screech'); NE.Audio.play('burst'); G.shake(9); NE.Audio.music('burst');
   // rupture: blinding light, a ring of gore and glowing ichor
   const vc = p.vglow || NE.VC.main; G.flashT = 1.1; G.burstFx = { x: p.x, y: p.cy, t: 1, col: vc }; G.slowmo = 0.35;
   for (let i = 0; i < 70; i++) { const a = i / 70 * Math.PI * 2; const sp = rf(80, 220); G.addP(p.x, p.cy, Math.cos(a) * sp, Math.sin(a) * sp - 40, rf(0.6, 1.5), pick([vc, NE.VC.main, NE.VC.dark, NE.VC.light]), i % 3 ? 'goo' : 'glow', i % 3 ? undefined : 0); }
@@ -108,8 +108,8 @@ G.goopUpdate = function (dt) {
   const g = G.goop; const K = G.keys; const block = NE.UI.modalOpen();
   const L = !block && G.kd('left'), Rr = !block && G.kd('right'), U = !block && (G.kd('up') || G.kd('jump'));
   const mx = (Rr ? 1 : 0) - (L ? 1 : 0); if (mx) g.facing = mx;
-  g.vx = lerp(g.vx, mx * 105, Math.min(1, dt * 9));
-  if (U && g.onGround) { g.vy = -250; g.onGround = false; NE.Audio.play('squelch', 0.6); }
+  g.vx = lerp(g.vx, mx * 105 * (G.player.stats.vSpeed || 1), Math.min(1, dt * 9));
+  if (U && g.onGround) { g.vy = -250 * (G.player.stats.vJump || 1); g.onGround = false; NE.Audio.play('squelch', 0.6); }
   g.vy += NE.GRAV * dt; if (g.vy > 400) g.vy = 400;
   g.bumped = 0; g.x += g.vx * dt; g.collideX();
   if (g.bumped && mx === g.bumped && U) g.vy = -90; // sticky goo climbs walls
@@ -119,15 +119,15 @@ G.goopUpdate = function (dt) {
   // swallow: press [E] on anyone close — the Vespa engulfs them whole for big points (the weaker they are, the faster it goes)
   g.sw = g.sw || null; const eKey = !block && G.kd('interact');
   if (!g.sw) { let best = null, bd = 16; for (const a of G.actors) { if (!a.alive || a.isPlayer || a.isRemote || a.town || a.gone) continue; const d = Math.hypot(a.x - g.x, a.cy - (g.y - 3)); if (d < bd) { bd = d; best = a; } }
-    g.swTarget = best; if (best && eKey && !g._eh) { const A = best.anat; const hpk = (A.parts.torso.hp / A.parts.torso.max + A.parts.head.hp / A.parts.head.max) / 2; g.sw = { a: best, t: 0, dur: clamp(0.5 + hpk * 0.9 * (best.D && best.D.hpMul || 1), 0.45, 1.6) }; best.stagger = 3; if (best.onAggro) best.onAggro(G.player); NE.Audio.play('latch'); NE.Audio.play('squelch', 1); G.shake(2); } }
+    g.swTarget = best; if (best && eKey && !g._eh) { const A = best.anat; const hpk = (A.parts.torso.hp / A.parts.torso.max + A.parts.head.hp / A.parts.head.max) / 2; g.sw = { a: best, t: 0, dur: clamp(0.5 + hpk * 0.9 * (best.D && best.D.hpMul || 1), 0.45, 1.6) / (G.player.stats.vSwallow || 1) }; best.stagger = 3; if (best.onAggro) best.onAggro(G.player); NE.Audio.play('latch'); NE.Audio.play('squelch', 1); G.shake(2); } }
   g._eh = eKey;
   if (g.sw) { const S = g.sw, a = S.a; if (!a.alive && !a.anat.dead) { g.sw = null; } else { S.t += dt; a.stagger = Math.max(a.stagger || 0, 0.4); a.vx = lerp(a.vx, (g.x - a.x) * 8, 0.3); g.vx *= 0.5; g.facing = a.x > g.x ? 1 : -1;
       if (Math.random() < dt * 30) G.addP(a.x + rf(-3, 3), a.cy + rf(-6, 6), rf(-20, 20), rf(-30, 10), 0.5, G.player.vglow || NE.VC.main, 'goo'); g.lashT = 0.1; g.tgt = { x: a.x + rf(-2, 2), y: a.cy + rf(-4, 4) };
-      if (S.t >= S.dur) { const pts = Math.round(40 * (NE.THREAT[a.type] || 1)); g.sw = null; g.eaten = (g.eaten || 0) + 1; g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; G.run.swallowXP = (G.run.swallowXP || 0) + pts; G.run.killXP = (G.run.killXP || 0) + pts;
+      if (S.t >= S.dur) { const pts = Math.round(40 * (NE.THREAT[a.type] || 1) * (G.player.stats.vXP || 1)); g.sw = null; g.eaten = (g.eaten || 0) + 1; g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; G.run.swallowXP = (G.run.swallowXP || 0) + pts; G.run.killXP = (G.run.killXP || 0) + pts;
         if (a.isPuppet) { a.hurt('head', 900, 'sharp', 'The Vespa'); a.hurt('torso', 900, 'sharp', 'The Vespa'); } else if (a.alive) { a.anat.cause = 'Swallowed by the Vespa'; G.onEnemyDeath ? (a.D ? G.onEnemyDeath(a, 'Swallowed by the Vespa') : a.die('Swallowed by the Vespa')) : a.die('Swallowed'); }
         a.hidden = true; a.gone = true; if (a.rag) { a.rag.remove = true; } G.dyn = G.dyn.filter(o => o.actor !== a); NE.Audio.play('gobble'); NE.Audio.play('gulp', 0.8); G.shake(4); G.slowmo = 0.2;
         for (let i = 0; i < 24; i++) G.addP(g.x, g.y - 3, rf(-70, 70), rf(-90, 10), rf(0.4, 0.9), pick([NE.VC.main, NE.VC.dark, '#7a0c0c']), 'goo');
-        g.t = Math.min(14, g.t + 1.5); G.toast('SWALLOWED! +' + pts + ' XP  (+1.5s)'); } } }
+        { const st = G.player.stats, add = 1.5 + (st.vSwallowT || 0) + (st.vApex ? 3 : 0); g.t = Math.min(st.vApex ? 30 : 14 + (st.vTime || 0), g.t + add); G.toast('SWALLOWED! +' + pts + ' XP  (+' + add.toFixed(1) + 's)'); } } } }
   if (G.mouse.l && g.cd <= 0 && !g.sw) G.goopLash();
   if (g.t <= 0) { G.domText('burst-t', null); G.goop = null; G.state = 'dying'; G.dieT = 2.4; NE.Audio.play('retract'); NE.Audio.play('death'); G.burstFx = { x: g.x, y: g.y - 3, t: 0.5, col: NE.VC.dark }; for (let i = 0; i < 30; i++) G.addP(g.x, g.y - 3, rf(-50, 50), rf(-70, 0), rf(0.6, 1.2), NE.VC.dark, 'goo'); G.log('The Vespa dissolves into the rock.' + (g.kills ? ' It took ' + g.kills + ' with it.' : ''), 'bad'); if (G.net && G.net.on) G.net.send({ t: 'burstend' }); }
 };
@@ -137,11 +137,11 @@ G.goopLash = function () {
   for (const a of G.actors) {
     if (!a.alive || a.isPlayer || a.isRemote) continue; const px = a.x - g.x, py = a.cy - (g.y - 3); const along = px * dx + py * dy; if (along < -2 || along > reach + 3) continue; const perp = Math.abs(px * dy - py * dx); if (perp > 7) continue;
     const part = pick(['torso', 'torso', 'head', 'larm', 'rarm', 'lleg', 'rleg']); const wasAlive = a.alive;
-    a.hurt(part, rf(46, 64), 'sharp', 'The Vespa', { x: dx, y: dy });
+    a.hurt(part, rf(46, 64) * (G.player.stats.vLash || 1), 'sharp', 'The Vespa', { x: dx, y: dy });
     // the tendril can coil round a neck and tear the head clean off
-    if (a.anat && a.anat.parts.head && !a.anat.parts.head.severed && !a.gone && chance(part === 'head' ? 0.45 : 0.14)) { NE.Gore.sever(a, 'head', { x: dx, y: -0.6 }); if (a.anat) a.anat.cause = 'Head torn off by the Vespa'; if (a.alive && a.die) { if (a.D && G.onEnemyDeath) G.onEnemyDeath(a, 'Head torn off by the Vespa'); else a.die('Head torn off by the Vespa'); } NE.Audio.play('crack', 1); NE.Audio.play('squelch', 1); G.shake(4); G.slowmo = Math.max(G.slowmo || 0, 0.15); G.toast('DECAPITATED'); } a.vx += dx * 160; a.vy -= 60; if (a.onAggro) a.onAggro(G.player);
+    if (a.anat && a.anat.parts.head && !a.anat.parts.head.severed && !a.gone && chance((part === 'head' ? 0.45 : 0.14) + (G.player.stats.vDecap || 0))) { NE.Gore.sever(a, 'head', { x: dx, y: -0.6 }); if (a.anat) a.anat.cause = 'Head torn off by the Vespa'; if (a.alive && a.die) { if (a.D && G.onEnemyDeath) G.onEnemyDeath(a, 'Head torn off by the Vespa'); else a.die('Head torn off by the Vespa'); } NE.Audio.play('crack', 1); NE.Audio.play('squelch', 1); G.shake(4); G.slowmo = Math.max(G.slowmo || 0, 0.15); G.toast('DECAPITATED'); } a.vx += dx * 160; a.vy -= 60; if (a.onAggro) a.onAggro(G.player);
     for (let i = 0; i < 8; i++) G.addP(a.x, a.cy, dx * rf(20, 70), rf(-50, 10), 0.8, NE.VC.main, 'goo');
-    if (a.anat.dead && wasAlive) { g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; G.toast('+35 XP — Vespa kill'); } G.shake(2);
+    if (a.anat.dead && wasAlive) { g.kills++; G.run.vkills = (G.run.vkills || 0) + 1; const st = G.player.stats; const xp = Math.round(35 * (st.vXP || 1)); if (st.vXP > 1) G.run.killXP = (G.run.killXP || 0) + (xp - 35); if (st.vApex) g.t = Math.min(30, g.t + 3); G.toast('+' + xp + ' XP — Vespa kill' + (st.vApex ? '  (+3s)' : '')); } G.shake(2);
   }
   G.phys.impulse(g.tgt.x, g.tgt.y, 14, 300);
 };
@@ -278,15 +278,15 @@ G.rest = function () {
   const upG = G.goopUpdate; G.goopUpdate = function (dt) { const g = G.goop; const r0 = upG.apply(this, arguments); if (!G.goop || G.goop !== g) return r0;
     const W = G.world, R = G.mouse.r && !NE.UI.modalOpen();
     if (R && !g._rh && !g.hook) { const ox = g.x, oy = g.y - 3; let dx = G.mouse.wx - ox, dy = G.mouse.wy - oy; const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
-      for (let d = 4; d <= 130; d += 2) { const x = ox + dx * d, y = oy + dy * d; if (W.solid(W.get(Math.floor(x / T), Math.floor(y / T)))) { g.hook = { x, y, len: d }; NE.Audio.play('latch'); NE.Audio.play('squelch', 0.6); for (let i = 0; i < 6; i++) G.addP(x, y, NE.rf(-30, 30), NE.rf(-30, 10), 0.5, NE.VC.main, 'goo'); break; } }
-      if (!g.hook) { g.miss = { x: ox + dx * 130, y: oy + dy * 130, t: 0.15 }; NE.Audio.play('whoosh', 0.5); } }
+      const reach = 130 * (G.player.stats.vSilk || 1); for (let d = 4; d <= reach; d += 2) { const x = ox + dx * d, y = oy + dy * d; if (W.solid(W.get(Math.floor(x / T), Math.floor(y / T)))) { g.hook = { x, y, len: d }; NE.Audio.play('latch'); NE.Audio.play('squelch', 0.6); for (let i = 0; i < 6; i++) G.addP(x, y, NE.rf(-30, 30), NE.rf(-30, 10), 0.5, NE.VC.main, 'goo'); break; } }
+      if (!g.hook) { g.miss = { x: ox + dx * reach, y: oy + dy * reach, t: 0.15 }; NE.Audio.play('whoosh', 0.5); } }
     g._rh = R; if (g.miss) { g.miss.t -= dt; if (g.miss.t <= 0) g.miss = null; }
     if (g.hook && !R) { g.hook = null; g.vy = Math.min(g.vy, g.vy * 1.1); } // let go: keep the swing's momentum
-    if (g.hook) { const H = g.hook; H.len = Math.max(8, H.len - dt * 80); const cx = g.x, cy = g.y - 3; let ex = cx - H.x, ey = cy - H.y; const d = Math.hypot(ex, ey) || 1;
+    if (g.hook) { const H = g.hook; H.len = Math.max(8, H.len - dt * 80 * (G.player.stats.vSilk || 1)); const cx = g.x, cy = g.y - 3; let ex = cx - H.x, ey = cy - H.y; const d = Math.hypot(ex, ey) || 1;
       if (d > H.len) { ex /= d; ey /= d; const vr = g.vx * ex + g.vy * ey; if (vr > 0) { g.vx -= vr * ex; g.vy -= vr * ey; } const mx = H.x + ex * H.len - cx, my = H.y + ey * H.len - cy;
         g.x += mx; g.collideX(); const py = g.y; g.y += my; g.collideY(py, false); }
       g.vx += (G.kd('right') ? 1 : 0) * 160 * dt - (G.kd('left') ? 1 : 0) * 160 * dt; // pump the swing
-      if (H.len > 130) g.hook = null; }
+      if (H.len > 130 * (G.player.stats.vSilk || 1)) g.hook = null; }
     return r0; };
   const drG = G.drawGoop; G.drawGoop = function (ctx) { const r = drG.apply(this, arguments); const g = G.goop; if (!g) return r; const x = Math.round(g.x), y = Math.round(g.y) - 3;
     const H = g.hook || g.miss; if (H) { const wob = Math.sin(G.t * 30) * (g.hook ? 0.4 : 1.2); NE.pline(ctx, x, y, H.x + wob, H.y, 2, NE.VC.dark); NE.pline(ctx, x, y, H.x, H.y, 1, NE.VC.light); if (g.hook) { ctx.fillStyle = NE.VC.light; ctx.fillRect(Math.round(H.x) - 1, Math.round(H.y) - 1, 2, 2); } }

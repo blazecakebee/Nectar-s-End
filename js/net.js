@@ -12,7 +12,7 @@ NE.makeCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; 
 class RemotePlayer extends NE.Actor {
   constructor(g, x, y, hello) { super(g, x, y, { faction: 'player', look: hello.surv.look }); this.isRemote = true; this.vespa = true; this.light = { on: true, bat: 100 }; this.setHello(hello); this.tgt = { x, y }; this.stats = { speed: 1, climb: 1 }; }
   setHello(h) { if (h.surv && h.surv.variant) this.vglow = NE.variantOf(h.surv.variant).glow; this.surv = h.surv; this.look = h.surv.look; this.shirt = h.shirt; this.pants = h.pants; this.packCol = h.pack; this.name = h.surv.name; }
-  apply(s) { this.tgt = { x: s.x, y: s.y }; this.vx = s.vx; this.vy = s.vy; this.facing = s.f; this.h = s.h; this.crouch = !!s.cr; if (s.ds > 0 && !(this.dashT > 0)) { this.dashT = s.ds; this.dashDur = 0.55; } this.search = s.se ? { obj: null, t: 0, dur: 1 } : null; this.exhausted = !!s.ex; this.crawl = !!s.cw; this.climbing = !!s.cl; this.onGround = !!s.og; this.aimDir = { x: s.ax, y: s.ay }; this.w2 = s.w; this.lightOn = !!s.lt; this.light.on = !!s.lt; this.infest = s.inf || 0; this.muts = s.mu ? NE.mutsOf(s.mu.split(',')) : {}; this.swingT = s.sw ? 0.2 : 0; this.swingDur = 0.4; this.goop = s.gp || null; this.wisp = s.ws || null; this.minion = !!s.mn; this.minionSpent = !!s.ms;
+  apply(s) { this.tgt = { x: s.x, y: s.y }; this._vx = s.vx || 0; this._vy = s.vy || 0; if (s.rp) { this.rp = s.rp; this.rpT = G.t; } this.wallClimb = !!s.wc; this.treating = s.tr ? (this.treating || { t: 0, dur: 1 }) : null; this.facing = s.f; this.h = s.h; this.crouch = !!s.cr; if (s.ds > 0 && !(this.dashT > 0)) { this.dashT = s.ds; this.dashDur = 0.55; } this.search = s.se ? { obj: null, t: 0, dur: 1 } : null; this.exhausted = !!s.ex; this.crawl = !!s.cw; this.climbing = !!s.cl; this.onGround = !!s.og; this.aimDir = { x: s.ax, y: s.ay }; this.w2 = s.w; this.lightOn = !!s.lt; this.light.on = !!s.lt; this.infest = s.inf || 0; this.muts = s.mu ? NE.mutsOf(s.mu.split(',')) : {}; this.swingT = s.sw ? 0.2 : 0; this.swingDur = 0.4; this.goop = s.gp || null; this.wisp = s.ws || null; this.minion = !!s.mn; this.minionSpent = !!s.ms;
     if (!s.al && this.alive) { this.die('Lost'); } else if (s.al && !this.alive) { this.alive = true; this.limpRag = false; this.anat.dead = false; this.rag.tiles = false; this.rag.collide = false; this.rag.noActor = true; for (const c of this.rag.cons) if (c.s < 1) c.s = 0.4; } }
   weaponId() { return this.w2 || null; }
   get gunOut() { return !!(this.w2 && NE.ITEMS[this.w2] && NE.ITEMS[this.w2].gun) && !this.climbing && !this.crawl; }
@@ -79,7 +79,7 @@ class Net {
   tick(dt) {
     if (!this.on) return; const p = G.player; this.acc += dt; this.eacc += dt;
     if (this.acc > 0.05 && p && (G.state === 'run' || G.state === 'lobby' || G.state === 'burst' || G.state === 'dying')) { this.acc = 0; const gp = G.goop, ws = G.wisp;
-      this.send({ t: 'p', mn: G.minion ? 1 : 0, ms: G.minionSpent ? 1 : 0, x: gp ? gp.x : ws ? ws.x : p.x, y: gp ? gp.y : ws ? ws.y : p.y, vx: p.vx, vy: p.vy, f: p.facing, h: p.h, cr: p.crouch ? 1 : 0, ds: p.dashT > 0 ? +p.dashT.toFixed(2) : 0, se: p.search ? 1 : 0, ex: p.exhausted ? 1 : 0, cw: p.crawl ? 1 : 0, cl: p.climbing ? 1 : 0, og: p.onGround ? 1 : 0, ax: p.aimDir ? +p.aimDir.x.toFixed(2) : 1, ay: p.aimDir ? +p.aimDir.y.toFixed(2) : 0, w: p.weaponId ? p.weaponId() : null, lt: p.light && p.light.on ? 1 : 0, al: p.alive ? 1 : 0, inf: +(p.infest || 0).toFixed(2), mu: (p.abil || []).join(','), sw: p.swingT > 0 ? 1 : 0, gp: gp ? 1 : 0, ws: ws ? 1 : 0, lobby: G.state === 'lobby' ? 1 : 0 }); }
+      this.send({ t: 'p', mn: G.minion ? 1 : 0, ms: G.minionSpent ? 1 : 0, x: gp ? gp.x : ws ? ws.x : p.x, y: gp ? gp.y : ws ? ws.y : p.y, vx: p.vx, vy: p.vy, f: p.facing, h: p.h, cr: p.crouch ? 1 : 0, ds: p.dashT > 0 ? +p.dashT.toFixed(2) : 0, se: p.search ? 1 : 0, ex: p.exhausted ? 1 : 0, cw: p.crawl ? 1 : 0, cl: p.climbing ? 1 : 0, og: p.onGround ? 1 : 0, ax: p.aimDir ? +p.aimDir.x.toFixed(2) : 1, ay: p.aimDir ? +p.aimDir.y.toFixed(2) : 0, w: p.weaponId ? p.weaponId() : null, lt: p.light && p.light.on ? 1 : 0, al: p.alive ? 1 : 0, inf: +(p.infest || 0).toFixed(2), mu: (p.abil || []).join(','), sw: p.swingT > 0 ? 1 : 0, gp: gp ? 1 : 0, ws: ws ? 1 : 0, lobby: G.state === 'lobby' ? 1 : 0, rp: (!gp && !ws && p.rag) ? p.rag.pts.map(q => [Math.round((q.x - p.x) * 2), Math.round((q.y - p.y) * 2)]) : null, wc: p.wallClimb || p.wallDown ? 1 : 0, hg: p.hang ? 1 : 0, tr: p.treating ? 1 : 0 }); }
     if (this.role === 'host' && this.eacc > 0.1 && G.state !== 'lobby' && G.world && this.peer) { this.eacc = 0; this.sendEnemies(); }
     this.pacc = (this.pacc || 0) + dt; if (this.pacc > 0.08 && G.phys && this.peer && G.state === 'run') { this.pacc = 0; this.sendProps(); }
     this.macc = (this.macc || 0) + dt; if (this.macc > 0.5 && p && p.anat && this.peer) { this.macc = 0; this.sendMed(); }
@@ -124,7 +124,7 @@ class Net {
       if (a.isPlayer || a.isRemote || a.town || !near(a)) continue; if (!a.nid) a.nid = this.nextId++; inRange.add(a.nid);
       if (!this.known.has(a.nid)) { this.known.add(a.nid); this.send({ t: 'en', id: a.nid, k: a.isNPC ? 'npc' : 'enemy', type: a.type, x: a.x, y: a.y, faction: a.faction, look: a.look, shirt: a.shirt, pants: a.pants, skinCol: a.skinCol, weapon: a.weapon, gear: a.gear, name: a.name, label: a.label, masked: a.masked, pack: a.packCol, alive: a.alive }); }
       if (!a.alive && a._sentDead) continue; if (!a.alive) a._sentDead = true;
-      list.push([a.nid, Math.round(a.x * 10) / 10, Math.round(a.y * 10) / 10, Math.round(a.vx), a.facing, (a.crouch ? 1 : 0) | (a.crawl ? 2 : 0) | (a.climbing ? 4 : 0) | (a.onGround ? 8 : 0) | (a.alive ? 16 : 0) | (a.swingT > 0 ? 32 : 0) | (a.rd ? 64 : 0), a.state === 'aim' ? 1 : a.state === 'chase' ? 2 : 0, a.h]);
+      list.push([a.nid, Math.round(a.x * 10) / 10, Math.round(a.y * 10) / 10, Math.round(a.vx), a.facing, (a.crouch ? 1 : 0) | (a.crawl ? 2 : 0) | (a.climbing ? 4 : 0) | (a.onGround ? 8 : 0) | (a.alive ? 16 : 0) | (a.swingT > 0 ? 32 : 0) | (a.rd ? 64 : 0) | (a._bashT > 0 ? 128 : 0) | (a.stagger > 0.3 ? 256 : 0), a.state === 'aim' ? 1 : a.state === 'chase' ? 2 : 0, a.h]);
     }
     for (const id of this.known) if (!inRange.has(id)) this.known.delete(id);
     this.send({ t: 'e', l: list });
@@ -148,7 +148,8 @@ class Net {
       case 'en': { if (this.role !== 'guest') return; let pp = this.puppets.get(m.id); if (pp) { pp.setDef(m); pp.seen = G.t; return; } pp = new Puppet(G, m); if (m.alive === false) pp.die('—'); this.puppets.set(m.id, pp); G.actors.push(pp); return; }
       case 'edie': { const pp = this.puppets.get(m.id); if (pp) { pp.die(m.cause); const o = { type: 'container', ct: 'corpse', actor: pp, x: pp.x, y: pp.y, label: m.label, act: 'search', items: m.items, searched: false, nkey: 'd' + m.id }; G.dyn.push(o); } return; }
       case 'hit': { if (this.role !== 'host') return; const e = G.actors.find(a => a.nid === m.id); if (e && e.alive) { e.hurt(m.part, m.dmg, m.kind, m.src, m.dir); if (e.onAggro && this.peer) e.onAggro(this.peer); if (e.anat.dead && e.alive) { e.anat.lastHit = m.src; } } return; }
-      case 'push': { const e = G.actors.find(a => a.nid === m.id); if (e) { e.vx += m.vx; e.vy += m.vy; if (e.D) { e.state = 'flee'; } } return; }
+      case 'push': { const e = G.actors.find(a => a.nid === m.id); if (e) { if (m.kd && e.knockdown) e.knockdown(m.vx, m.vy, m.kd); else { e.vx += m.vx; e.vy += m.vy; } if (e.D && m.fl) { e.state = 'flee'; } if (e.D && m.st) e.stagger = Math.max(e.stagger || 0, m.st); } return; }
+      case 'kb': { const p = G.player; if (p && p.alive) { if (m.kd) p.knockdown(m.vx, m.vy, m.kd); else { p.vx += m.vx; p.vy += m.vy; p.knockT = Math.max(p.knockT || 0, 0.25); p.onGround = false; } } return; }
       case 'hurt': { const p = G.player; if (p && p.alive) { p.hurt(m.part, m.dmg, m.kind, m.src, m.dir); if (m.kind === 'bullet') G.shake(3); } return; }
       case 'pp': if (G.phys) this.onProps(m.l); return;
       case 'bag': { if (!G.world || G.state !== 'run') return; let o = G.dyn.find(d => d.nkey === m.k); if (o) { o.items = m.it; return; } G.dyn.push({ type: 'container', ct: 'bag', x: m.x, y: m.y, label: 'Dropped Bag', act: 'search', items: m.it, searched: true, nkey: m.k }); return; }
@@ -199,7 +200,7 @@ class Net {
   }
   onEnemies(list) {
     if (this.role !== 'guest' || !G.world || G.world.lobby) return;
-    for (const r of list) { const pp = this.puppets.get(r[0]); if (!pp) continue; pp.seen = G.t; pp.tgt = { x: r[1], y: r[2] }; pp.vx = r[3]; pp.facing = r[4]; const fl = r[5]; pp.crouch = !!(fl & 1); pp.crawl = !!(fl & 2); pp.climbing = !!(fl & 4); pp.onGround = !!(fl & 8); if (fl & 32) { pp.swingT = 0.25; pp.swingDur = 0.3; } if ((fl & 64) && !pp.netRd && pp.alive) { pp.netRd = true; NE.ragLimp(pp.rag, true); } else if (!(fl & 64) && pp.netRd) { pp.netRd = false; NE.ragUnlimp(pp.rag); pp.getUpT = 0.6; } pp.state = r[6] === 1 ? 'aim' : r[6] === 2 ? 'chase' : 'idle'; pp.h = r[7]; if (pp.state !== 'idle' && G.player) { const t = G.player; const L = Math.hypot(t.x - pp.x, t.cy - pp.cy) || 1; pp.aimDir = { x: (t.x - pp.x) / L, y: (t.cy - pp.cy) / L }; } if (!(fl & 16) && pp.alive) pp.die('—'); }
+    for (const r of list) { const pp = this.puppets.get(r[0]); if (!pp) continue; pp.seen = G.t; pp.tgt = { x: r[1], y: r[2] }; pp._vx = r[3]; pp.facing = r[4]; const fl = r[5]; pp.crouch = !!(fl & 1); pp.crawl = !!(fl & 2); pp.climbing = !!(fl & 4); pp.onGround = !!(fl & 8); if (fl & 32) { pp.swingT = 0.25; pp.swingDur = 0.3; } pp._bashT = (fl & 128) ? 0.2 : 0; pp.stagger = (fl & 256) ? 0.4 : 0; if ((fl & 64) && !pp.netRd && pp.alive) { pp.netRd = true; NE.ragLimp(pp.rag, true); } else if (!(fl & 64) && pp.netRd) { pp.netRd = false; NE.ragUnlimp(pp.rag); pp.getUpT = 0.6; } pp.state = r[6] === 1 ? 'aim' : r[6] === 2 ? 'chase' : 'idle'; pp.h = r[7]; if (pp.state !== 'idle' && G.player) { const t = G.player; const L = Math.hypot(t.x - pp.x, t.cy - pp.cy) || 1; pp.aimDir = { x: (t.x - pp.x) / L, y: (t.cy - pp.cy) / L }; } if (!(fl & 16) && pp.alive) pp.die('—'); }
   }
   drawRemoteForm(ctx, a) {
     const x = Math.round(a.x), y = Math.round(a.y);
@@ -214,3 +215,21 @@ NE.startNet = function (role, code) { if (G.net) G.net.close(); const n = new Ne
 const _death = () => { const orig = G.onEnemyDeath; G.onEnemyDeath = function (e, cause) { const was = e.alive; orig.call(G, e, cause); if (was && G.net && G.net.on && G.net.role === 'host' && e.nid) { const o = G.dyn[G.dyn.length - 1]; if (o && o.actor === e) { o.nkey = 'd' + e.nid; G.net.send({ t: 'edie', id: e.nid, cause, label: o.label, items: o.items }); } } }; };
 _death();
 })(window.NE);
+
+// ---------- co-op physics sync (0.10.1) ----------
+// Anything that shoves a mirrored body (kicks, drop kicks, gun bashes, lashes, blasts, swallow pulls...) is collected
+// and sent to whoever owns that body, so the push really happens on their side; knockdowns travel the same way.
+(function () { const G = NE.G;
+  for (const C of [NE.Puppet, NE.RemotePlayer]) {
+    Object.defineProperty(C.prototype, 'vx', { get() { return this._vx || 0; }, set(v) { const d = v - (this._vx || 0); this._vx = v; if (this._ready && Math.abs(d) > 0.5) this._kbx = (this._kbx || 0) + d; }, configurable: true });
+    Object.defineProperty(C.prototype, 'vy', { get() { return this._vy || 0; }, set(v) { const d = v - (this._vy || 0); this._vy = v; if (this._ready && Math.abs(d) > 0.5) this._kby = (this._kby || 0) + d; }, configurable: true });
+    const kd0 = C.prototype.knockdown || NE.Actor.prototype.knockdown; C.prototype.knockdown = function (vx, vy, dur) { if (G.net && G.net.on && this.alive) { const m = { vx: vx || 0, vy: vy || 0, kd: dur || 0.9 }; if (this.isPuppet) G.net.send(Object.assign({ t: 'push', id: this.nid }, m)); else if (this.isRemote) G.net.send(Object.assign({ t: 'kb' }, m)); this._kbx = this._kby = 0; return; } return kd0.apply(this, arguments); };
+  }
+  const tick0 = NE.Net.prototype.tick; NE.Net.prototype.tick = function (dt) { const r = tick0.apply(this, arguments); if (!this.on) return r;
+    const flush = (a, msg) => { if (!a._ready) { a._ready = true; a._kbx = a._kby = 0; return; } const x = a._kbx || 0, y = a._kby || 0; if (Math.abs(x) + Math.abs(y) < 12) { if (Math.abs(x) + Math.abs(y) < 0.5) return; a._kbx *= 0.5; a._kby *= 0.5; return; } a._kbx = a._kby = 0; this.send(Object.assign(msg, { vx: Math.round(x), vy: Math.round(y), st: a.stagger > 0 ? +a.stagger.toFixed(2) : 0 })); };
+    for (const pp of this.puppets.values()) if (pp.alive) flush(pp, { t: 'push', id: pp.nid });
+    if (this.peer && this.peer.alive) flush(this.peer, { t: 'kb' });
+    return r; };
+  // the partner's limbs follow their real pose (kicks, climbing, ledge hangs, treating, swings, everything)
+  const rpN = NE.ragPose; NE.ragPose = function (a) { const base = rpN.apply(this, arguments); if (a && a.isRemote && a.rp && a.alive && !a.netRd && !a.goop && !a.wisp && G.t - (a.rpT || 0) < 0.6 && a.rp.length === base.length) { const out = []; for (const q of a.rp) out.push([a.x + q[0] / 2, a.y + q[1] / 2]); return out; } return base; };
+})();

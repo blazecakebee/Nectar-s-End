@@ -581,7 +581,7 @@ NE.Player.prototype.update = function (dt, input) {
   const C = CS(); const d = NE.depthOfY(this.y); const L = NE.curseLayer(d); C.L = L;
   // ascent builds the curse; the deeper the layer, the harsher
   const immune = wearing(this, 'hollowheart') ? 0.5 : 1; const footed = this.onGround || this.climbing || this.hang;
-  if (footed && !this.rd) { if (C.base == null || this.y > C.base || C.base - this.y > T * 40) C.base = this.y; else if (C.base - this.y > 2) { const up = (C.base - this.y) / T; C.base = this.y; C.v = Math.min(120, C.v + up * (0.22 + L * 0.2) * curseRes(this) * immune); C.calm = 1.5; } }
+  if (footed && !this.rd) { if (C.base == null || this.y > C.base || C.base - this.y > T * 40) C.base = this.y; else if (C.base - this.y > 2) { const up = (C.base - this.y) / T; C.base = this.y; C.v = Math.min(120, C.v + up * (0.22 + L * 0.2) * curseRes(this) * immune * (this.stats.curse || 1)); C.calm = 1.5; } }
   C.calm = Math.max(0, (C.calm || 0) - dt); if (!C.calm) C.v = Math.max(0, C.v - dt * (this.onGround && Math.abs(this.vx) < 5 ? 1.4 : 0.6));
   // thresholds trigger symptoms from the layers you've reached
   const pool = Object.keys(SYM).filter(k => SYM[k].L <= L);
@@ -797,17 +797,18 @@ const WILD = [
 NE.WILD = {};
 for (const [id, name, biome, fx, desc] of WILD) { const it = { name, icon: id, w: 0.1, stack: 5, cat: 'food', desc: desc + ' (Foraged)', fx, value: 4 + Math.round((fx.heal || 0) / 3 + (fx.trip ? 3 : 0)) };
   if (fx.hunger > 0) it.hunger = fx.hunger; if (fx.thirst > 0) it.thirst = fx.thirst; if (fx.tox) it.tox = fx.tox; if (fx.stress) it.stress = fx.stress; IT[id] = it; (NE.WILD[biome] = NE.WILD[biome] || []).push(id); }
-const consF = NE.consume; NE.consume = function (pl, entry) { const it = NE.ITEMS[entry.id]; const fx = it && it.fx; const r = consF.apply(this, arguments); if (!r || !fx || !pl.isPlayer) return r; const A = pl.anat;
+const consF = NE.consume; NE.consume = function (pl, entry) { const it = NE.ITEMS[entry.id]; const fx0 = it && it.fx; const r = consF.apply(this, arguments); if (!r || !fx0 || !pl.isPlayer) return r; const A = pl.anat; const fk = pl.stats.forage || 1; const fx = {}; for (const k in fx0) fx[k] = fx0[k] * (k === 'tox' ? 1 : fk);
+  if (fk > 1) { if (fx0.hunger > 0) A.hunger = Math.min(100, A.hunger + fx0.hunger * (fk - 1)); if (fx0.thirst > 0) A.thirst = Math.min(100, A.thirst + fx0.thirst * (fk - 1)); }
   if (fx.thirst < 0) A.thirst = Math.max(0, A.thirst + fx.thirst); if (fx.hunger < 0) A.hunger = Math.max(0, A.hunger + fx.hunger);
   if (fx.heal) { let h = fx.heal; const ps = Object.values(A.parts).filter(q => !q.severed && q.hp < q.max).sort((a, b) => a.hp / a.max - b.hp / b.max); for (const q of ps) { const d = Math.min(h, q.max - q.hp); q.hp += d; h -= d; if (h <= 0) break; } }
   if (fx.pain) { A.pain = Math.max(0, A.pain - fx.pain); A.painSpike = Math.max(0, (A.painSpike || 0) - fx.pain); }
   if (fx.stam) A.stam = Math.min(A.stamMax, A.stam + fx.stam); if (fx.warm) A.temp = clamp(A.temp + fx.warm, 33, 39); if (fx.rad) A.rad = Math.max(0, A.rad - fx.rad); if (fx.infect) A.infection = Math.max(0, A.infection - fx.infect);
-  if (fx.trip && G.run) { const was = G.run.trip > 0; G.run.trip = Math.max(G.run.trip || 0, 0) + fx.trip; if (!was) G.say(pick(['Oh. Oh no. The walls...', 'Everything is... humming.', 'Colours. So many colours.', 'Is the floor breathing?']), 3); }
+  if (fx.trip && G.run) { const was = G.run.trip > 0; G.run.trip = Math.max(G.run.trip || 0, 0) + fx.trip / fk * (pl.stats.trip || 1); if (!was) G.say(pick(['Oh. Oh no. The walls...', 'Everything is... humming.', 'Colours. So many colours.', 'Is the floor breathing?']), 3); }
   return r; };
 // visions: the world shifts colour and sways while it lasts; it also dulls pain and stress a little
 const tickTrip = NE.UI.tick; NE.UI.tick = function (dt) { const r = tickTrip.apply(this, arguments); const cv = G.cv; if (!cv) return r; const R = G.run;
   if (R && R.trip > 0 && G.state === 'run' && G.player && G.player.alive) { R.trip -= dt; const k = Math.min(1, R.trip / 8); cv.style.filter = 'hue-rotate(' + ((G.t * 50) % 360).toFixed(0) + 'deg) saturate(' + (1 + 0.8 * k).toFixed(2) + ') blur(' + (Math.sin(G.t * 1.7) * 0.4 * k + 0.2 * k).toFixed(2) + 'px)'; cv.style.transform = 'rotate(' + (Math.sin(G.t * 0.9) * 0.6 * k).toFixed(2) + 'deg) scale(' + (1 + 0.01 * k).toFixed(3) + ')';
-    const A = G.player.anat; A.stress = Math.max(0, A.stress - dt * 0.6); A.pain = Math.max(0, A.pain - dt * 0.4); if (R.trip <= 0) { R.trip = 0; G.toast('The visions fade.'); } }
+    const A = G.player.anat; A.stress = Math.max(0, A.stress - dt * 0.6); A.pain = Math.max(0, A.pain - dt * 0.4); const th = G.player.stats.tripHeal || 0; if (th) for (const k of NE.PARTS) { const P = A.parts[k]; if (!P.severed && P.hp < P.max) P.hp = Math.min(P.max, P.hp + dt * 0.25 * th); } if (R.trip <= 0) { R.trip = 0; G.toast('The visions fade.'); } }
   else if (cv.style.filter || cv.style.transform) { cv.style.filter = ''; cv.style.transform = ''; }
   return r; };
 // three of each biome's plants grow on every level of it

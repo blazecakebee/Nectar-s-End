@@ -42,19 +42,24 @@ NE.computeStats = function (meta, surv) {
   s.speed += r('movement') * 0.025; s.staminaCost -= r('movement') * 0.03;
   s.fall -= r('agility') * 0.07; s.noise -= r('agility') * 0.06; s.climb += r('agility') * 0.07;
   s.stamina += r('cardio') * 10; s.gas -= r('cardio') * 0.1;
-  s.sight += r('eyesight') * 0.1; s.loot += r('eyesight') * 0.2;
+  s.sight += r('eyesight') * 0.1; s.loot += r('eyesight') * 0.2; s.sense = r('lantern') ? 4 + r('lantern') * 2 : 0;
   const tl = r('tolerance'); s.tox -= tl * 0.07; s.rad -= tl * 0.07; s.infect -= tl * 0.07; s.bleed -= tl * 0.04;
   s.treat -= r('medicine') * 0.07; s.medEff += r('medicine') * 0.07;
   const en = r('endurance'); s.painTol += en * 6; s.fracture -= en * 0.06; s.hunger -= en * 0.04; s.thirst -= en * 0.04; s.cold -= en * 0.05;
-  s.melee += r('strength') * 0.05; s.carry += r('strength') * 2;
+  s.melee += r('strength') * 0.05; s.carry += r('strength') * 2.5;
   s.search -= r('scavenger') * 0.08; s.loot += r('scavenger') * 0.15;
   const ps = r('psychology'); s.stress -= ps * 0.08; s.aim -= ps * 0.04; s.barter -= ps * 0.04;
   s.coldblood = r('coldblood') > 0;
   s.bleed -= r('clotting') * 0.05; s.clot = r('clotting') * 0.2; s.hpMul = 1 + r('vitality') * 0.05;
   s.parkour = 1 + r('parkour') * 0.08; s.runSpeed = 1 + r('sprinter') * 0.03; s.runCost = 1 - r('sprinter') * 0.05;
-  s.pick = 1 + r('nimble') * 0.08; s.search -= r('nimble') * 0.04; s.battery *= 1 + r('lantern') * 0.15; s.lamp = 1 + r('lantern') * 0.07;
+  s.pick = 1 + r('nimble') * 0.08; s.search -= r('nimble') * 0.04; 
   s.stress -= r('composure') * 0.07; s.wake = 1 + r('composure') * 0.1; s.barter -= r('barter') * 0.05; s.post = 1 + r('barter') * 0.07;
-  s.swing = 1 + r('brawler') * 0.06; s.slots += r('packmule') + r('organizer'); s.carry += r('packmule') * 1.5 + r('hauler') * 2; s.encTol = r('hauler') * 0.05; s.stackMul = 1 + r('organizer') * 0.15;
+  s.swing = 1 + r('brawler') * 0.06; s.slots += r('packmule') * 3 + r('organizer') * 2; s.carry += r('packmule') * 1.5 + r('hauler') * 2.5; s.encTol = r('hauler') * 0.06; s.stackMul = 1 + r('organizer') * 0.15;
+  // 0.10.1 trees: movement, fighting, delving, the hive within
+  s.climbB = 1 + r('freeclimb') * 0.25; s.downClimb = 1 + r('freeclimb') * 0.2; s.dashCD = 1 - r('tumbler') * 0.12; s.dashIF = r('tumbler') * 0.04;
+  s.kick = 1 + r('kickboxer') * 0.15; s.kickStam = 1 - r('kickboxer') * 0.1; s.aim -= r('marksman') * 0.08; s.reload = 1 + r('marksman') * 0.1; s.gunBash = 1 + r('pistolwhip') * 0.25; s.parry = 1 + r('riposte') * 0.12; s.exec = r('executioner') * 0.12;
+  s.dig = 1 + r('rockbreaker') * 0.2; s.handDig = r('fieldsurgeon') * 0.1; s.handDigT = 1 - r('fieldsurgeon') * 0.15; s.forage = 1 + r('forager') * 0.25; s.forage2 = r('forager') * 0.15; s.curse = 1 - r('abysswalker') * 0.12; s.craftSave = r('tinkerer') * 0.2; s.trip = 1 + r('psychonaut') * 0.3; s.tripHeal = r('psychonaut');
+  s.vTime = r('vlinger') * 2; s.vLash = 1 + r('vlash') * 0.1; s.vDecap = r('vlash') * 0.04; s.vSilk = 1 + r('vsilk') * 0.25; s.vSwallow = 1 + r('vgullet') * 0.2; s.vSwallowT = r('vgullet') * 0.5; s.vSpeed = 1 + r('vskitter') * 0.1; s.vJump = 1 + r('vskitter') * 0.08; s.vXP = 1 + r('vharvest') * 0.15; s.vApex = r('vapex') > 0;
   // overlapping trees can't stack into near-immunity
   s.search = Math.max(0.6, s.search); s.stress = Math.max(0.5, s.stress); s.barter = Math.max(0.75, s.barter); s.treat = Math.max(0.6, s.treat); s.bleed = Math.max(0.55, s.bleed); s.staminaCost = Math.max(0.7, s.staminaCost);
   if (surv) {

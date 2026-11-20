@@ -169,7 +169,7 @@ NE.fogUpdate = function (cx, cy) {
     const fl = W.floors[Math.floor(ty / NE.FH)]; let mem = 0; if (fl && fl.seen) { const r = ty - fl.y0; if (r >= 0 && r < NE.FH && tx >= 0 && tx < W.W) { if (a < 0.55) fl.seen[r * W.W + tx] = 1; mem = fl.seen[r * W.W + tx]; } }
     const fog = mem ? Math.min(a, 0.55) : Math.min(a, 0.8); // fog only creeps in around the screen edges and corners; the middle of the view stays clear
     const nx = (i + 0.5) / cols * 2 - 1, ny = (j + 0.5) / rows * 2 - 1, ed = clamp((Math.hypot(nx * 0.95, ny * 1.05) - 0.62) / 0.55, 0, 1), edge = ed * ed * (3 - 2 * ed);
-    const v = Math.round(clamp(fog * 0.6 * edge, 0, 1) * 255);
+    const v = Math.round(clamp(fog * 0.75 * edge, 0, 1) * 255); // 0.6 → 0.75: 25% thicker
     // grey drifting mist rather than a black void
     const mist = 0.82 + 0.18 * Math.sin(tx * 0.31 + mt * 0.35) * Math.sin(ty * 0.47 - mt * 0.22 + tx * 0.07); const q = k * 4; D[q] = 66 * mist | 0; D[q + 1] = 70 * mist | 0; D[q + 2] = 76 * mist | 0; D[q + 3] = v; }
   FOG.cv.getContext('2d').putImageData(FOG.img, 0, 0); FOG.ox = tx0 * T - cx; FOG.oy = ty0 * T - cy; return FOG.cv;
@@ -193,15 +193,15 @@ const dmgF = NE.Anatomy.prototype.damage;
 NE.Anatomy.prototype.damage = function (part, amt, kind) { const P = this.parts[part]; const n0 = P ? P.wounds.length : 0; const r = dmgF.apply(this, arguments); if (P && (kind === 'bullet' || kind === 'frag')) for (let i = n0; i < P.wounds.length; i++) { const w = P.wounds[i]; if (w.bullet && !chance(kind === 'bullet' ? 0.4 : 0.35)) w.bullet = false; } return r; };
 NE.HAND_DIG = 0.3;
 const stF = NE.startTreat; NE.startTreat = function (pl, entry, part, op) { if (op !== 'handdig') return stF.apply(this, arguments); if (pl.anat.uncon) return; const P = pl.anat.parts[part]; if (!P.wounds.some(w => w.bullet)) return pl.g.toast('Nothing lodged here.'); if (pl.anat.armFactor() < 0.2) return pl.g.toast('You need a working hand for that.');
-  pl.treating = { entry: null, part, op: 'handdig', t: 0, dur: 7 * pl.stats.treat / Math.sqrt(Math.max(0.3, pl.anat.armFactor())) }; NE.Audio.play('gasp', 0.6); pl.g.say(pick(['Okay... okay. Fingers in.', 'Hold still. Hold still.', 'This is going to hurt.']), 0.8); };
+  pl.treating = { entry: null, part, op: 'handdig', t: 0, dur: 7 * pl.stats.treat * (pl.stats.handDigT || 1) / Math.sqrt(Math.max(0.3, pl.anat.armFactor())) }; NE.Audio.play('gasp', 0.6); pl.g.say(pick(['Okay... okay. Fingers in.', 'Hold still. Hold still.', 'This is going to hurt.']), 0.8); };
 const apF = NE.applyTreatment; NE.applyTreatment = function (pl, entry, part, op) { if (op !== 'handdig') return apF.apply(this, arguments); const A = pl.anat, P = A.parts[part], g = pl.g; const w = P.wounds.find(x => x.bullet); if (!w) return;
   A.painSpike += 60; w.dirty = Math.min(1, w.dirty + 0.45); if (!pl.stats.coldblood && A.pain + 60 > A.threshold + 30 && chance(0.6)) { A.cons -= 50; g.say('Everything goes white—', 1); }
-  if (chance(NE.HAND_DIG * (pl.abil && pl.abil.includes('longarms') ? 1.2 : 1))) { for (const w2 of P.wounds) if (w2.bullet) { w2.bullet = false; w2.bleed += 0.8; } g.toast('You work the fragment out with your fingers. It bleeds — clean and dress it.'); } else { w.bleed += 0.7; g.toast('It slips away from your fingers. Still in there.'); }
+  if (chance((NE.HAND_DIG + (pl.stats.handDig || 0)) * (pl.abil && pl.abil.includes('longarms') ? 1.2 : 1))) { for (const w2 of P.wounds) if (w2.bullet) { w2.bullet = false; w2.bleed += 0.8; } g.toast('You work the fragment out with your fingers. It bleeds — clean and dress it.'); } else { w.bleed += 0.7; g.toast('It slips away from your fingers. Still in there.'); }
   NE.Audio.play('pain'); };
 // the Health panel offers it whenever a fragment is lodged
 const hiF = NE.UI.healthInfo;
 if (hiF) NE.UI.healthInfo = function () { const r = hiF.apply(this, arguments); try { const p = G.player; const el = document.querySelector('.hl-info'); if (!el || !p) return r; const part = NE.UI.hpart; const P = part && p.anat.parts[part]; if (!P || !P.wounds.some(w => w.bullet) || el.querySelector('[data-handdig]')) return r;
-  const box = document.createElement('div'); box.innerHTML = '<h4>PULL IT OUT BY HAND <small class="dim">no tools — ' + Math.round(NE.HAND_DIG * 100) + '% chance, very painful, dirty</small></h4><div class="treats"><button class="tr" data-handdig="1"><span>Bare fingers<small>' + Math.round(NE.HAND_DIG * 100) + '% chance • ~7s</small></span></button></div>';
+  const box = document.createElement('div'); box.innerHTML = '<h4>PULL IT OUT BY HAND <small class="dim">no tools — ' + Math.round((NE.HAND_DIG + (p.stats.handDig || 0)) * 100) + '% chance, very painful, dirty</small></h4><div class="treats"><button class="tr" data-handdig="1"><span>Bare fingers<small>' + Math.round((p.stats.handDig || 0) * 100 + NE.HAND_DIG * 100) + '% chance • ~7s</small></span></button></div>';
   el.appendChild(box); box.querySelector('[data-handdig]').onclick = () => { NE.startTreat(p, null, part, 'handdig'); setTimeout(NE.UI.healthInfo, 50); }; } catch (e) { } return r; };
 
 // =====================================================================================================================
@@ -220,17 +220,17 @@ NE.Player.prototype.kick = function () {
   const g = this.g, A = this.anat; if ((this.kickCD || 0) > g.t || this.rd || A.uncon || this.climbing || this.hang || this.treating || this.search || this.impaled) return;
   if (A.legFactor().f < 0.4) return g.toast('Your legs can\'t manage a kick.'); if (A.stam < 8) return g.say('Too tired...', 1);
   if (!this.onGround && !this.climbing && !this.crawl && A.stam >= 14) { // drop kick
-    A.stam -= 14; this.kickCD = g.t + 1.6; this.dkT = 0.5; this.dkHit = false; this.dkDir = this.facing; this.vx = this.facing * 235; this.vy = Math.max(Math.min(this.vy, -40), -120); AU.play('dropkick'); g.say(pick(['HYAAH!', 'Get—', 'Hup!']), 0.5); return; }
-  if (this.crawl) return; A.stam -= 8; this.kickCD = g.t + 0.85; this.fkT = 0.32; this.fkDir = this.facing; AU.play('kick');
+    A.stam -= 14 * (this.stats.kickStam || 1); this.kickCD = g.t + 1.6; this.dkT = 0.5; this.dkHit = false; this.dkDir = this.facing; this.vx = this.facing * 235; this.vy = Math.max(Math.min(this.vy, -40), -120); AU.play('dropkick'); g.say(pick(['HYAAH!', 'Get—', 'Hup!']), 0.5); return; }
+  if (this.crawl) return; A.stam -= 8 * (this.stats.kickStam || 1); this.kickCD = g.t + 0.85; this.fkT = 0.32; this.fkDir = this.facing; AU.play('kick');
   setTimeout(() => { if (!this.alive) return; let best = null, bd = 19; for (const t of g.actors) { if (!okHit(this, t)) continue; const dx = (t.x - this.x) * this.facing; if (dx < -2 || dx > bd || Math.abs(t.y - this.y) > 18) continue; bd = dx; best = t; }
-    if (!best) return; const m = (this.stats.melee || 1) * (NE.styleMul ? Math.max(1, NE.styleMul(this, { id: 'fists' }) * 0.6) : 1); best.hurt(pick(['torso', 'torso', 'lleg', 'rleg']), 10 * m, 'blunt', this.surv.first, { x: this.facing, y: -0.2 });
+    if (!best) return; const m = (this.stats.melee || 1) * (NE.styleMul ? Math.max(1, NE.styleMul(this, { id: 'fists' }) * 0.6) : 1); best.hurt(pick(['torso', 'torso', 'lleg', 'rleg']), 10 * m * (this.stats.kick || 1), 'blunt', this.surv.first, { x: this.facing, y: -0.2 });
     best.vx += this.facing * 240; best.vy -= 60; best.stagger = Math.max(best.stagger || 0, 0.8); if (best.charge) best.charge = null; best.windT = 0; AU.play('kickhit'); g.shake(1.8); g.noise(this.x, this.y, 70); if (best.onAggro) best.onAggro(this); }, 120);
 };
 const puK = NE.Player.prototype.update;
 NE.Player.prototype.update = function (dt, input) { if (this.fkT > 0) { this.fkT -= dt; this.facing = this.fkDir || this.facing; }
   if (this.dkT > 0) { this.dkT -= dt; this.facing = this.dkDir || this.facing; this.vx = this.facing * Math.max(150, Math.abs(this.vx)); const g = this.g;
     if (!this.dkHit) for (const t of g.actors) { if (!okHit(this, t)) continue; const dx = (t.x - this.x) * this.facing; if (dx < -4 || dx > 15 || this.y < t.y - (t.h || 14) - 6 || this.y - 12 > t.y + 2) continue;
-      this.dkHit = true; const m = this.stats.melee || 1; t.hurt('torso', 17 * m, 'blunt', this.surv.first, { x: this.facing, y: -0.3 }); if (t.knockdown) t.knockdown(this.facing * 260, -90, 1.1); else { t.vx += this.facing * 320; t.vy -= 90; } t.stagger = Math.max(t.stagger || 0, 1.2); t.windT = 0; if (t.charge) t.charge = null;
+      this.dkHit = true; const m = this.stats.melee || 1; t.hurt('torso', 17 * m * (this.stats.kick || 1), 'blunt', this.surv.first, { x: this.facing, y: -0.3 }); if (t.knockdown) t.knockdown(this.facing * 260, -90, 1.1); else { t.vx += this.facing * 320; t.vy -= 90; } t.stagger = Math.max(t.stagger || 0, 1.2); t.windT = 0; if (t.charge) t.charge = null;
       AU.play('dropkickhit'); g.shake(4); g.slowmo = Math.max(g.slowmo || 0, 0.12); g.noise(this.x, this.y, 110); this.vx = -this.facing * 60; this.dkT = Math.min(this.dkT, 0.12); if (t.onAggro) t.onAggro(this); break; }
     if (this.dkT <= 0 || this.onGround) { this.dkT = 0; if (!this.onGround || this.dkHit) this.knockdown(0, -10, this.dkHit ? 0.45 : 0.7); } }
   const r = puK.apply(this, arguments); if (this.dkT > 0 && this.dkDir) this.facing = this.dkDir; else if (this.fkT > 0 && this.fkDir) this.facing = this.fkDir; return r; };
@@ -250,8 +250,8 @@ NE.Player.prototype.gunButt = function (w) { if (this.cd > 0) return; const g = 
   if (!this.inv.count(w.gun.ammo) && !this._dryTold) { this._dryTold = 1; g.toast('No ammo left — your ' + w.name.toLowerCase() + ' is a club now.'); }
   let best = null, bd = 1e9; for (const a of g.actors) { if (!okHit(this, a)) continue; const dx = a.x - this.x; if (dx * this.facing < -3 || Math.abs(dx) > 22 + (w.twoHand ? 5 : 0) || Math.abs(a.y - this.y) > 20) continue; if (Math.abs(dx) < bd) { bd = Math.abs(dx); best = a; } }
   if (!best) return; const part = Math.hypot(g.mouse.wx - best.x, g.mouse.wy - best.cy) < 26 ? best.partNear(g.mouse.wx, g.mouse.wy) : 'torso';
-  const dmg = (w.twoHand ? 20 : 15) * 1.2 * this.stats.melee * A.armFactor(); best.hurt(part, dmg, 'blunt', this.surv.first, { x: this.facing, y: -0.2 }); best.lastBy = this;
-  best.vx += this.facing * 130; best.stagger = Math.max(best.stagger || 0, 0.6); best.windT = 0; NE.Audio.play('hit', 1); g.shake(2); if (best.onAggro) best.onAggro(this); };
+  const dmg = (w.twoHand ? 20 : 15) * 1.2 * this.stats.melee * (this.stats.gunBash || 1) * A.armFactor(); best.hurt(part, dmg, 'blunt', this.surv.first, { x: this.facing, y: -0.2 }); best.lastBy = this;
+  best.vx += this.facing * 130; best.stagger = Math.max(best.stagger || 0, 0.6 * (this.stats.gunBash || 1)); best.windT = 0; NE.Audio.play('hit', 1); g.shake(2); if (best.onAggro) best.onAggro(this); };
 const puB = NE.Player.prototype.update; NE.Player.prototype.update = function (dt) { if (this._bashT > 0) this._bashT -= dt; if (this.equip.weapon && this.equip.weapon.mag) this._dryTold = 0; return puB.apply(this, arguments); };
 const euB = NE.Enemy.prototype.update;
 NE.Enemy.prototype.update = function (dt) { const r = euB.apply(this, arguments); if (!this.alive) return r; if (this._bashT > 0) this._bashT -= dt;
@@ -321,4 +321,18 @@ NE.postMortemHTML = function (a) { const A = a.anat; if (!A || !A.parts) return 
   return h + '</div>'; };
 const rlPM = NE.UI.render.loot; NE.UI.render.loot = function (b, o) { const r = rlPM.apply(this, arguments); try { const a = o && o.actor; if (a && a.anat && !a.alive) { const col = b.querySelector('.loot > div:last-child'); if (col) col.insertAdjacentHTML('beforeend', NE.postMortemHTML(a)); } } catch (e) { } return r; };
 { const st = document.createElement('style'); st.textContent = '.pm{margin-top:.8em;border-top:1px solid #4a3e2c;padding-top:.5em;font-size:.82em}.pm h4{margin:.1em 0 .3em}.pm-cause{margin-bottom:.4em}.pm-p{display:grid;grid-template-columns:5.5em 4em 1fr;gap:.4em;align-items:center;margin:.12em 0}.pm-bar{height:.45em;background:#1a1410;border:1px solid #4a3e2c;display:block}.pm-bar span{display:block;height:100%}.pm-t i{font-style:normal;margin-right:.35em}.pm i.bad,.pm b.bad{color:#e05a40}.pm i.warn,.pm b.warn{color:#e0b040}.pm-blood{margin:.35em 0}.pm-log{margin-top:.3em;max-height:11em;overflow:auto}.pm-e{margin:.1em 0}'; document.head.appendChild(st); }
+
+// ---- 0.10.1 skill hooks that need wrappers: dash, parry, executioner, sixth sense, live stat refresh
+{ const dashS = NE.Player.prototype.dash; NE.Player.prototype.dash = function () { const cd0 = this.dashCD || 0; const r = dashS.apply(this, arguments); const st = this.stats || {}; if (this.dashCD > cd0 + 0.01) { this.dashCD *= st.dashCD || 1; this.dashIF += st.dashIF || 0; } return r; }; }
+{ const pwS = NE.Combat.parryWin; NE.Combat.parryWin = function (t) { let k = pwS ? pwS.apply(this, arguments) : 1; if (t && t.isPlayer && t.stats && t.stats.parry) k *= t.stats.parry; return k; }; }
+{ const hX = NE.Actor.prototype.hurt; NE.Actor.prototype.hurt = function (part, dmg, kind, src, dir) { const p = G.player; if (p && this !== p && p.stats && p.stats.exec && src && p.surv && src === p.surv.first && (this.stagger > 0.2 || this.rd || this.state === 'flee')) arguments[1] = dmg * (1 + p.stats.exec); return hX.apply(this, arguments); }; }
+// sixth sense: faint outlines of nearby enemies through fog and rock
+{ const glowS = G.drawGlow; G.drawGlow = function (ctx) { const r = glowS.apply(this, arguments); const p = G.player; const R = p && p.alive && p.stats && p.stats.sense; if (!R || G.state !== 'run') return r; const rr = R * T;
+  for (const a of G.actors) { if (!a.alive || a === p || a.town || !a.D || a.isRemote) continue; const d = NE.dist(a.x, a.y, p.x, p.y); if (d > rr) continue; const k = (1 - d / rr) * (0.35 + 0.2 * Math.sin(G.t * 3 + a.x));
+    ctx.globalAlpha = Math.max(0, k); ctx.fillStyle = '#ff5040'; for (const q of a.rag.pts) ctx.fillRect(Math.round(q.x) - 1, Math.round(q.y) - 1, 2, 2); } ctx.globalAlpha = 1; return r; }; }
+// buying perks updates the survivor you're standing in right away (the change is applied as a difference, so gear and gifts stay intact)
+NE.refreshPerkStats = function (p, oldPerks) { if (!p || !p.stats || !p.surv) return; const M = G.meta; const a = NE.computeStats(Object.assign({}, M, { perks: oldPerks || {} }), p.surv), b = NE.computeStats(M, p.surv);
+  for (const k in b) { if (typeof b[k] === 'number' && typeof a[k] === 'number' && b[k] !== a[k]) p.stats[k] = (p.stats[k] || 0) + (b[k] - a[k]); else if (typeof b[k] === 'boolean' && b[k] !== a[k]) p.stats[k] = b[k]; }
+  if (p.inv) { p.inv.carry = p.stats.carry; p.inv.slots = p.stats.slots; } };
+{ const upR = NE.Player.prototype.update; NE.Player.prototype.update = function () { if (this === G.player && G.meta && G.meta.perks) { const key = JSON.stringify(G.meta.perks); if (this._perkKey == null) this._perkKey = key; else if (this._perkKey !== key) { const old = JSON.parse(this._perkKey); this._perkKey = key; try { NE.refreshPerkStats(this, old); } catch (e) { } } } return upR.apply(this, arguments); }; }
 })(window.NE);
