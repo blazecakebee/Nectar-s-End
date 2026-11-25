@@ -35,43 +35,53 @@ A.playAt = function (name, x, y, vol) { const p = G.player; const d = p ? Math.h
 // A wobbling glossy blob that squashes on landing and stretches in the air, with swaying pseudopods, drips and a puddle.
 NE.drawSlime = function (ctx, o) {
   const C = NE.VC, f = o.facing || 1, w = o.w || 0, sy = o.sy || 1, sx = o.sx || 1;
-  const a = 5.8 * sx, b = 5.5 * sy, X = Math.round(o.x), Y = Math.round(o.y), cy = Y - 0.5 - b;
+  const a = 6 * sx, b = 5.3 * sy, X = Math.round(o.x), Y = Math.round(o.y), cy = Y - 0.5 - b, OL = C.stripe;
   const px = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); };
-  const disc = (cx, cyy, r, c) => { const R = Math.ceil(r); ctx.fillStyle = c; for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) if (i * i + j * j <= r * r) ctx.fillRect(Math.round(cx) + i, Math.round(cyy) + j, 1, 1); };
-  if (o.gnd !== false) { const pw = Math.round(a * 1.5 + Math.sin(w * 2) * 0.8); ctx.globalAlpha = 0.6; ctx.fillStyle = C.dark; ctx.fillRect(X - pw, Y - 1, pw * 2 + 1, 1); ctx.globalAlpha = 0.3; ctx.fillRect(X - pw - 2, Y, pw * 2 + 5, 1); ctx.globalAlpha = 1; }
-  // sticky thread still joining it to where it jumped from
-  if (o.thread && o.thread.k > 0) { const th = o.thread; ctx.globalAlpha = Math.min(1, th.k * 1.4); for (let s = 0; s <= 12; s++) { const t = s / 12; const x = lerp(th.x, o.x, t) + Math.sin(t * 6 + w * 4) * 0.6, y = lerp(th.y - 1, Y - 2, t) + Math.sin(t * Math.PI) * (2 + (1 - th.k) * 4); disc(x, y, 1.1 * (1 - Math.abs(t - 0.5) * 0.9) + 0.3, s % 2 ? C.dark : C.main); } ctx.globalAlpha = 1; }
-  // pseudopods: thick, rounded, tapering — three that sway, one that reaches when lashing
-  const arms = [[-0.9 * f, 0, 6.5], [0.15, -0.2, 7.5], [0.95 * f, 0.1, 6]];
-  arms.forEach(([dx, ph, L], k) => {
-    let len = L + 2.5 * Math.sin(w * 1.9 + k * 2.1); if (o.lash && k === 1) len += 4;
-    let ang = -Math.PI / 2 + dx * 1.15 + Math.sin(w * 1.4 + k * 1.7) * 0.3, x = o.x + dx * a * 0.55, y = cy - b * 0.5; const seg = []; 
-    for (let s = 0; s <= len; s += 1) { ang += Math.sin(w * 2.6 + k * 1.3 + s * 0.55) * 0.2 + dx * 0.06; x += Math.cos(ang); y += Math.sin(ang) * 0.95; seg.push([x, y, Math.max(0.8, 2.3 * (1 - s / len) + 0.6)]); }
-    for (const [sx2, sy2, r] of seg) disc(sx2, sy2, r + 0.9, C.dark);
-    for (const [sx2, sy2, r] of seg) disc(sx2, sy2, r, C.main);
-    const t = seg[seg.length - 1]; disc(t[0] - 0.4, t[1] - 0.4, 0.9, C.light);
+  const disc = (cx, cyy, r, c) => { const R = Math.ceil(r); ctx.fillStyle = c; for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) if (i * i + j * j <= r * r) ctx.fillRect(Math.round(cx) + i, Math.min(Y - 1, Math.round(cyy) + j), 1, 1); };
+  const drips = []; // [x, y] where something is about to drip
+  // puddle spreading under it, with a wobbly edge
+  if (o.gnd !== false) { const pw = Math.round(a * 1.7 + Math.sin(w * 2) * 1); for (let i = -pw; i <= pw; i++) { const h = Math.sin(i * 0.9 + w * 2.2) > 0.2 ? 1 : 0; ctx.globalAlpha = 0.6; px(X + i, Y - 1, C.dark); px(X + i, Y, C.dark); if (h) px(X + i, Y - 2, C.dark); ctx.globalAlpha = 0.9; if ((i + 40) % 5 === 0) px(X + i, Y - 1, C.light); } ctx.globalAlpha = 1; }
+  // the sticky thread still joining it to where it jumped from
+  if (o.thread && o.thread.k > 0) { const th = o.thread; ctx.globalAlpha = Math.min(1, th.k * 1.4); for (let n = 0; n <= 14; n++) { const t = n / 14; const x = lerp(th.x, o.x, t) + Math.sin(t * 6 + w * 4) * 0.6, y = lerp(th.y - 1, Y - 2, t) + Math.sin(t * Math.PI) * (2 + (1 - th.k) * 4), r = 1.2 * (1 - Math.abs(t - 0.5) * 1.6) + 0.35; disc(x, y, r + 0.6, OL); disc(x, y, r, n % 2 ? C.dark : C.main); } ctx.globalAlpha = 1; }
+  const DEG0 = Math.PI / 180;
+  const limb = (pts, wFn, fill) => { for (let i = 1; i < pts.length; i++) { const wd = wFn(i / pts.length); NE.pline(ctx, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], wd + 2, OL); } for (let i = 1; i < pts.length; i++) { const t = i / pts.length, wd = wFn(t); NE.pline(ctx, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], wd, t < 0.2 ? C.dark : t > 0.88 ? C.light : fill); if (wd >= 3 && i % 2) px(pts[i][0] - 0.5, pts[i][1] - 1, C.mid); } };
+  const path = (x, y, th, L, bend, side, ph, amp, low) => { const pts = [[x, y]]; for (let n = 1.3; n <= L; n += 1.3) { const t = n / L; const ang = th + side * bend * t * t + Math.sin(w * 1.8 - t * 3.4 + ph) * amp * t; x += Math.cos(ang) * 1.3; y += Math.sin(ang) * 1.3 + (low ? 0.12 : 0.07) * t; pts.push([x, Math.min(Y - 1, y)]); } return pts; };
+  // whips: thin, quick, lashing between the arms
+  for (let k = 0; k < 4; k++) { const dg = -(28 + k * 40) + Math.sin(w * 0.9 + k * 2.2) * 7, th = dg * DEG0, L = 17 + 6 * (0.5 + 0.5 * Math.sin(w * 0.8 + k * 1.7)); const pts = path(o.x + Math.cos(th) * a * 0.6, cy + Math.sin(th) * b * 0.5, th, L, 0.9, k % 2 ? 1 : -1, k * 2.1, 0.9, false); for (let i = 1; i < pts.length; i++) { ctx.globalAlpha = 0.7; NE.pline(ctx, pts[i - 1][0], pts[i - 1][1] - 1, pts[i][0], pts[i][1] - 1, 1, OL); ctx.globalAlpha = 1; NE.pline(ctx, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], 1, i / pts.length > 0.85 ? C.light : i < 4 ? C.dark : C.main); } if (Math.sin(w * 1.3 + k * 1.9) > 0.5) drips.push(pts[pts.length - 1]); }
+  // arms: long, thick where they leave the body and thinning to a point, undulating slowly. Two arch overhead; the rest sprawl along the ground like a spreading liquid.
+  const ARMS = [[-64, 21, 1.5, 1], [-116, 20, 1.5, -1], [-90, 16, 0.5, 1], [-12, 21, 0.5, 1], [-168, 21, 0.5, -1], [-40, 18, 1.1, 1], [-140, 18, 1.1, -1]];
+  ARMS.forEach(([dg, L, bend, side], k) => {
+    let th = dg * DEG0 + Math.sin(w * 0.8 + k * 1.9) * 0.12, len = L * (0.82 + 0.18 * Math.sin(w * 1.05 + k * 2.3)) * (0.7 + 0.3 * Math.min(1.3, sx)), bd = bend;
+    const low = dg > -30 || dg < -150; const x = o.x + Math.cos(th) * a * 0.6, y = cy + Math.sin(th) * b * 0.5 + (low ? b * 0.5 : 0);
+    const R = o.reach; if (R && k === 2) { th = Math.atan2(R.y - y, R.x - x); bd = 0.1; len += 9; } // the middle arm reaches for the target
+    const pts = path(x, y, th, len, bd, side, k * 1.7, 0.6, low);
+    limb(pts, t => t < 0.3 ? 3 : t < 0.65 ? 2 : 1, C.main);
+    if (Math.sin(w * 1.1 + k * 2.7) > 0.6) drips.push(pts[pts.length - 1]);
   });
-  // body: dark rim, main mass, lighter core, glossy highlight, low belly shading
-  const Rw = Math.ceil(a * 1.4) + 1, Hh = Math.ceil(b) + 2;
+  // body: a liquid mass — overlapping blobs merged into one surface, so it bulges and pinches like a drop of water
+  const bl = [[0, 0, 1, 1], [-a * 0.55 + Math.sin(w * 1.7) * 1.5, b * 0.15, 0.62, 0.75], [a * 0.55 + Math.sin(w * 1.3 + 2) * 1.5, b * 0.1, 0.6, 0.72], [Math.sin(w * 1.1 + 1) * a * 0.4, -b * 0.55 + Math.sin(w * 2.4) * 0.8, 0.5, 0.55], [f * a * 0.25, -b * 0.3, 0.45, 0.5]];
+  const Rw = Math.ceil(a * 1.5) + 2, Hh = Math.ceil(b) + 3, x0 = o.x, y0 = cy;
+  const fld = (x, y) => { let s = 0; for (const [bx, by, ra, rb] of bl) { const dx = (x - x0 - bx) / (a * ra), dy = (y - y0 - by) / (b * rb * 1.05); s += 1 / (0.0001 + dx * dx + dy * dy); } return s; };
   for (let j = -Hh; j <= Hh; j++) {
-    const py = Math.round(cy) + j; if (py > Y - 1) continue; const v = (py + 0.5 - cy) / b;
+    const py = Math.round(cy) + j; if (py > Y - 1) continue;
     for (let i = -Rw; i <= Rw; i++) {
-      const skirt = v > 0.4 ? (v - 0.4) * 0.9 : 0, u = ((X + i + 0.5) - o.x) / (a * (1 + skirt));
-      const th = Math.atan2(v, u), rr = 1 + 0.07 * Math.sin(3 * th + w * 2.3) + 0.05 * Math.sin(5 * th - w * 3.4) + 0.04 * Math.sin(2 * th + w * 1.7);
-      const d = Math.hypot(u, v) / rr; if (d > 1) continue;
-      let col = d > 0.82 ? C.dark : (v > 0.35 ? C.main : C.mid);
-      if (d < 0.82 && d > 0.15 && Math.sin((u * 2.2 - v * 1.6) * 2 + w * 1.5) > 0.9) col = C.dark; // slow dark swirls under the skin
-      const hu = u + 0.42, hv = v + 0.5, hh = hu * hu * 1.6 + hv * hv * 3; if (hh < 0.1 && d < 0.8) col = C.light; else if (hh < 0.2 && d < 0.82 && col !== C.dark) col = C.light === col ? col : C.mid;
+      const wx = X + i + 0.5, wy = py + 0.5; let v = fld(wx, wy); if (py >= Y - 2) v *= 1.5 + (py - Y + 3) * 0.3; // the base pools out wider
+      if (v < 1) continue;
+      let col = v < 1.35 ? OL : v < 1.8 ? C.dark : v < 3.2 ? C.main : C.mid;
+      const hx = (wx - x0 + a * 0.35) / a, hy = (wy - y0 + b * 0.45) / b; const hh = hx * hx * 2 + hy * hy * 4;
+      if (hh < 0.14 && v > 1.9) col = C.light; else if (hh < 0.3 && v > 2.2 && col === C.main) col = C.mid;
+      if (v > 2.6 && Math.sin((wx - x0) * 0.9 + (wy - y0) * 1.3 + w * 1.7) > 0.93) col = C.dark; // slow currents inside
       px(X + i, py, col);
     }
   }
-  // spots of light slipping about inside, bubbles rising
-  for (let k = 0; k < 3; k++) { const ph = (w * 0.3 + k * 0.34) % 1; const bx = Math.round(o.x + Math.sin(w * 0.8 + k * 2.4) * a * 0.5), by = Math.round(cy + b * 0.55 - ph * b * 1.3); px(bx, by, C.light); px(bx + 1, by, C.main); }
-  // eyes: two narrow slanted slits, set low on the front of the mass
-  const ey = Math.round(cy - b * 0.1), ex1 = X + Math.round(f * 2.6), ex2 = X + Math.round(f * 2.6 - f * 3.4);
-  for (const ex of [ex1, ex2]) { px(ex, ey, '#fffbe0'); px(ex + f, ey - 1, '#fffbe0'); px(ex - f, ey + 1, C.dark); }
-  // dripping while airborne
-  if (o.gnd === false) for (let k = 0; k < 3; k++) { const ph = (w * 0.55 + k * 0.33) % 1, dx = X + Math.round((k - 1) * a * 0.6), len = 1 + Math.round(ph * 4); for (let s = 0; s <= len; s++) { px(dx, Y + s, s === len ? C.light : C.main); px(dx + 1, Y + s, C.dark); } }
+  // bubbles rising through it
+  for (let k = 0; k < 3; k++) { const ph = (w * 0.3 + k * 0.34) % 1; const bx = Math.round(o.x + Math.sin(w * 0.8 + k * 2.4) * a * 0.5), by = Math.round(cy + b * 0.5 - ph * b * 1.2); px(bx, by, C.light); px(bx + 1, by, C.mid); }
+  // eyes: two narrow slanted slits, set low on the front
+  const ey = Math.round(cy - b * 0.05), ex1 = X + Math.round(f * 2.6), ex2 = X + Math.round(f * 2.6 - f * 3.4);
+  for (const ex of [ex1, ex2]) { px(ex, ey, '#fffbe0'); px(ex + f, ey - 1, '#fffbe0'); px(ex - f, ey + 1, OL); }
+  // drips: off tentacle tips, and thicker ones off the belly while it is in the air
+  for (const [dx, dy] of drips) { const ph = (w * 0.9 + dx) % 1; for (let s = 0; s <= 1 + ph * 3; s++) { if (dy + s < Y) px(dx, dy + 1 + s, s > ph * 3 ? C.light : C.main); } }
+  if (o.gnd === false) for (let k = 0; k < 4; k++) { const ph = (w * 0.55 + k * 0.27) % 1, dx = X + Math.round((k - 1.5) * a * 0.45), len = 1 + Math.round(ph * 5); for (let s = 0; s <= len; s++) { px(dx, Y + s, s === len ? C.light : C.main); px(dx + 1, Y + s, OL); } }
   return { x1: ex1, x2: ex2, y: ey, f };
 };
 G.drawGoopGlow = (function (old) { return function (ctx) { const g = G.goop; const e = g && !(g.hop && g.hop.ph >= 1) && g._eye; if (!e) return old.apply(this, arguments); ctx.fillStyle = '#ffffff'; for (const ex of [e.x1, e.x2]) { ctx.fillRect(ex, e.y, 1, 1); ctx.fillRect(ex + e.f, e.y - 1, 1, 1); }

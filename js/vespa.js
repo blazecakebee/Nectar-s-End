@@ -150,7 +150,7 @@ G.drawGoop = function (ctx) {
   { const g0 = G.goop, a = g0 && !g0.sw && g0.swTarget; if (a && a.alive) { const k = 0.5 + 0.5 * Math.sin(G.t * 10); ctx.strokeStyle = NE.VC.rgba + (0.4 + k * 0.5) + ')'; ctx.lineWidth = 1; ctx.strokeRect(Math.round(a.x) - 5.5, Math.round(a.y - a.h) - 2.5, 11, a.h + 3); ctx.fillStyle = NE.VC.main; ctx.fillRect(Math.round(a.x) - 1, Math.round(a.y - a.h) - 7 - Math.round(k), 3, 3); ctx.fillStyle = '#2a1a04'; ctx.fillRect(Math.round(a.x), Math.round(a.y - a.h) - 6 - Math.round(k), 1, 1); } }
   const g = G.goop; const x = Math.round(g.x), y = Math.round(g.y); const w = g.wob;
   if (g.hop && g.hop.ph >= 1) return; // already inside them
-  g._eye = NE.drawSlime(ctx, { x: g.x, y: g.y, facing: g.facing, w: g.wob, sx: g.sx || 1, sy: g.sy || 1, gnd: g.onGround, lash: g.lashT > 0, thread: g._gx != null && !g.onGround && g._air < 0.35 ? { x: g._gx, y: g._gy, k: 1 - g._air / 0.35 } : null });
+  g._eye = NE.drawSlime(ctx, { x: g.x, y: g.y, facing: g.facing, w: g.wob, sx: g.sx || 1, sy: g.sy || 1, gnd: g.onGround, lash: g.lashT > 0, reach: g.lashT > 0 && g.tgt ? g.tgt : (g.swTarget ? { x: g.swTarget.x, y: g.swTarget.cy } : null), thread: g._gx != null && !g.onGround && g._air < 0.35 ? { x: g._gx, y: g._gy, k: 1 - g._air / 0.35 } : null });
   if (g.lashT > 0 && g.tgt) { const k = g.lashT / 0.18; const tx = lerp(g.tgt.x, x, 1 - k), ty = lerp(g.tgt.y, y - 4, 1 - k); NE.pline(ctx, x, y - 4, tx, ty, 3, NE.VC.dark); NE.pline(ctx, x, y - 4, tx, ty, 2, NE.VC.main); NE.pline(ctx, x, y - 4, tx, ty, 1, NE.VC.light); ctx.fillStyle = NE.VC.main; ctx.fillRect(Math.round(tx) - 1, Math.round(ty) - 1, 3, 3); ctx.fillStyle = NE.VC.light; ctx.fillRect(Math.round(tx), Math.round(ty) - 1, 1, 1); }
 };
 G.drawGoopGlow = function (ctx) {
