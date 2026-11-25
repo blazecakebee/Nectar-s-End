@@ -83,7 +83,7 @@ G.drinkNectar = function (p) {
 };
 G.hivePulse = function (p) {
   if (!p.abil || !p.abil.includes('pulse')) return; if (p.pulseCD > 0) return G.toast('Hive Pulse recharging (' + Math.ceil(p.pulseCD) + 's)');
-  p.pulseCD = 20; NE.Audio.play('pulse'); G.shake(4); G.pulseFx = { x: p.x, y: p.cy, t: 0 };
+  p.pulseCD = 28; NE.Audio.play('pulse'); G.shake(4); G.pulseFx = { x: p.x, y: p.cy, t: 0 };
   for (const a of G.actors) { if (a === p || !a.alive || a.town || a.isRemote) continue; const d = NE.dist(a.x, a.cy, p.x, p.cy); if (d > 70) continue; const k = 1 - d / 70; a.vx += Math.sign(a.x - p.x) * 220 * k; a.vy -= 120 * k; a.anat.painSpike += 40 * k; if (a.D) { a.state = 'flee'; a.target = p; } if (a.isPuppet && G.net) { G.net.send({ t: 'push', id: a.nid, vx: Math.sign(a.x - p.x) * 220 * k, vy: -120 * k, fl: 1 }); a._kbx = a._kby = 0; } }
   G.phys.impulse(p.x, p.cy, 70, 700);
 };
@@ -100,7 +100,7 @@ G.startBurst = function (p) { NE.setVespaColours(p.vglow);
   const vc = p.vglow || NE.VC.main; G.flashT = 1.1; G.burstFx = { x: p.x, y: p.cy, t: 1, col: vc }; G.slowmo = 0.35;
   for (let i = 0; i < 70; i++) { const a = i / 70 * Math.PI * 2; const sp = rf(80, 220); G.addP(p.x, p.cy, Math.cos(a) * sp, Math.sin(a) * sp - 40, rf(0.6, 1.5), pick([vc, NE.VC.main, NE.VC.dark, NE.VC.light]), i % 3 ? 'goo' : 'glow', i % 3 ? undefined : 0); }
   if (NE.Combat) NE.Combat.spray(p.x, p.cy, 0, -1, 30);
-  NE.UI.banner('THE VESPA ERUPTS', 'Ten seconds. [LMB] lash  •  [RMB] grapple  •  [E] SWALLOW someone close  •  climb walls');
+  NE.UI.banner('THE VESPA ERUPTS', 'Ten seconds. [P] POSSESS a new host  •  [LMB] lash  •  [RMB] grapple  •  [E] swallow  •  climb walls');
   for (const a of G.actors) if (a.alive && a.D && NE.dist(a.x, a.y, p.x, p.y) < 90 && chance(0.5)) { a.state = 'flee'; a.target = p; }
   if (G.net && G.net.on) G.net.send({ t: 'burst' });
 };
@@ -149,13 +149,9 @@ const goopColF = () => [NE.VC.main, NE.VC.mid, NE.VC.dark];
 G.drawGoop = function (ctx) {
   { const g0 = G.goop, a = g0 && !g0.sw && g0.swTarget; if (a && a.alive) { const k = 0.5 + 0.5 * Math.sin(G.t * 10); ctx.strokeStyle = NE.VC.rgba + (0.4 + k * 0.5) + ')'; ctx.lineWidth = 1; ctx.strokeRect(Math.round(a.x) - 5.5, Math.round(a.y - a.h) - 2.5, 11, a.h + 3); ctx.fillStyle = NE.VC.main; ctx.fillRect(Math.round(a.x) - 1, Math.round(a.y - a.h) - 7 - Math.round(k), 3, 3); ctx.fillStyle = '#2a1a04'; ctx.fillRect(Math.round(a.x), Math.round(a.y - a.h) - 6 - Math.round(k), 1, 1); } }
   const g = G.goop; const x = Math.round(g.x), y = Math.round(g.y); const w = g.wob;
-  // tendrils
-  for (let i = 0; i < 6; i++) { const base = -Math.PI / 2 + (i - 2.5) * 0.55 + Math.sin(w * 3 + i) * 0.25; const len = 7 + Math.sin(w * 5 + i * 2) * 3; let px = x, py = y - 3; for (let k = 1; k <= len; k++) { const a = base + Math.sin(w * 6 + i + k * 0.5) * 0.4; px += Math.cos(a); py += Math.sin(a); ctx.fillStyle = k > len - 2 ? NE.VC.light : goopColF()[(i + k) % 3]; ctx.fillRect(Math.round(px), Math.round(py), 1, 1); } }
-  if (g.lashT > 0 && g.tgt) { const k = g.lashT / 0.18; const tx = lerp(g.tgt.x, x, 1 - k), ty = lerp(g.tgt.y, y - 3, 1 - k); NE.pline(ctx, x, y - 3, tx, ty, 2, NE.VC.main); NE.pline(ctx, x, y - 3, tx, ty, 1, NE.VC.light); }
-  // body: pulsing blob with bee stripes
-  const r = 4 + Math.sin(w * 7) * 0.6;
-  for (let j = -6; j <= 0; j++) for (let i = -5; i <= 5; i++) { const d = (i / (r + 1)) ** 2 + ((j + 3) / 3.4) ** 2; if (d > 1) continue; ctx.fillStyle = (Math.floor((i + 8 + Math.sin(w * 4)) / 2.5) % 2) ? NE.VC.stripe : goopColF()[(i + j + 12) % 3]; ctx.fillRect(x + i, y + j, 1, 1); }
-  ctx.fillStyle = NE.VC.light; ctx.fillRect(x + g.facing * 2, y - 4, 1, 1); ctx.fillRect(x + g.facing * 2 - 2, y - 4, 1, 1);
+  if (g.hop && g.hop.ph >= 1) return; // already inside them
+  g._eye = NE.drawSlime(ctx, { x: g.x, y: g.y, facing: g.facing, w: g.wob, sx: g.sx || 1, sy: g.sy || 1, gnd: g.onGround, lash: g.lashT > 0, thread: g._gx != null && !g.onGround && g._air < 0.35 ? { x: g._gx, y: g._gy, k: 1 - g._air / 0.35 } : null });
+  if (g.lashT > 0 && g.tgt) { const k = g.lashT / 0.18; const tx = lerp(g.tgt.x, x, 1 - k), ty = lerp(g.tgt.y, y - 4, 1 - k); NE.pline(ctx, x, y - 4, tx, ty, 3, NE.VC.dark); NE.pline(ctx, x, y - 4, tx, ty, 2, NE.VC.main); NE.pline(ctx, x, y - 4, tx, ty, 1, NE.VC.light); ctx.fillStyle = NE.VC.main; ctx.fillRect(Math.round(tx) - 1, Math.round(ty) - 1, 3, 3); ctx.fillStyle = NE.VC.light; ctx.fillRect(Math.round(tx), Math.round(ty) - 1, 1, 1); }
 };
 G.drawGoopGlow = function (ctx) {
   const g = G.goop; ctx.fillStyle = NE.VC.light; ctx.fillRect(Math.round(g.x) + g.facing * 2, Math.round(g.y) - 4, 1, 1); ctx.fillRect(Math.round(g.x) + g.facing * 2 - 2, Math.round(g.y) - 4, 1, 1);

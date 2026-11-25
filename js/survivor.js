@@ -202,7 +202,7 @@ class Anatomy {
         if (!w.closed) {
           const b = this.woundBleed(P, w, p); bleed += b; open++;
           if (P.bandage) P.bandage.soak = Math.min(1, P.bandage.soak + b * dt / 450);
-          if (W.clot > 0 && !(P.tq && limb(p))) { w.bleed *= Math.exp(-dt / (W.clot / Math.max(0.4, 1 + (s.clot || 0)) * s.bleed * (P.bandage ? 0.45 : 1) * (w.bullet ? 2.5 : 1) * (s.amber ? 0.33 : 1))); if (w.bleed < (w.t === 'gsw' ? 0.05 : 0.14) && !w.bullet) { w.closed = true; w.bleed = 0; } }
+          if (W.clot > 0 && !(P.tq && limb(p))) { w.bleed *= Math.exp(-dt / (W.clot / Math.max(0.4, 1 + (s.clot || 0)) * s.bleed * (P.bandage ? 0.45 : 1) * (w.bullet ? 2.5 : 1) * (s.amber ? 0.45 : 1))); if (w.bleed < (w.t === 'gsw' ? 0.05 : 0.14) && !w.bullet) { w.closed = true; w.bleed = 0; } }
         } else { w.age += dt; if (w.age > (w.t === 'bruise' ? 50 : w.t === 'burn' ? 160 : w.sutured ? 90 : 140) && w.inf < 20) { P.wounds.splice(i, 1); continue; } }
         if (env.dirtyWater && !P.bandage) w.dirty = Math.min(1, w.dirty + dt * 0.02);
         const bandClean = P.bandage && !P.bandage.dirty ? 0.4 : 1;
@@ -216,11 +216,11 @@ class Anatomy {
       painW += (1 - P.hp / P.max) * 12;
       if (P.tq) painW += 10 + Math.min(20, P.tqT / 8);
       if (P.bandage && P.wounds.length === 0) P.bandage = null;
-      if (P.wounds.every(w => w.closed) && !this.npc && this.hunger > 20 && this.thirst > 20) P.hp = Math.min(P.max, P.hp + dt * 0.12 * (s.regen ? 3 : 1));
+      if (P.wounds.every(w => w.closed) && !this.npc && this.hunger > 20 && this.thirst > 20) P.hp = Math.min(P.max, P.hp + dt * 0.07 * (s.regen ? 3 : 1));
     }
     bleed *= s.bleed * (env.bleedMul || 1); if (s.coldblood && this.stress > 40) bleed *= 0.8;
     this.bleeding = bleed; this.blood -= bleed * dt;
-    if (bleed < 0.05 && this.thirst > 15) this.blood = Math.min(NE.BLOOD, this.blood + dt * 0.48 * (s.heart ? 4 : 1) * (1 + (s.clot || 0)));
+    if (bleed < 0.05 && this.thirst > 15) this.blood = Math.min(NE.BLOOD, this.blood + dt * 0.34 * (s.heart ? 2.5 : 1) * (1 + (s.clot || 0)));
     if (this.drugs.blood > 0) this.blood = Math.min(NE.BLOOD, this.blood + dt * 6.8);
     this.infection = lerp(this.infection, maxInf, Math.min(1, dt)) ;
     // ----- drugs decay
@@ -234,8 +234,8 @@ class Anatomy {
     // ----- survival needs (player only)
     if (!this.npc) {
       const mv = env.sprint ? 1.6 : 1;
-      this.hunger = Math.max(0, this.hunger - dt * 100 / 1650 * s.hunger * mv * (s.heart ? 1.3 : 1));
-      this.thirst = Math.max(0, this.thirst - dt * 100 / 1150 * s.thirst * mv * (this.temp > 38 ? 1.4 : 1) * (1 + (env.thirstMul ? env.thirstMul - 1 : 0) * s.heat));
+      this.hunger = Math.max(0, this.hunger - dt * 100 / 1450 * s.hunger * mv * (s.heart ? 1.3 : 1));
+      this.thirst = Math.max(0, this.thirst - dt * 100 / 1000 * s.thirst * mv * (this.temp > 38 ? 1.4 : 1) * (1 + (env.thirstMul ? env.thirstMul - 1 : 0) * s.heat));
       if (env.water) this.wet = 1; else this.wet = Math.max(0, this.wet - dt * (env.fire ? 0.08 : 0.008));
       let tt = 37 - (env.cold || 0) * 2.2 * s.cold - this.wet * 2.2 * s.cold * (env.cold ? 1 : 0.4) * (s.wetChill != null ? s.wetChill : 1) * (1 - Math.min(0.9, env.dry || 0)); // diving gear keeps the water off your skin
       tt += (env.heat || 0) * 1.3 * s.heat; if (env.fire) tt = Math.max(tt, 37.4);

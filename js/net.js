@@ -12,7 +12,7 @@ NE.makeCode = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; 
 class RemotePlayer extends NE.Actor {
   constructor(g, x, y, hello) { super(g, x, y, { faction: 'player', look: hello.surv.look }); this.isRemote = true; this.vespa = true; this.light = { on: true, bat: 100 }; this.setHello(hello); this.tgt = { x, y }; this.stats = { speed: 1, climb: 1 }; }
   setHello(h) { if (h.surv && h.surv.variant) this.vglow = NE.variantOf(h.surv.variant).glow; this.surv = h.surv; this.look = h.surv.look; this.shirt = h.shirt; this.pants = h.pants; this.packCol = h.pack; this.name = h.surv.name; }
-  apply(s) { this.tgt = { x: s.x, y: s.y }; this._vx = s.vx || 0; this._vy = s.vy || 0; if (s.rp) { this.rp = s.rp; this.rpT = G.t; } this.wallClimb = !!s.wc; this.treating = s.tr ? (this.treating || { t: 0, dur: 1 }) : null; this.facing = s.f; this.h = s.h; this.crouch = !!s.cr; if (s.ds > 0 && !(this.dashT > 0)) { this.dashT = s.ds; this.dashDur = 0.55; } this.search = s.se ? { obj: null, t: 0, dur: 1 } : null; this.exhausted = !!s.ex; this.crawl = !!s.cw; this.climbing = !!s.cl; this.onGround = !!s.og; this.aimDir = { x: s.ax, y: s.ay }; this.w2 = s.w; this.lightOn = !!s.lt; this.light.on = !!s.lt; this.infest = s.inf || 0; this.muts = s.mu ? NE.mutsOf(s.mu.split(',')) : {}; this.swingT = s.sw ? 0.2 : 0; this.swingDur = 0.4; this.goop = s.gp || null; this.wisp = s.ws || null; this.minion = !!s.mn; this.minionSpent = !!s.ms;
+  apply(s) { if (NE.hopApply) NE.hopApply(this, s); this.tgt = { x: s.x, y: s.y }; this._vx = s.vx || 0; this._vy = s.vy || 0; if (s.rp) { this.rp = s.rp; this.rpT = G.t; } this.wallClimb = !!s.wc; this.treating = s.tr ? (this.treating || { t: 0, dur: 1 }) : null; this.facing = s.f; this.h = s.h; this.crouch = !!s.cr; if (s.ds > 0 && !(this.dashT > 0)) { this.dashT = s.ds; this.dashDur = 0.55; } this.search = s.se ? { obj: null, t: 0, dur: 1 } : null; this.exhausted = !!s.ex; this.crawl = !!s.cw; this.climbing = !!s.cl; this.onGround = !!s.og; this.aimDir = { x: s.ax, y: s.ay }; this.w2 = s.w; this.lightOn = !!s.lt; this.light.on = !!s.lt; this.infest = s.inf || 0; this.muts = s.mu ? NE.mutsOf(s.mu.split(',')) : {}; this.swingT = s.sw ? 0.2 : 0; this.swingDur = 0.4; this.goop = s.gp || null; this.wisp = s.ws || null; this.minion = !!s.mn; this.minionSpent = !!s.ms;
     if (!s.al && this.alive) { this.die('Lost'); } else if (s.al && !this.alive) { this.alive = true; this.limpRag = false; this.anat.dead = false; this.rag.tiles = false; this.rag.collide = false; this.rag.noActor = true; for (const c of this.rag.cons) if (c.s < 1) c.s = 0.4; } }
   weaponId() { return this.w2 || null; }
   get gunOut() { return !!(this.w2 && NE.ITEMS[this.w2] && NE.ITEMS[this.w2].gun) && !this.climbing && !this.crawl; }
@@ -24,7 +24,7 @@ class RemotePlayer extends NE.Actor {
 // ---------- host-owned enemies/NPCs, mirrored on the guest ----------
 class Puppet extends NE.Actor {
   constructor(g, d) { super(g, d.x, d.y, { faction: d.faction || 'scav', look: d.look, npc: true }); this.isPuppet = true; this.nid = d.id; this.setDef(d); this.tgt = { x: d.x, y: d.y }; this.seen = G.t; }
-  setDef(d) { this.type = d.type; this.D = NE.ENEMIES[d.type] || null; this.look = d.look; this.shirt = d.shirt; this.pants = d.pants; this.skinCol = d.skinCol; this.weapon = d.weapon; this.gear = d.gear || {}; this.name = d.name; this.masked = d.masked; this.packCol = d.pack; this.isNPCp = d.k === 'npc'; this.label = d.label; }
+  setDef(d) { this.type = d.type; this.D = NE.ENEMIES[d.type] || null; this.look = d.look; this.shirt = d.shirt; this.pants = d.pants; this.skinCol = d.skinCol; this.weapon = d.weapon; this.gear = d.gear || {}; this.name = d.name; this.masked = d.masked; this.packCol = d.pack; this.isNPCp = d.k === 'npc'; this.label = d.label; this.elite = !!d.elite; this.kind = d.kind || this.kind; }
   weaponId() { return this.weapon; }
   get gunOut() { return this.weapon && NE.ITEMS[this.weapon] && NE.ITEMS[this.weapon].gun && (this.state === 'chase' || this.state === 'aim'); }
   get twoHand() { return this.weapon === 'rifle'; }
@@ -79,7 +79,7 @@ class Net {
   tick(dt) {
     if (!this.on) return; const p = G.player; this.acc += dt; this.eacc += dt;
     if (this.acc > 0.05 && p && (G.state === 'run' || G.state === 'lobby' || G.state === 'burst' || G.state === 'dying')) { this.acc = 0; const gp = G.goop, ws = G.wisp;
-      this.send({ t: 'p', mn: G.minion ? 1 : 0, ms: G.minionSpent ? 1 : 0, x: gp ? gp.x : ws ? ws.x : p.x, y: gp ? gp.y : ws ? ws.y : p.y, vx: p.vx, vy: p.vy, f: p.facing, h: p.h, cr: p.crouch ? 1 : 0, ds: p.dashT > 0 ? +p.dashT.toFixed(2) : 0, se: p.search ? 1 : 0, ex: p.exhausted ? 1 : 0, cw: p.crawl ? 1 : 0, cl: p.climbing ? 1 : 0, og: p.onGround ? 1 : 0, ax: p.aimDir ? +p.aimDir.x.toFixed(2) : 1, ay: p.aimDir ? +p.aimDir.y.toFixed(2) : 0, w: p.weaponId ? p.weaponId() : null, lt: p.light && p.light.on ? 1 : 0, al: p.alive ? 1 : 0, inf: +(p.infest || 0).toFixed(2), mu: (p.abil || []).join(','), sw: p.swingT > 0 ? 1 : 0, gp: gp ? 1 : 0, ws: ws ? 1 : 0, lobby: G.state === 'lobby' ? 1 : 0, rp: (!gp && !ws && p.rag) ? p.rag.pts.map(q => [Math.round((q.x - p.x) * 2), Math.round((q.y - p.y) * 2)]) : null, wc: p.wallClimb || p.wallDown ? 1 : 0, hg: p.hang ? 1 : 0, tr: p.treating ? 1 : 0 }); }
+      this.send({ t: 'p', mn: G.minion ? 1 : 0, ms: G.minionSpent ? 1 : 0, x: gp ? gp.x : ws ? ws.x : p.x, y: gp ? gp.y : ws ? ws.y : p.y, vx: p.vx, vy: p.vy, f: p.facing, h: p.h, cr: p.crouch ? 1 : 0, ds: p.dashT > 0 ? +p.dashT.toFixed(2) : 0, se: p.search ? 1 : 0, ex: p.exhausted ? 1 : 0, cw: p.crawl ? 1 : 0, cl: p.climbing ? 1 : 0, og: p.onGround ? 1 : 0, ax: p.aimDir ? +p.aimDir.x.toFixed(2) : 1, ay: p.aimDir ? +p.aimDir.y.toFixed(2) : 0, w: p.weaponId ? p.weaponId() : null, lt: p.light && p.light.on ? 1 : 0, al: p.alive ? 1 : 0, inf: +(p.infest || 0).toFixed(2), mu: (p.abil || []).join(','), sw: p.swingT > 0 ? 1 : 0, gp: gp ? 1 : 0, ws: ws ? 1 : 0, lobby: G.state === 'lobby' ? 1 : 0, rp: (!gp && !ws && p.rag) ? p.rag.pts.map(q => [Math.round((q.x - p.x) * 2), Math.round((q.y - p.y) * 2)]) : null, wc: p.wallClimb || p.wallDown ? 1 : 0, hg: p.hang ? 1 : 0, tr: p.treating ? 1 : 0, ...(NE.hopState ? NE.hopState() : {}) }); }
     if (this.role === 'host' && this.eacc > 0.1 && G.state !== 'lobby' && G.world && this.peer) { this.eacc = 0; this.sendEnemies(); }
     this.pacc = (this.pacc || 0) + dt; if (this.pacc > 0.08 && G.phys && this.peer && G.state === 'run') { this.pacc = 0; this.sendProps(); }
     this.macc = (this.macc || 0) + dt; if (this.macc > 0.5 && p && p.anat && this.peer) { this.macc = 0; this.sendMed(); }
@@ -122,7 +122,7 @@ class Net {
     const list = []; const inRange = new Set();
     for (const a of G.actors) {
       if (a.isPlayer || a.isRemote || a.town || !near(a)) continue; if (!a.nid) a.nid = this.nextId++; inRange.add(a.nid);
-      if (!this.known.has(a.nid)) { this.known.add(a.nid); this.send({ t: 'en', id: a.nid, k: a.isNPC ? 'npc' : 'enemy', type: a.type, x: a.x, y: a.y, faction: a.faction, look: a.look, shirt: a.shirt, pants: a.pants, skinCol: a.skinCol, weapon: a.weapon, gear: a.gear, name: a.name, label: a.label, masked: a.masked, pack: a.packCol, alive: a.alive }); }
+      if (!this.known.has(a.nid)) { this.known.add(a.nid); this.send({ t: 'en', id: a.nid, k: a.isNPC ? 'npc' : 'enemy', type: a.type, x: a.x, y: a.y, faction: a.faction, look: a.look, shirt: a.shirt, pants: a.pants, skinCol: a.skinCol, weapon: a.weapon, gear: a.gear, name: a.name, label: a.label, masked: a.masked, pack: a.packCol, alive: a.alive, elite: a.elite ? 1 : 0, kind: a.kind || null }); }
       if (!a.alive && a._sentDead) continue; if (!a.alive) a._sentDead = true;
       list.push([a.nid, Math.round(a.x * 10) / 10, Math.round(a.y * 10) / 10, Math.round(a.vx), a.facing, (a.crouch ? 1 : 0) | (a.crawl ? 2 : 0) | (a.climbing ? 4 : 0) | (a.onGround ? 8 : 0) | (a.alive ? 16 : 0) | (a.swingT > 0 ? 32 : 0) | (a.rd ? 64 : 0) | (a._bashT > 0 ? 128 : 0) | (a.stagger > 0.3 ? 256 : 0), a.state === 'aim' ? 1 : a.state === 'chase' ? 2 : 0, a.h]);
     }
@@ -170,7 +170,8 @@ class Net {
       case 'sev': case 'gut': { const t = m.id === 'peer' ? this.peer : (this.role === 'guest' ? this.puppets.get(m.id) : G.actors.find(a => a.nid === m.id)); if (!t) return; if (m.t === 'sev') NE.Gore.sever(t, m.part, { x: m.dx, y: m.dy }, true); else NE.Gore.guts(t, { x: m.dx, y: m.dy }, true); return; }
       case 'throw': { if (!G.phys) return; const P = G.phys; let b; if (m.id === 'brick') b = P.box('brick', m.x, m.y, 4, 3, 2, '#7a7068'); else { b = P.stick(NE.ITEMS[m.id].throwable, m.x, m.y, 4, Math.atan2(m.vy, m.vx), 1.2, m.id === 'dynamite' ? 0.8 : 0.6); if (m.id === 'dynamite') { b.fuse = 2.5; b.color = '#c02020'; } } b.item = m.id; b.remote = true; b.noActor = true; b.setVel(m.vx, m.vy); b.life = m.id === 'flare' ? 40 : m.id === 'glowstick' ? 150 : 0;
         if (m.id === 'bottle' || m.id === 'molotov') b.onImpact = (bb, pt, v) => { if (v > 110 && !bb.remove) { bb.remove = true; NE.Audio.play('glass'); if (m.id === 'molotov') G.addFire(pt.x, pt.y, 16, 9); } }; return; }
-      case 'burst': if (this.peer) { G.toast((this.peerSurv ? this.peerSurv.first : 'Your partner') + '\'s host died — their Vespa is erupting!'); } return;
+      case 'burst': if (this.peer) { G.toast((this.peerSurv ? this.peerSurv.first : 'Your partner') + (m.rip ? ' tore themselves out of their host!' : '\'s host died — their Vespa is erupting!')); } return;
+      case 'vx': return NE.hopNet && NE.hopNet(this, m);
       case 'burstend': return;
       case 'gone': if (this.peer) { G.toast('Your partner\'s run is over.'); this.peer.alive = false; G.actors = G.actors.filter(a => a !== this.peer); this.peer = null; } return;
     }
@@ -205,7 +206,7 @@ class Net {
   drawRemoteForm(ctx, a) {
     const x = Math.round(a.x), y = Math.round(a.y);
     if (a.minion) { G.drawMinionAt(ctx, a.x, a.y, a.facing || 1, G.t * 10, a.flash > 0); return; }
-    if (a.goop) { for (let j = -5; j <= 0; j++) for (let i = -5; i <= 5; i++) { if ((i / 5) ** 2 + ((j + 3) / 3.2) ** 2 > 1) continue; ctx.fillStyle = (Math.floor((i + 8 + Math.sin(G.t * 4)) / 2.5) % 2) ? '#3a2408' : '#ffc21a'; ctx.fillRect(x + i, y + j, 1, 1); } for (let k = 0; k < 5; k++) { const ang = -Math.PI / 2 + (k - 2) * 0.6 + Math.sin(G.t * 5 + k) * 0.4; NE.pline(ctx, x, y - 3, x + Math.cos(ang) * 8, y - 3 + Math.sin(ang) * 8, 1, '#ffd84a'); } }
+    if (a.goop) { NE.drawRemoteSlime(ctx, a); }
     else if (a.wisp) { for (let i = -2; i <= 2; i++) { ctx.fillStyle = i % 2 ? '#3a2408' : '#ffd23a'; ctx.fillRect(x + i, y - 1, 1, 3); } }
   }
 }

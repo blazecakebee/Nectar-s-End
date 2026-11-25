@@ -46,7 +46,15 @@
     "Fixed: the Drowned Wetsuit and the Drowned Diver's Suit gave hypothermia. Swimming soaks you and wetness chilled you at full strength, so in the Drowned Abyss you froze. Both now keep the water off your skin: being soaked chills you 85% less. The wetsuit's old 'stronger lungs' bonus is replaced with +10s of breath underwater.",
     "Fixed: the Thinking Stone's foresight now works. Enemies about to strike, aim or swing flash white.",
     "Every wardrobe outfit and backpack now has its own atlas icon. The 10 newer outfits and 10 newer packs were all redrawn from one generic shape.",
-    "Heavyset bodies trimmed: a softer, rounder belly instead of a bulky bulge sticking out the front."
+    "Heavyset bodies trimmed: a softer, rounder belly instead of a bulky bulge sticking out the front.",
+    "The Vespa can now change hosts. In Vespa form, get right up to a living human (a raider, husk, rival, or a survivor) and press P: it leaps, latches onto their head, and takes them over. You continue the run in their body with their look, name and gear. Their wounds come along, though the Vespa knits the worst shut. The old host is left behind as a lootable body.",
+    "New: hold L at any time to tear yourself out of your current host (even when downed). The Vespa strains under the skin, the chest splits, and the slime heaves out trailing strands. This kills the host and gives you a fresh Vespa timer. Release early to hold on. Each action has its own animation and sounds.",
+    "The Vespa form has been redrawn as a glossy slime body. It squashes when it lands, stretches in the air, trails sticky threads and drips, and has thick swaying pseudopods and slit eyes. The co-op partner view uses the same body. In co-op, only the room host can take a new host for now.",
+    "Difficulty pass (new js/balance.js holds the tunables as NE.BAL). Enemies hit about 30% harder, more as you go deeper, and gain health with depth. Your own damage is down about 12%. Armour absorbs 15% less. Enemies are less likely to flee when wounded and see and hear a little further.",
+    "More to fight: levels hold more enemies (up to 4 deep down). Hunters now track you from 60m down, with up to two at once. From 150m, some enemies are red-eyed Elites with more health, speed and block, and a better drop.",
+    "More attrition: health regen is down about 40% and blood regen about 30%. Hunger and thirst run about 14% faster. Containers hold roughly 12% fewer items and a quarter less ammo, and trader prices are up 25%. Skill stacking is capped (speed, melee, loot). Nectar abilities are trimmed: Overclocked Heart 2.5x, Chitin -18%, Stinger +25%, Amber Blood about 2.2x, and Hive Pulse cooldown is 28s.",
+    "The Vespa is no longer untouchable. Without a host, awake enemies that get close cut its timer down. Tearing free now gives 8s instead of 10s. A fresh host starts in pain and shock, keeps more of the old host's injuries, and you cannot tear free again for 25s.",
+    "Co-op: your partner now sees you tear free (seam, strain and tear with sounds), your slime form (squash, lash, colours), a leap and latch onto a head, the takeover flash, your new look, and the old host left as a lootable body. Guests can now take hosts too. Elites show to both players."
    ]
   },
   {

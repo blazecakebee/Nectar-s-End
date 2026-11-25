@@ -313,13 +313,13 @@ NE.ENEMIES = {
 
 // ---------- The Vespa: abilities awakened by Relic Nectar (each drink grants one, plus a little mutation on the host) ----------
 NE.ABILITIES = [
-  { id: 'heart', name: 'Overclocked Heart', icon: 'ab_heart', desc: 'Blood regenerates 4x faster. The host\'s heart never rests (+15 BPM, hungrier).', mut: 'veins' },
-  { id: 'chitin', name: 'Chitin Plating', icon: 'ab_chitin', desc: 'Amber plates grow under the skin: -25% damage to torso and head.', mut: 'plates' },
+  { id: 'heart', name: 'Overclocked Heart', icon: 'ab_heart', desc: 'Blood regenerates 2.5x faster. The host\'s heart never rests (+15 BPM, hungrier).', mut: 'veins' },
+  { id: 'chitin', name: 'Chitin Plating', icon: 'ab_chitin', desc: 'Amber plates grow under the skin: -18% damage to torso and head.', mut: 'plates' },
   { id: 'eyes', name: 'Compound Sight', icon: 'ab_eye', desc: 'See in the dark: much wider personal glow, enemies glint in the black.', mut: 'eyes' },
-  { id: 'sting', name: 'Stinger Lash', icon: 'ab_sting', desc: 'Melee hits inject venom (+40% melee damage, victims bleed and sicken).', mut: 'stinger' },
+  { id: 'sting', name: 'Stinger Lash', icon: 'ab_sting', desc: 'Melee hits inject venom (+25% melee damage, victims bleed and sicken).', mut: 'stinger' },
   { id: 'wings', name: 'Wing Buds', icon: 'ab_wings', desc: 'Vestigial wings: -60% fall damage, hold Space in the air to glide.', mut: 'wings' },
-  { id: 'pulse', name: 'Hive Pulse', icon: 'ab_pulse', desc: 'Press [X]: a psychic shriek staggers and knocks back everyone nearby (20s cooldown).', mut: 'antennae' },
-  { id: 'amber', name: 'Amber Blood', icon: 'ab_amber', desc: 'Wounds seal themselves 3x faster. Infection barely takes hold.', mut: 'amber' },
+  { id: 'pulse', name: 'Hive Pulse', icon: 'ab_pulse', desc: 'Press [X]: a psychic shriek staggers and knocks back everyone nearby (28s cooldown).', mut: 'antennae' },
+  { id: 'amber', name: 'Amber Blood', icon: 'ab_amber', desc: 'Wounds seal themselves about 2.2x faster. Infection barely takes hold.', mut: 'amber' },
   { id: 'mand', name: 'Mandibles', icon: 'ab_mand', desc: 'Food fills you twice as much. Bites back: unarmed hits tear flesh.', mut: 'mandibles' },
 ];
 NE.TOWNS = { grotto: ['Lanternmoss', 'Rootwell'], desert: ['Saltreach', 'Ochre Rest', 'Dunewell'], ice: ['Rimehold', 'Frostkettle'], crystal: ['Prism Hollow', 'Glimmerstead'], magma: ['Cinderhearth', 'Last Ember', 'Ashfall Post'] };

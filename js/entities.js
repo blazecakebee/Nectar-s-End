@@ -167,8 +167,8 @@ class Actor {
   hurt(part, dmg, kind, src, dir) {
     if (!this.alive) return; const A = this.anat;
     const g = this.gear; let armorSlot = part === 'head' ? 'head' : part === 'torso' ? 'body' : null;
-    if (armorSlot && g[armorSlot] && kind !== 'burn') { const e = g[armorSlot], it = NE.ITEMS[e.id]; const base = it.res && it.res[kind] != null ? it.res[kind] : (it.res ? it.armor * 0.4 : it.armor); const ab = base * (0.3 + 0.7 * (e.dur || 0) / it.dur); dmg *= 1 - ab; e.dur = Math.max(0, (e.dur || 0) - dmg * 1.5); if (kind === 'bullet' && chance(ab)) kind = 'blunt'; if (kind === 'sharp' && chance(ab)) kind = 'blunt'; }
-    if (this.abil && this.abil.includes('chitin') && (part === 'torso' || part === 'head')) dmg *= 0.75;
+    if (armorSlot && g[armorSlot] && kind !== 'burn') { const e = g[armorSlot], it = NE.ITEMS[e.id]; const base = it.res && it.res[kind] != null ? it.res[kind] : (it.res ? it.armor * 0.4 : it.armor); const ab = base * (0.3 + 0.7 * (e.dur || 0) / it.dur) * 0.85; dmg *= 1 - ab; e.dur = Math.max(0, (e.dur || 0) - dmg * 1.5); if (kind === 'bullet' && chance(ab)) kind = 'blunt'; if (kind === 'sharp' && chance(ab)) kind = 'blunt'; }
+    if (this.abil && this.abil.includes('chitin') && (part === 'torso' || part === 'head')) dmg *= 0.82;
     if (this.abil && this.abil.includes('carapace') && part !== 'torso' && part !== 'head') dmg *= 0.75; if (this.abil && this.abil.includes('ember') && kind === 'burn') dmg *= 0.4;
     if (this.D && this.D.chitin && kind !== 'burn') dmg *= 1 - this.D.chitin * (kind === 'bullet' && (this._cal || 1) >= 3 ? 0.3 : 1);
     A.damage(part, dmg, kind, src); this.lastDir = dir; this.lastDmg = dmg;
@@ -306,7 +306,7 @@ class Player extends Actor {
     if (!best) return;
     let part = best.partNear(g.mouse.wx, g.mouse.wy); if (Math.hypot(g.mouse.wx - best.x, g.mouse.wy - best.cy) > 26) part = NE.wpick([['torso', 5], ['head', 1.5], [this.facing > 0 ? 'larm' : 'rarm', 1], ['lleg', 1], ['rleg', 1]]);
     let dmg = m.dmg * this.stats.melee * 1.2 * af * rf(0.85, 1.15) * (this.sprint ? 1.15 : 1); if (best.crawl && part === 'head') dmg *= 1.2;
-    const sting = this.abil && this.abil.includes('sting'); if (sting) dmg *= 1.4;
+    const sting = this.abil && this.abil.includes('sting'); if (sting) dmg *= 1.25;
     best.hurt(part, dmg, m.kind, this.surv.first, { x: this.facing, y: -0.2 });
     if (sting && best.alive) { best.hurt(part, 3, 'sharp', this.surv.first); if (best.anat) best.anat.tox = (best.anat.tox || 0) + 20; } NE.Audio.play(m.kind === 'sharp' ? 'slash' : 'hit'); g.shake(1.2); g.noise(this.x, this.y, 60);
     if (best.onAggro) best.onAggro(this);
@@ -389,7 +389,7 @@ class Enemy extends Actor {
       if (best && (this.state === 'idle' || this.state === 'search') && best.abil && best.abil.includes('royal') && ['feral', 'trog', 'husk'].includes(this.type) && chance(0.4)) { this.state = 'flee'; this.target = best; NE.Audio.play('growl', 0.4); best = null; }
       if (best) { if (this.state === 'idle' || this.state === 'search') { if (best.isPlayer) { g.say(pick(NE.MONO.spotted), 0.4); } NE.Audio.play(this.type === 'feral' ? 'growl' : 'shout', 0.6); } this.target = best; this.state = this.state === 'aim' ? 'aim' : 'chase'; this.lastSeen = { x: best.x, y: best.y }; this.lostT = 0; }
       else if (this.target) { this.lostT += 0.25; if (this.lostT > 4) { this.target = null; this.state = 'search'; this.searchT = 5; } }
-      const thr = A.threshold; if ((A.pain > thr * 1.1 || A.blood < 2480) && this.type !== 'feral' && this.state !== 'flee' && chance(0.5)) { this.state = 'flee'; NE.Audio.play('shout'); }
+      const thr = A.threshold; if ((A.pain > thr * 1.1 || A.blood < 2100) && this.type !== 'feral' && this.state !== 'flee' && chance(0.3)) { this.state = 'flee'; NE.Audio.play('shout'); }
       if (this.type === 'feral' && chance(0.04)) NE.Audio.play('growl', 0.4);
       const hr = this.D.hears || 1;
       for (const n of g.noises) if (NE.dist(n.x, n.y, this.x, this.y) < n.r * hr && Math.abs(n.y - this.y) < 50 * hr) {

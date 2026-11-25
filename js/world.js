@@ -156,7 +156,7 @@ class World {
     for (let k = 0; k < ri(4, 8); k++) fl.decor.push({ k: pick(biome.decor), x: ri(4, W - 6) * T, y: 0, s: rf(0, 1) });
     // spawns
     if (f > 0) {
-      const n = clamp(Math.floor(rf(0.3, 1.7) + Math.sqrt(depth) / 15), 0, depth < 300 ? 2 : 3); // grows slowly and caps at 3 per level
+      const n = clamp(Math.floor(rf(0.6, 1.8) + Math.sqrt(depth) / 11), 1, depth < 150 ? 2 : depth < 700 ? 3 : 4); // 0.10.2: denser, and the cap climbs with depth
       const tbl = depth < 120 ? [['scav', 5], ['gunner', depth > 60 ? 1 : 0.01]] : biome.enemies; // only people near the surface
       for (let k = 0; k < n; k++) { const ty = NE.wpick(tbl); const pack = (ty === 'trog' && chance(0.35) && k === 0) ? 2 : 1; for (let q = 0; q < pack; q++) fl.spawns.push({ kind: 'enemy', type: ty, x: ri(8, W - 8) * T }); }
       if (f >= 2 && chance(0.03)) fl.spawns.push({ kind: 'survivor', x: ri(10, W - 10) * T });
