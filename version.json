@@ -45,7 +45,8 @@
     "Fog of war is 25% thicker than the previous build (still only at the screen edges).",
     "Fixed: the Drowned Wetsuit and the Drowned Diver's Suit gave hypothermia. Swimming soaks you and wetness chilled you at full strength, so in the Drowned Abyss you froze. Both now keep the water off your skin: being soaked chills you 85% less. The wetsuit's old 'stronger lungs' bonus is replaced with +10s of breath underwater.",
     "Fixed: the Thinking Stone's foresight now works. Enemies about to strike, aim or swing flash white.",
-    "Every wardrobe outfit and backpack now has its own atlas icon. The 10 newer outfits and 10 newer packs were all redrawn from one generic shape."
+    "Every wardrobe outfit and backpack now has its own atlas icon. The 10 newer outfits and 10 newer packs were all redrawn from one generic shape.",
+    "Heavyset bodies trimmed: a softer, rounder belly instead of a bulky bulge sticking out the front."
    ]
   },
   {

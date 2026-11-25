@@ -486,10 +486,9 @@ NE.drawHuman = function (ctx, rag, look, o) {
   { // body type silhouette on top of the base torso (works for men and women, under any vest)
     const lx = (t) => p[1].x + (p[2].x - p[1].x) * t, ly = (t) => p[1].y + (p[2].y - p[1].y) * t; const W0 = FEM ? 0 : 1;
     if (BT === 'muscle') { NE.pline(ctx, lx(0.02), ly(0.02), lx(0.55), ly(0.55), 8 + W0, OL(tc)); NE.pline(ctx, lx(0.04), ly(0.04), lx(0.52), ly(0.52), 7 + W0, N(tc)); NE.pline(ctx, lx(0.15) + f * 1.5, ly(0.15), lx(0.4) + f * 1.5, ly(0.4), 6, N(tc)); R(lx(0.42) + f * 3, ly(0.42), 1, 1, OL(tc)); R(lx(0.3) + f * (2 + W0), ly(0.3), 1, 2, NE.shade(tc, 0.8 * dark)); R(lx(0.08) - 3 - W0, ly(0.08), 7 + W0 * 2, 1, NE.shade(tc, 1.15 * dark)); }
-    else if (BT === 'fat') { const bx = f * (FEM ? 2.6 : 2.8); const W0 = 1; NE.pline(ctx, p[1].x, p[1].y + 1, p[2].x, p[2].y, 8 + W0, OL(tc)); NE.pline(ctx, p[1].x, p[1].y + 1, p[2].x, p[2].y, 7 + W0, N(tc));
-      NE.pline(ctx, lx(0.36) + bx, ly(0.36), lx(0.84) + bx, ly(0.84), 8 + W0, OL(tc)); NE.pline(ctx, lx(0.38) + bx, ly(0.38), lx(0.82) + bx, ly(0.82), 7 + W0, N(tc)); R(lx(0.95) - 3, ly(0.95), 7, 1, OL(tc));
-      R(lx(0.85) + bx - 2, ly(0.85), 5, 1, NE.shade(tc, 0.7 * dark)); R(lx(0.55) + bx + f * 2, ly(0.5), 1, 2, NE.shade(tc, 1.15 * dark));
-      if (FEM) { NE.pline(ctx, lx(0.82), ly(0.82), p[2].x, p[2].y + 1, 8, OL(pants)); NE.pline(ctx, lx(0.84), ly(0.84), p[2].x, p[2].y + 1, 7, N(pants)); } }
+    else if (BT === 'fat') { const bx = f * (FEM ? 1.1 : 1.3); NE.pline(ctx, p[1].x, p[1].y + 1, p[2].x, p[2].y, 7, OL(tc)); NE.pline(ctx, p[1].x, p[1].y + 1, p[2].x, p[2].y, 6, N(tc)); // a soft round belly, not a bulge out the front
+      NE.pline(ctx, lx(0.45) + bx, ly(0.45), lx(0.8) + bx, ly(0.8), 6, OL(tc)); NE.pline(ctx, lx(0.47) + bx, ly(0.47), lx(0.78) + bx, ly(0.78), 5, N(tc));
+      R(lx(0.85) + bx - 2, ly(0.85), 4, 1, NE.shade(tc, 0.75 * dark)); }
   }
   NE.pline(ctx, p[1].x + f * 1.5, p[1].y + 1, p[2].x + f * 1.5, p[2].y - 1, 1, NE.shade(tc, 1.12 * dark));
   R(p[2].x - 2, p[2].y - 1, 5, 2, N(pants)); R(p[2].x - 2, p[2].y - 2, 5, 1, '#2a2018');
